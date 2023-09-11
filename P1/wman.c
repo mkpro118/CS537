@@ -65,6 +65,10 @@ SCCP FILEPATH = "./man_pages/man%i/%s.%i";
 ////////////////////////////////////////////////////////////////////////////////
 /////////////////////////   String Format Functions    /////////////////////////
 
+// Alias hack to prevent [-Werror=format-security]
+// Link: https://security.stackexchange.com/a/251757
+int (*_PRINTF_)(const char *, ...) = printf;
+
 /**
  * Write a formatted error message to `str` when the page is not found
  * in any of the man pages.
@@ -174,7 +178,7 @@ void print_file(FILE* handle) {
     char buffer[MAX_STR_LENGTH];
 
     while (NULL != fgets(buffer, MAX_STR_LENGTH, handle)) {
-        printf("%s\n", buffer);
+        printf("%s", buffer);
     }
 }
 
@@ -196,7 +200,7 @@ int main(int argc, char *argv[])
     // Arg parse
     switch (argc - 1) {
         case 0:  // Usage was: prompt> wman
-            printf(NO_ARG);
+            _PRINTF_(NO_ARG);
             return WMAN_SUCCESS;
 
         case 1:  // Usage was: prompt> wman <page>
@@ -219,7 +223,7 @@ int main(int argc, char *argv[])
 
             // Range check, if invalid, print error and return
             if (section < MIN_SECTION || section > MAX_SECTION) {
-                printf(INVALID_SECTION);
+                _PRINTF_(INVALID_SECTION);
                 return WMAN_FAILURE;  // This is a failure as specified
             }
 
@@ -238,7 +242,7 @@ int main(int argc, char *argv[])
         default: // Usage was: prompt> wman <arg1> <arg2> <arg3> ... <argc>
 
             // Print invalid usage message
-            printf(INVALID_USE);
+            _PRINTF_(INVALID_USE);
 
             // Unsure whether this should be a failure or success
             return WMAN_SUCCESS;
@@ -265,7 +269,7 @@ int main(int argc, char *argv[])
         }
 
         // Print error to stdout
-        printf(msg);
+        _PRINTF_(msg);
 
         return WMAN_SUCCESS;  // No entry found is still a success
     }
