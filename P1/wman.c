@@ -189,7 +189,7 @@ void print_file(FILE* handle) {
 ////////////////////////////////////////////////////////////////////////////////
 /////////////////////////             MAIN             /////////////////////////
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     // Define variables, initialize with invalid values to avoid flags
     // This allows a single check for input validity and result
