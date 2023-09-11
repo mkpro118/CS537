@@ -216,6 +216,13 @@ int main(int argc, char *argv[])
 
         case 2: // Usage was: prompt> wman <section> <page>
 
+            // Additional check for invalid section value
+            // Link https://piazza.com/class/llnp9g1fwu33yx/post/30
+            if (strlen(argv[1]) != 1) {
+                _PRINTF_(INVALID_SECTION);
+                return WMAN_FAILURE;
+            }
+
             // stdlib.h -> atoi : convert str to int
             // This will overwrite the value of the local variable section
             section = atoi(argv[1]);
