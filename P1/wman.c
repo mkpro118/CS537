@@ -67,7 +67,7 @@ SCCP FILEPATH = "./man_pages/man%i/%s.%i";
 
 // Alias hack to prevent [-Werror=format-security]
 // Link: https://security.stackexchange.com/a/251757
-int (*_PRINTF_)(const char *, ...) = printf;
+int (*_PRINTF_)(const char*, ...) = printf;
 
 /**
  * Write a formatted error message to `str` when the page is not found
