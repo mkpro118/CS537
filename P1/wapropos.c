@@ -80,15 +80,48 @@ SCCP BASE_FILEPATH = "./man_pages/man%i/";
 // Link: https://security.stackexchange.com/a/251757
 int (*_PRINTF_)(const char*, ...) = printf;
 
-void print_apropos(FILE* handle, char* name, int section) {
-    // Super hacky, TO EXPLAIN
-    int i = 0;
-    int j;
-    for (; name[i] == ' '; i++);
-    for (j = i; name[j] != '-'; j++);
+/**
+ * Prints the wapropos output to stdout
+ *
+ * NOTE:
+ * This function is super hacky, and the technique is explained below
+ * Hopefully it's understandable. Further explanation is inline.
+ *
+ * The idea is, the name section has the following format
+ * "<spaces> <filename_without_extension> - <name_one_liner>"
+ *
+ * So we extract the name of the file by finding
+ * the first non space character,
+ * then finding the '-' character, and splitting the line at those
+ * points by manually introducing string terminators. This allows
+ * printf to stop at the spltting points and print in the correct format.
+ *
+ *
+ * @param name    The name section from the file, contains the filename
+ *                and the name_one_liner
+ * @param section The section in which the keyword was found in
+ */
+void print_apropos(char* name, int section) {
+    int i = 0; // `i` holds the address of the first non space character
+    int j; // `j` holds the address of the start of the name_one_liner
 
-    name[j - 1] = NULL_TERMINATOR;
+    while (name[i++] == ' '); // loop over spaces, stop at non spaces
 
+    for (j = i; name[j] != '-'; j++); // for instead to initialize
+
+    name[j - 1] = NULL_TERMINATOR; // split the string inplace
+
+    // What the above parts do is,
+    // let's say we have the name section as
+    // "      example - an example program\n\0"
+    //
+    // The above code turns that into
+    // "      example\0- an example program\n\0"
+    //        ^        ^
+    //        i        j
+
+    // name + i => start of the filename
+    // name + j + 2 => start of the one-liner
     _PRINTF_(WAPROPOS_OUTPUT, name + i, section, name + j + 2);
 }
 
@@ -113,9 +146,10 @@ char* contains_keyword(FILE* handle, char* keyword) {
     char* name = NULL;
 
     while (NULL != fgets(buffer, MAX_STR_LENGTH, handle)) {
-		// Names are supposed to be one liners, so check them immediately
+        // Names are supposed to be one liners, so check them immediately
         if (strstr(buffer, NAME) != NULL) {
             name = malloc(sizeof(char) * MAX_STR_LENGTH);
+
 
             IS_NULL(name) {
                 fprintf(stderr, "malloc failed in function `contains_keyword`");
@@ -130,8 +164,8 @@ char* contains_keyword(FILE* handle, char* keyword) {
             }
 
             if (strstr(name, keyword) != NULL) {
-				return name;
-			}
+                return name;
+            }
         }
         // Descriptions are longer, check them in an different (outer) loop.
         else if (strstr(buffer, "DESCRIPTION") != NULL) {
@@ -147,7 +181,7 @@ char* contains_keyword(FILE* handle, char* keyword) {
     // If there's a section after description, this code will check that too,
     // so a potential bug here.
     while (NULL != fgets(buffer, MAX_STR_LENGTH, handle)) {
-		if (buffer[0] != SPACE) { break; }
+        if (buffer[0] != SPACE) { break; }
         if (strstr(buffer, keyword)) { return name; }
     }
 
