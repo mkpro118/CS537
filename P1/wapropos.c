@@ -11,30 +11,31 @@
 #include <string.h>
 #include <unistd.h>
 
+#define SCCP static const char*  /* To reduce line length */
+/* (SCCP = Static Const Char Pointer) */
+
 #define WAPROPOS_FAILURE 1  /* Exit status for failure */
 #define WAPROPOS_SUCCESS 0  /* Exit status for success */
 
 #define MIN_SECTION 1  /* Minimum section value */
 #define MAX_SECTION 9  /* Maximum section value */
 
-#define SCCP static const char*  /* To reduce line length */
-/* (SCCP = Static Const Char Pointer) */
-
-#define MAX_STR_LENGTH 256  /* Maximum length of a str or char[] */
 #define MAX_FILENAME_LENGTH 100  /* Maximum length of the name of a file */
+#define MAX_STR_LENGTH 256       /* Maximum length of a str or char[] */
 
-#define IS_NULL(x) if (NULL == x)      /* Descriptive to avoid mistakes */
-#define IS_NOT_NULL(x) if (NULL != x)  /* Descriptive to avoid mistakes */
-#define IF_FORMAT_FAILED(x) if (x < 0)    /* Descriptive to avoid mistakes */
+#define IS_NULL(x) if (NULL == x)       /* Descriptive to avoid mistakes */
+#define IS_NOT_NULL(x) if (NULL != x)   /* Descriptive to avoid mistakes */
+#define IF_FORMAT_FAILED(x) if (x < 0)  /* Descriptive to avoid mistakes */
 
-#define _TRUE_ 1
-#define _FALSE_ 0
+#define _FALSE_ 0  /* Integer constant for False value */
+#define _TRUE_ 1   /* Integer constant for True value */
 
-#define DESCRIPTION "DESCRIPTION"
-#define NAME "NAME"
-#define FILE_EXTENSION_SEPARATOR '.'
-#define NULL_TERMINATOR '\0'
-#define SPACE ' '
+#define DESCRIPTION "DESCRIPTION"  /* To find the description section */
+#define NAME "NAME"                /* To find the name section */
+
+#define FILE_EXTENSION_SEPARATOR '.'  /* The file extension character */
+#define NULL_TERMINATOR '\0'          /* String terminator character */
+#define SPACE ' '                     /* The space character */
 
 ////////////////////////////////////////////////////////////////////////////////
 /////////////////////////        Format Strings        /////////////////////////
@@ -146,26 +147,30 @@ char* contains_keyword(FILE* handle, char* keyword) {
     char* name = NULL;
 
     while (NULL != fgets(buffer, MAX_STR_LENGTH, handle)) {
+        // The section headings do not have leading spaces
+        if (buffer[0] == SPACE) { continue; }
         // Names are supposed to be one liners, so check them immediately
         if (strstr(buffer, NAME) != NULL) {
             name = malloc(sizeof(char) * MAX_STR_LENGTH);
 
-
+            // malloc success check
             IS_NULL(name) {
                 fprintf(stderr, "malloc failed in function `contains_keyword`");
                 free(name);
                 exit(WAPROPOS_FAILURE);
             }
 
+            // The very next line after NAME should be the one-liner
             if(NULL == fgets(name, MAX_STR_LENGTH, handle)) {
+                // THIS SHOULD IDEALLY NEVER EXECUTE
                 fprintf(stderr, "%s\n", "Name section not found. Aborting");
                 free(name);
                 exit(WAPROPOS_FAILURE);
             }
 
-            if (strstr(name, keyword) != NULL) {
-                return name;
-            }
+            // If the NAME section contains the keyword,
+            // skip checking the DESCRIPTION
+            if (strstr(name, keyword) != NULL) { return name; }
         }
         // Descriptions are longer, check them in an different (outer) loop.
         else if (strstr(buffer, "DESCRIPTION") != NULL) {
@@ -174,7 +179,8 @@ char* contains_keyword(FILE* handle, char* keyword) {
         }
     }
 
-    // If we never found a description section and didn't return early.
+    // If we never found a description section,
+    // and didn't return early from the NAME section
     if (_FALSE_ == to_check) { return NULL; }
 
     // Only checking the description section now
@@ -185,12 +191,15 @@ char* contains_keyword(FILE* handle, char* keyword) {
         if (strstr(buffer, keyword)) { return name; }
     }
 
+    // If `keyword` wasn't found, return NULL
     return NULL;
 }
 
 int search_keyword(char* keyword) {
     // For traversing directories
     DIR* dir;
+
+    // For directory entries
     struct dirent* entry;
 
     // For file operations
@@ -216,7 +225,7 @@ int search_keyword(char* keyword) {
         // Open the base directory
         dir = opendir(base);
 
-        // NULL check
+        // NULL check, ensure opendir worked
         IS_NULL(dir) {
             fprintf(stderr, ERROR_IN_OPENDIR, base);
             exit(WAPROPOS_FAILURE);
@@ -226,8 +235,10 @@ int search_keyword(char* keyword) {
         while (NULL != (entry = readdir(dir))) {
             // base_dir + filename
 
+            // Ignore hidden files, cwd and parent
             if (entry->d_name[0] == '.') continue;
 
+            // Join the file to the base path
             join_file_to_base(filename, base, entry->d_name);
 
             // If we don't have read access, we can't read!
@@ -236,7 +247,7 @@ int search_keyword(char* keyword) {
             // Get a file handle
             handle = fopen(filename, "r");
 
-            // NULL check
+            // NULL check, esnure fopen worked
             IS_NULL(handle) {
                 fprintf(stderr, ERROR_IN_FOPEN, filename);
                 exit(WAPROPOS_FAILURE);
@@ -246,10 +257,12 @@ int search_keyword(char* keyword) {
             // the `name_one_liner`, the one-line content of the NAME portion
             char* name = contains_keyword(handle, keyword);
 
+            // NULL means keyword was not found in this file
             IS_NOT_NULL(name) {
+                // print in wapropos format
                 print_apropos(handle, name, section);
                 free(name);
-                count++;
+                count++; // increment number of files found with `keyword`
             }
 
             // Close the file handle
@@ -260,6 +273,7 @@ int search_keyword(char* keyword) {
         closedir(dir);
     }
 
+    // Self explanatory
     return count;
 }
 
@@ -271,23 +285,29 @@ int search_keyword(char* keyword) {
 /////////////////////////             MAIN             /////////////////////////
 
 int main(int argc, char* argv[]) {
+    // To store the keyword
     char* keyword = NULL;
+
+    // Arg parse
     switch (argc - 1) {
-        case 0:
+        case 0: // Usage was : ./wapropos
             _PRINTF_(NO_ARG);
             break;
-        case 1:
+        case 1: // Usage was: ./wapropos <keyword>
+
+            // Re-initialize local var with the keyword
             keyword = argv[1];
 
-            if(0 == search_keyword(keyword)) {
-                _PRINTF_(KEYWORD_NOT_FOUND);
-            }
+            // If no file contain the specified keyword
+            if(0 == search_keyword(keyword)) { _PRINTF_(KEYWORD_NOT_FOUND); }
 
             break;
-        default:
+        default: // Usage was: ./wapropos <arg1> <arg2> ... <argc-1>
             _PRINTF_(INVALID_USE);
             break;
     }
+
+    // Program succeeded
     return WAPROPOS_SUCCESS;
 }
 
