@@ -30,11 +30,11 @@
 #define _TRUE_ 1
 #define _FALSE_ 0
 
-#define DESCRIPTION "DESCRIPTION\n"
-#define NAME "NAME\n"
+#define DESCRIPTION "DESCRIPTION"
+#define NAME "NAME"
 #define FILE_EXTENSION_SEPARATOR '.'
 #define NULL_TERMINATOR '\0'
-
+#define SPACE ' '
 
 ////////////////////////////////////////////////////////////////////////////////
 /////////////////////////        Format Strings        /////////////////////////
@@ -58,7 +58,7 @@ SCCP ERROR_IN_FOPEN = "File `%s` was found, but could not be opened to read\n";
 SCCP ERROR_IN_OPENDIR = "Error in opening directory `%s`\n";
 
 // Output wapropos
-SCCP WAPROPOS_OUTPUT = "%s (%i) - %s\n";
+SCCP WAPROPOS_OUTPUT = "%s (%i) - %s";
 
 /* Cross platform compatibility (not required, but I don't think it hurts)*/
 /* This was inspired by multiple answers on StackOverflow */
@@ -80,13 +80,16 @@ SCCP BASE_FILEPATH = "./man_pages/man%i/";
 // Link: https://security.stackexchange.com/a/251757
 int (*_PRINTF_)(const char*, ...) = printf;
 
-void print_apropos(FILE* handle, char* filename, char* name, int section) {
+void print_apropos(FILE* handle, char* name, int section) {
+    // Super hacky, TO EXPLAIN
     int i = 0;
-    for (; filename[i] != FILE_EXTENSION_SEPARATOR; i++);
+    int j;
+    for (; name[i] == ' '; i++);
+    for (j = i; name[j] != '-'; j++);
 
-    filename[i] = NULL_TERMINATOR;
+    name[j - 1] = NULL_TERMINATOR;
 
-    _PRINTF_(WAPROPOS_OUTPUT, filename, section, name);
+    _PRINTF_(WAPROPOS_OUTPUT, name + i, section, name + j + 2);
 }
 
 /////////////////////////     End Print Functions      /////////////////////////
@@ -110,24 +113,28 @@ char* contains_keyword(FILE* handle, char* keyword) {
     char* name = NULL;
 
     while (NULL != fgets(buffer, MAX_STR_LENGTH, handle)) {
-        // Names are supposed to be one liners, so check them immediately
-        if (strcmp(buffer, NAME) == 0) {
+		// Names are supposed to be one liners, so check them immediately
+        if (strstr(buffer, NAME) != NULL) {
             name = malloc(sizeof(char) * MAX_STR_LENGTH);
 
             IS_NULL(name) {
                 fprintf(stderr, "malloc failed in function `contains_keyword`");
+                free(name);
                 exit(WAPROPOS_FAILURE);
             }
 
-            if(NULL != fgets(name, MAX_STR_LENGTH, handle)) {
+            if(NULL == fgets(name, MAX_STR_LENGTH, handle)) {
                 fprintf(stderr, "%s\n", "Name section not found. Aborting");
+                free(name);
                 exit(WAPROPOS_FAILURE);
             }
 
-            if (strstr(buffer, keyword) != NULL) { return name; }
+            if (strstr(name, keyword) != NULL) {
+				return name;
+			}
         }
         // Descriptions are longer, check them in an different (outer) loop.
-        else if (strcmp(buffer, DESCRIPTION)) {
+        else if (strstr(buffer, "DESCRIPTION") != NULL) {
             to_check = _TRUE_;
             break;
         }
@@ -140,6 +147,7 @@ char* contains_keyword(FILE* handle, char* keyword) {
     // If there's a section after description, this code will check that too,
     // so a potential bug here.
     while (NULL != fgets(buffer, MAX_STR_LENGTH, handle)) {
+		if (buffer[0] != SPACE) { break; }
         if (strstr(buffer, keyword)) { return name; }
     }
 
@@ -183,9 +191,10 @@ int search_keyword(char* keyword) {
         // While there are entries in this directory,
         while (NULL != (entry = readdir(dir))) {
             // base_dir + filename
-            printf("entry->d_name = %s", entry->d_name);
+
+            if (entry->d_name[0] == '.') continue;
+
             join_file_to_base(filename, base, entry->d_name);
-            printf("filename = %s", filename);
 
             // If we don't have read access, we can't read!
             if (access(filename, R_OK)) continue;
@@ -204,7 +213,8 @@ int search_keyword(char* keyword) {
             char* name = contains_keyword(handle, keyword);
 
             IS_NOT_NULL(name) {
-                print_apropos(handle, filename, name, section);
+                print_apropos(handle, name, section);
+                free(name);
                 count++;
             }
 
