@@ -5,7 +5,6 @@
  */
 
 #include <dirent.h>
-#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -285,21 +284,14 @@ int search_keyword(char* keyword) {
 /////////////////////////             MAIN             /////////////////////////
 
 int main(int argc, char* argv[]) {
-    // To store the keyword
-    char* keyword = NULL;
-
     // Arg parse
     switch (argc - 1) {
         case 0: // Usage was : ./wapropos
             _PRINTF_(NO_ARG);
             break;
         case 1: // Usage was: ./wapropos <keyword>
-
-            // Re-initialize local var with the keyword
-            keyword = argv[1];
-
             // If no file contain the specified keyword
-            if(0 == search_keyword(keyword)) { _PRINTF_(KEYWORD_NOT_FOUND); }
+            if(0 == search_keyword(argv[1])) { _PRINTF_(KEYWORD_NOT_FOUND); }
 
             break;
         default: // Usage was: ./wapropos <arg1> <arg2> ... <argc-1>
