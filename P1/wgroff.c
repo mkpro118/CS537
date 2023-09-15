@@ -110,7 +110,7 @@ SCCP OUTFILE_LAST_LINE = "%s(%i)%s%s%s%s(%i)\n";
 SCCP OUTFILE_SECTION_HEADER = "\n" ANSI_CSI_BOLD "%s" ANSI_CSI_NORMAL "\n";
 
 // Normal indented line
-SCCP OUTFILE_INDENTED_LINE = INDENT "%s\n";
+SCCP OUTFILE_INDENTED_LINE = INDENT "%s";
 
 /////////////////////////      End Format Strings      /////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -221,12 +221,8 @@ void write_first_line(FILE* outfile, char* command, int section) {
  * @param month   Month from the infile
  * @param day     Day from the infile
  */
-void write_last_line(FILE* outfile, char* command, int section, char* date) {
-    int cmd_len = strlen(command);
-    // for "(<section>)"
-    cmd_len += 3;
-
-    int n_spaces = OUTPUT_LENGTH - (DATE_STR_LENGTH + (2 * cmd_len));
+void write_last_line(FILE* outfile, char* date) {
+    int n_spaces = OUTPUT_LENGTH - DATE_STR_LENGTH;
 
     // Split the padding to use before and after the date
     n_spaces /= 2;
@@ -238,8 +234,7 @@ void write_last_line(FILE* outfile, char* command, int section, char* date) {
 
     spaces[n_spaces] = NULL_TERMINATOR;
 
-    fprintf(outfile, OUTFILE_LAST_LINE, command, section, spaces,
-            date, spaces, command, section);
+    fprintf(outfile, OUTFILE_LAST_LINE, spaces, date, spaces);
     free(spaces);
 }
 
@@ -342,7 +337,7 @@ void parse_file(FILE* handle) {
         }
     }
 
-    write_last_line(outfile, command, section, date);
+    write_last_line(outfile, date);
 }
 
 void run_wgroff(char* filename) {
