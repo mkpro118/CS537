@@ -104,7 +104,7 @@ SCCP SH_FORMAT = INFILE_CSI_SH " %s\n";
 SCCP OUTFILE_FIRST_LINE = "%s(%i)%s%s(%i)\n";
 
 // Last line of output format
-SCCP OUTFILE_LAST_LINE = "%s(%i)%s%s%s%s(%i)\n";
+SCCP OUTFILE_LAST_LINE = "%s%s%s\n";
 
 // Section header in output
 SCCP OUTFILE_SECTION_HEADER = "\n" ANSI_CSI_BOLD "%s" ANSI_CSI_NORMAL "\n";
