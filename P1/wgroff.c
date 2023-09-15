@@ -5,7 +5,6 @@
  */
 
 #include <ctype.h>
-#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -56,10 +55,15 @@
 #define INFILE_CSI_SLASH_L 2        /* Control sequence length for slash */
 
 #define ANSI_CSI_BOLD "/033[1m"       /* ANSI control sequence for bold */
+#define ANSI_CSI_BOLD_L 7             /* ANSI control sequence length for bold */
 #define ANSI_CSI_ITALIC "/033[3m"     /* ANSI control sequence for italic */
+#define ANSI_CSI_ITALIC_L 7           /* ANSI control sequence length for italic */
 #define ANSI_CSI_UNDERLINE "/033[4m"  /* ANSI control sequence for underline */
+#define ANSI_CSI_UNDERLINE_L 7        /* ANSI control sequence length for underline */
 #define ANSI_CSI_NORMAL "/033[0m"     /* ANSI control sequence for reset */
+#define ANSI_CSI_NORMAL_L 7           /* ANSI control sequence length for reset */
 #define ANSI_CSI_SLASH "/"            /* ANSI control sequence for slash */
+#define ANSI_CSI_SLASH_L 1              /* ANSI control sequence for slash */
 
 #define INDENT "       "  /* 7 spaces for indentation */
 
@@ -105,6 +109,9 @@ SCCP OUTFILE_LAST_LINE = "%s(%i)%s%s%s%s(%i)\n";
 // Section header in output
 SCCP OUTFILE_SECTION_HEADER = "\n" ANSI_CSI_BOLD "%s" ANSI_CSI_NORMAL "\n";
 
+// Normal indented line
+SCCP OUTFILE_INDENTED_LINE = INDENT "%s\n";
+
 /////////////////////////      End Format Strings      /////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -124,84 +131,59 @@ int (*_PRINTF_)(const char*, ...) = printf;
 /////////////////////////            WGROFF            /////////////////////////
 
 /**
- * Recursively write format strings and line content to the outfile
- *
- * This function uses a recursive strategy to print the contents,
- * by moving the char pointer of start of the line forward by the length of the
- * infile format string.
- *
- * Given the constraints of the length of the infile (80 chars max),
- * this function should, not make more than 40 recursive calls,
- * worst case being a line of 80 '/' characters.
+ * Writes a formatted line to the specified output file,
+ * applying ANSI escape codes for text formatting.
  *
  * @param outfile The file to write to
- * @param line    The text to write to the outfile
- * @param indent  Whether or not to indent the line
- * @param indent  Whether or not to look to reset formatter
+ * @param line    The line to parse and write
  */
-void write_line(FILE* outfile, char* line, int indent) {
-    // Indent text
-    if (_TRUE_ == indent) {
-        fprintf(outfile, INDENT);
+void write_line(FILE* outfile, char* line) {
+    int len = strlen(line);
+
+    char buffer[MAX_STR_LENGTH];
+    int curr_idx = 0;
+
+    for (int i = 0; i < len;) {
+        // Check for bold CSI "/fB"
+        if (strncmp(line + i, INFILE_CSI_BOLD, INFILE_CSI_BOLD_L) == 0) {
+            strcpy(buffer + curr_idx, ANSI_CSI_BOLD);
+            curr_idx += ANSI_CSI_BOLD_L;
+            i += INFILE_CSI_BOLD_L;
+        }
+        // Check for italic CSI "/fI"
+        else if (strncmp(line + i, INFILE_CSI_ITALIC, INFILE_CSI_ITALIC_L) == 0) {
+            strcpy(buffer + curr_idx, ANSI_CSI_ITALIC);
+            curr_idx += ANSI_CSI_ITALIC_L;
+            i += INFILE_CSI_ITALIC_L;
+        }
+        // Check for underline CSI "/fU"
+        else if (strncmp(line + i, INFILE_CSI_UNDERLINE, INFILE_CSI_UNDERLINE_L) == 0) {
+            strcpy(buffer + curr_idx, ANSI_CSI_UNDERLINE);
+            curr_idx += ANSI_CSI_UNDERLINE_L;
+            i += INFILE_CSI_UNDERLINE_L;
+        }
+        // Check for reset/normal CSI "/fP"
+        else if (strncmp(line + i, INFILE_CSI_NORMAL, INFILE_CSI_NORMAL_L) == 0) {
+            strcpy(buffer + curr_idx, ANSI_CSI_NORMAL);
+            curr_idx += ANSI_CSI_NORMAL_L;
+            i += INFILE_CSI_NORMAL_L;
+        }
+        // Check for slashes "//"
+        else if (strncmp(line + i, INFILE_CSI_SLASH, INFILE_CSI_SLASH_L) == 0) {
+            strcpy(buffer + curr_idx, ANSI_CSI_SLASH);
+            curr_idx += ANSI_CSI_SLASH_L;
+            i += INFILE_CSI_SLASH_L;
+        }
+        // Non-CSI chars
+        else {
+            buffer[curr_idx++] = line[i++];
+        }
     }
-    char* pos;
-    IS_NOT_NULL((pos = strstr(line, INFILE_CSI_BOLD))) {
-        // Write any text before the occurence of format string
-        *pos = NULL_TERMINATOR;  // Terminate string at format occurence
-        fprintf(outfile, "%s", line);
 
-        // Write ANSI Bold format string to file
-        fprintf(outfile, ANSI_CSI_BOLD);
+    // Terminate the string
+    buffer[curr_idx] = NULL_TERMINATOR;
 
-        // Move the char* up `INFILE_CSI_BOLD_L` spaces and continue printing
-        write_line(outfile, pos + INFILE_CSI_BOLD_L, _FALSE_);
-    } else IS_NOT_NULL((pos = strstr(line, INFILE_CSI_ITALIC))) {
-        // Write any text before the occurence of format string
-        *pos = NULL_TERMINATOR;  // Terminate string at format occurence
-        fprintf(outfile, "%s", line);
-
-        // Write ANSI Italic format string to file
-        fprintf(outfile, ANSI_CSI_ITALIC);
-
-        // Move the char* up `INFILE_CSI_ITALIC_L` spaces and continue printing
-        write_line(outfile, pos + INFILE_CSI_ITALIC_L, _FALSE_);
-    } else IS_NOT_NULL((pos = strstr(line, INFILE_CSI_UNDERLINE))) {
-        // Write any text before the occurence of format string
-        *pos = NULL_TERMINATOR;  // Terminate string at format occurence
-        fprintf(outfile, "%s", line);
-
-        // Write ANSI Underline format string to file
-        fprintf(outfile, ANSI_CSI_UNDERLINE);
-
-        // Move the char* up `INFILE_CSI_UNDERLINE_L` spaces and continue printing
-        write_line(outfile, pos + INFILE_CSI_UNDERLINE_L, _FALSE_);
-    } else IS_NOT_NULL((pos = strstr(line, INFILE_CSI_NORMAL))) {
-        printf("RESET\nline = %s\npos =%s\n", line, pos);
-        // Write any text before the occurence of format string
-        *pos = NULL_TERMINATOR;  // Terminate string at format occurence
-        fprintf(outfile, "%s", line);
-
-        // Write ANSI Normal format string to file
-        fprintf(outfile, ANSI_CSI_NORMAL);
-
-        // Move the char* up `INFILE_CSI_NORMAL_L` spaces and continue printing
-        write_line(outfile, pos + INFILE_CSI_NORMAL_L, _FALSE_);
-    } else IS_NOT_NULL((pos = strstr(line, INFILE_CSI_SLASH))) {
-        // Write any text before the occurence of format string
-        *pos = NULL_TERMINATOR;  // Terminate string at format occurence
-        fprintf(outfile, "%s", line);
-
-        // Write ANSI Slash format string to file
-        fprintf(outfile, ANSI_CSI_SLASH);
-
-        // Move the char* up `INFILE_CSI_SLASH_L` spaces and continue printing
-        write_line(outfile, pos + INFILE_CSI_SLASH_L, _FALSE_);
-    } else {
-        // This is the base case
-
-        // Print the line!
-        fprintf(outfile, "%s", line);
-    }
+    fprintf(outfile, OUTFILE_INDENTED_LINE, buffer);
 }
 
 
