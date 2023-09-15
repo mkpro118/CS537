@@ -4,6 +4,7 @@
  * @author Mrigank Kumar
  */
 
+#include <ctype.h>
 #include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,7 +34,7 @@
 #define _FALSE_ 0  /* Integer constant for False value */
 #define _TRUE_ 1   /* Integer constant for True value */
 
-#define TH_ARG_COUNT 5  /* Number of arguments in the first line */
+#define TH_ARG_COUNT 3  /* Number of arguments in the first line */
 #define SH_ARG_COUNT 1  /* Number of arguments in the section line */
 
 #define NULL_TERMINATOR '\0'  /* String terminator character */
@@ -55,9 +56,9 @@
 #define INFILE_CSI_SLASH_L 2        /* Control sequence length for slash */
 
 #define ANSI_CSI_BOLD "/033[1m"       /* ANSI control sequence for bold */
-#define ANSI_CSI_ITALIC "/033[1m"     /* ANSI control sequence for italic */
-#define ANSI_CSI_UNDERLINE "/033[1m"  /* ANSI control sequence for underline */
-#define ANSI_CSI_NORMAL "/033[1m"     /* ANSI control sequence for reset */
+#define ANSI_CSI_ITALIC "/033[3m"     /* ANSI control sequence for italic */
+#define ANSI_CSI_UNDERLINE "/033[4m"  /* ANSI control sequence for underline */
+#define ANSI_CSI_NORMAL "/033[0m"     /* ANSI control sequence for reset */
 #define ANSI_CSI_SLASH "/"            /* ANSI control sequence for slash */
 
 #define INDENT "       "  /* 7 spaces for indentation */
@@ -69,13 +70,13 @@
 SCCP INVALID_USE = "Usage: ./wgroff <file_name>\n";
 
 // If no arguments were provided
-SCCP NO_ARG = "Improper number of arguments\nUsage: ./wgroff `<file>`\n";
+SCCP NO_ARG = "Improper number of arguments\nUsage: ./wgroff <file>\n";
 
 // If string formatting failed
 SCCP ERROR_IN_FORMAT = "Couldn't write to formatted string in func `%s`\n";
 
 // If file isn't formatted correctly
-SCCP INVALID_FORMAT = "Improper formatting on line `%i`\n";
+SCCP INVALID_FORMAT = "Improper formatting on line %i\n";
 
 // If fopen failed
 SCCP ERROR_IN_FOPEN = "File `%s` was found, but could not be opened to read\n";
@@ -90,7 +91,7 @@ SCCP FILE_NOT_FOUND = "File doesn't exist\n";
 SCCP OUT_FILE = "%s.%i";
 
 // Title header format
-SCCP TH_FORMAT = INFILE_CSI_TH " %s %i %s-%s-%s\n";
+SCCP TH_FORMAT = INFILE_CSI_TH " %s %i %s\n";
 
 // Section header format
 SCCP SH_FORMAT = INFILE_CSI_SH " %s\n";
@@ -99,7 +100,7 @@ SCCP SH_FORMAT = INFILE_CSI_SH " %s\n";
 SCCP OUTFILE_FIRST_LINE = "%s(%i)%s%s(%i)\n";
 
 // Last line of output format
-SCCP OUTFILE_LAST_LINE = "%s(%i)%s%s-%s-%s%s%s(%i)\n";
+SCCP OUTFILE_LAST_LINE = "%s(%i)%s%s%s%s(%i)\n";
 
 // Section header in output
 SCCP OUTFILE_SECTION_HEADER = "\n" ANSI_CSI_BOLD "%s" ANSI_CSI_NORMAL "\n";
@@ -136,8 +137,13 @@ int (*_PRINTF_)(const char*, ...) = printf;
  * @param outfile The file to write to
  * @param line    The text to write to the outfile
  * @param indent  Whether or not to indent the line
+ * @param indent  Whether or not to look to reset formatter
  */
-void write_line(FILE* outfile, char* line, int indent) {
+void write_line(FILE* outfile, char* line, int indent, int look_for_normal_first) {
+    // Indent text
+    if (_TRUE_ == indent) {
+        fprintf(outfile, INDENT);
+    }
     char* pos;
     IS_NOT_NULL((pos = strstr(line, INFILE_CSI_BOLD))) {
         // Write any text before the occurence of format string
@@ -148,7 +154,7 @@ void write_line(FILE* outfile, char* line, int indent) {
         fprintf(outfile, ANSI_CSI_BOLD);
 
         // Move the char* up `INFILE_CSI_BOLD_L` spaces and continue printing
-        write_line(outfile, line + INFILE_CSI_BOLD_L, _FALSE_);
+        write_line(outfile, pos + INFILE_CSI_BOLD_L, _FALSE_);
     } else IS_NOT_NULL((pos = strstr(line, INFILE_CSI_ITALIC))) {
         // Write any text before the occurence of format string
         *pos = NULL_TERMINATOR;  // Terminate string at format occurence
@@ -158,7 +164,7 @@ void write_line(FILE* outfile, char* line, int indent) {
         fprintf(outfile, ANSI_CSI_ITALIC);
 
         // Move the char* up `INFILE_CSI_ITALIC_L` spaces and continue printing
-        write_line(outfile, line + INFILE_CSI_ITALIC_L, _FALSE_);
+        write_line(outfile, pos + INFILE_CSI_ITALIC_L, _FALSE_);
     } else IS_NOT_NULL((pos = strstr(line, INFILE_CSI_UNDERLINE))) {
         // Write any text before the occurence of format string
         *pos = NULL_TERMINATOR;  // Terminate string at format occurence
@@ -168,8 +174,9 @@ void write_line(FILE* outfile, char* line, int indent) {
         fprintf(outfile, ANSI_CSI_UNDERLINE);
 
         // Move the char* up `INFILE_CSI_UNDERLINE_L` spaces and continue printing
-        write_line(outfile, line + INFILE_CSI_UNDERLINE_L, _FALSE_);
+        write_line(outfile, pos + INFILE_CSI_UNDERLINE_L, _FALSE_);
     } else IS_NOT_NULL((pos = strstr(line, INFILE_CSI_NORMAL))) {
+        printf("RESET\nline = %s\npos =%s\n", line, pos);
         // Write any text before the occurence of format string
         *pos = NULL_TERMINATOR;  // Terminate string at format occurence
         fprintf(outfile, "%s", line);
@@ -178,7 +185,7 @@ void write_line(FILE* outfile, char* line, int indent) {
         fprintf(outfile, ANSI_CSI_NORMAL);
 
         // Move the char* up `INFILE_CSI_NORMAL_L` spaces and continue printing
-        write_line(outfile, line + INFILE_CSI_NORMAL_L, _FALSE_);
+        write_line(outfile, pos + INFILE_CSI_NORMAL_L, _FALSE_);
     } else IS_NOT_NULL((pos = strstr(line, INFILE_CSI_SLASH))) {
         // Write any text before the occurence of format string
         *pos = NULL_TERMINATOR;  // Terminate string at format occurence
@@ -188,14 +195,9 @@ void write_line(FILE* outfile, char* line, int indent) {
         fprintf(outfile, ANSI_CSI_SLASH);
 
         // Move the char* up `INFILE_CSI_SLASH_L` spaces and continue printing
-        write_line(outfile, line + INFILE_CSI_SLASH_L, _FALSE_);
+        write_line(outfile, pos + INFILE_CSI_SLASH_L, _FALSE_);
     } else {
         // This is the base case
-
-        // Indent text
-        if (_TRUE_ == indent) {
-            fprintf(outfile, INDENT);
-        }
 
         // Print the line!
         fprintf(outfile, "%s", line);
@@ -237,16 +239,12 @@ void write_first_line(FILE* outfile, char* command, int section) {
  * @param month   Month from the infile
  * @param day     Day from the infile
  */
-void write_last_line(FILE* outfile, char* command, int section, char* year,
-                     char* month, char* day) {
+void write_last_line(FILE* outfile, char* command, int section, char* date) {
     int cmd_len = strlen(command);
     // for "(<section>)"
     cmd_len += 3;
 
-    // +2 for the '-' separator
-    int date_len = strlen(year) + strlen(month) + strlen(day) + 2;
-
-    int n_spaces = OUTPUT_LENGTH - (date_len + (2 * cmd_len));
+    int n_spaces = OUTPUT_LENGTH - (DATE_STR_LENGTH + (2 * cmd_len));
 
     // Split the padding to use before and after the date
     n_spaces /= 2;
@@ -259,7 +257,7 @@ void write_last_line(FILE* outfile, char* command, int section, char* year,
     spaces[n_spaces] = NULL_TERMINATOR;
 
     fprintf(outfile, OUTFILE_LAST_LINE, command, section, spaces,
-            year, month, day, spaces, command, section);
+            date, spaces, command, section);
     free(spaces);
 }
 
@@ -269,6 +267,10 @@ void write_last_line(FILE* outfile, char* command, int section, char* year,
  * @param section_name The section header
  */
 void write_section_header(FILE* outfile, char* section_name) {
+    int len = strlen(section_name);
+    for (int i = 0; i < len; i++) {
+        section_name[i] = toupper(section_name[i]);
+    }
     fprintf(outfile, OUTFILE_SECTION_HEADER, section_name);
 }
 
@@ -279,38 +281,41 @@ void parse_file(FILE* handle) {
 
     char command[MAX_STR_LENGTH];
     int section;
-    char year[YEAR_STR_LENGTH];
-    char month[MONTH_STR_LENGTH];
-    char day[DAY_STR_LENGTH];
+    char date[DATE_STR_LENGTH + 1];
+    date[DATE_STR_LENGTH] = NULL_TERMINATOR;
 
     // First line is handled separately
     IS_NULL(fgets(buffer, MAX_STR_LENGTH, handle)) {
         _PRINTF_(INVALID_FORMAT, line_count);
-
+        printf("\nReturn `1`\n");
         // Invalid formatting is still a success
         exit(WGROFF_SUCCESS);
     }
 
     // Parse first line
-    if (TH_ARG_COUNT != sscanf(buffer, TH_FORMAT, command, &section,
-                               year, month, day)) {
+    if (TH_ARG_COUNT != sscanf(buffer, TH_FORMAT, command, &section, date)) {
         _PRINTF_(INVALID_FORMAT, line_count);
 
         // Invalid formatting is still a success
         exit(WGROFF_SUCCESS);
     }
 
+    // Validate section
     if (section < 1 || section > 9) {
         _PRINTF_(INVALID_FORMAT, line_count);
+
+        printf("\nReturn `3`\n");
 
         // Invalid formatting is still a success
         exit(WGROFF_SUCCESS);
     }
 
     // Validate date
-    if (strlen(year) != YEAR_STR_LENGTH || strlen(month) != MONTH_STR_LENGTH
-            || strlen(day) != DAY_STR_LENGTH) {
+    if (strlen(date) != DATE_STR_LENGTH) {
         _PRINTF_(INVALID_FORMAT, line_count);
+
+        // Invalid formatting is still a success
+        exit(WGROFF_SUCCESS);
     }
 
     // +3 for extension and string terminator
@@ -335,11 +340,14 @@ void parse_file(FILE* handle) {
 
     while (NULL != fgets(buffer, MAX_STR_LENGTH, handle)) {
         line_count++;
-        if (strstr(buffer, INFILE_CSI_SH)) {
+        if (buffer[0] == COMMENT) {
+            continue;
+        }
+        else if (strstr(buffer, INFILE_CSI_SH)) {
             char section_name[MAX_STR_LENGTH];
 
             // Parse first line
-            if (TH_ARG_COUNT != sscanf(buffer, SH_FORMAT, section_name)) {
+            if (SH_ARG_COUNT != sscanf(buffer, SH_FORMAT, section_name)) {
                 _PRINTF_(INVALID_FORMAT, line_count);
 
                 // Invalid formatting is still a success
@@ -352,7 +360,7 @@ void parse_file(FILE* handle) {
         }
     }
 
-    write_last_line(outfile, command, section, year, month, day);
+    write_last_line(outfile, command, section, date);
 }
 
 void run_wgroff(char* filename) {
