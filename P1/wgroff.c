@@ -338,7 +338,7 @@ void parse_file(FILE* handle) {
 
             write_section_header(outfile, section_name);
         } else {
-            write_line(outfile, buffer, _TRUE_);
+            write_line(outfile, buffer);
         }
     }
 
