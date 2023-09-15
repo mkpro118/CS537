@@ -139,7 +139,7 @@ int (*_PRINTF_)(const char*, ...) = printf;
  * @param indent  Whether or not to indent the line
  * @param indent  Whether or not to look to reset formatter
  */
-void write_line(FILE* outfile, char* line, int indent, int look_for_normal_first) {
+void write_line(FILE* outfile, char* line, int indent) {
     // Indent text
     if (_TRUE_ == indent) {
         fprintf(outfile, INDENT);
