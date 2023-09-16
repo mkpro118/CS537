@@ -132,6 +132,13 @@ void print_apropos(char* name, int section) {
 ////////////////////////////////////////////////////////////////////////////////
 /////////////////////////        Search Function       /////////////////////////
 
+/**
+ * Joins the filename to the base directory
+ *
+ * @param str      To store the output
+ * @param base     The base directory
+ * @param filename The filename
+ */
 static inline void join_file_to_base(char* str, char* base, char* filename) {
     IF_FORMAT_FAILED(sprintf(str, "%s%s", base, filename)) {
         fprintf(stderr, ERROR_IN_FORMAT, "join_file_to_base");
@@ -139,6 +146,17 @@ static inline void join_file_to_base(char* str, char* base, char* filename) {
     }
 }
 
+/**
+ * Checks whether the given file contains the keyword
+ *
+ * If it does, this function returns the one line name section
+ *
+ * @param  handle  The file to search for the keyword in
+ * @param  keyword The keyword to search for
+ * @return         The heap allocated char array containing the
+ *                 name one-liner if the keyword was found.
+ *                 NULL otherwise.
+ */
 char* contains_keyword(FILE* handle, char* keyword) {
     char buffer[MAX_STR_LENGTH];
     int to_check = _FALSE_;
@@ -194,6 +212,13 @@ char* contains_keyword(FILE* handle, char* keyword) {
     return NULL;
 }
 
+/**
+ * Looks for the given keyword across all manual pages
+ * Returns the number of files found containing the given keyword
+ *
+ * @param  keyword The keyword to search for
+ * @return         The number of files containing the given keyword.
+ */
 int search_keyword(char* keyword) {
     // For traversing directories
     DIR* dir;
@@ -260,6 +285,8 @@ int search_keyword(char* keyword) {
             IS_NOT_NULL(name) {
                 // print in wapropos format
                 print_apropos(name, section);
+
+                // free memory allocated by `contains_keyword`
                 free(name);
                 count++; // increment number of files found with `keyword`
             }

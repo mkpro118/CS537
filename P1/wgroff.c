@@ -30,9 +30,6 @@
 #define IS_NULL(x) if (NULL == x)       /* Descriptive to avoid mistakes */
 #define IS_NOT_NULL(x) if (NULL != x)   /* Descriptive to avoid mistakes */
 
-#define _FALSE_ 0  /* Integer constant for False value */
-#define _TRUE_ 1   /* Integer constant for True value */
-
 #define TH_ARG_COUNT 3  /* Number of arguments in the first line */
 #define SH_ARG_COUNT 1  /* Number of arguments in the section line */
 
@@ -251,6 +248,12 @@ void write_section_header(FILE* outfile, char* section_name) {
     fprintf(outfile, OUTFILE_SECTION_HEADER, section_name);
 }
 
+/**
+ * Read the file and perform preliminary checks for title headers,
+ * section headers and comments.
+ *
+ * @param handle The infile to read from.
+ */
 void parse_file(FILE* handle) {
     char buffer[MAX_STR_LENGTH];
 
@@ -338,6 +341,12 @@ void parse_file(FILE* handle) {
     write_last_line(outfile, date);
 }
 
+/**
+ * Checks whether the given infile exists.
+ * Runs `parse_file` to generate the formatted outfile
+ *
+ * @param filename The name of the infile
+ */
 void run_wgroff(char* filename) {
     // Does the file exist?
     if (access(filename, F_OK)) {

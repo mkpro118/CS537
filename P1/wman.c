@@ -4,7 +4,6 @@
  * @author Mrigank Kumar
  */
 
-#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -116,7 +115,16 @@ static inline void page_not_found_in_section_msg(char* str, const char* page,
 ////////////////////////////////////////////////////////////////////////////////
 /////////////////////////       Search Functions       /////////////////////////
 
-
+/**
+ * Creates the filepath to the manual page defined by
+ * the given `page` and section, and stores it in `str`
+ *
+ * Assumes that str has enough capacity to hold the filename
+ *
+ * @param str     To store the filename
+ * @param page    The specified manual page
+ * @param section The specified section
+ */
 static inline void build_filepath(char* str, char* page, int section) {
     IF_FORMAT_FAILED(sprintf(str, FILEPATH, section, page, section)) {
         fprintf(stderr, ERROR_IN_FORMAT, "build_filepath");
@@ -174,6 +182,10 @@ FILE* search_all_pages(char* page) {
 ////////////////////////////////////////////////////////////////////////////////
 /////////////////////////          Print File          /////////////////////////
 
+/**
+ * Prints the file to stdout
+ * @param handle A handle to the file to print
+ */
 void print_file(FILE* handle) {
     char buffer[MAX_STR_LENGTH];
 
@@ -189,8 +201,7 @@ void print_file(FILE* handle) {
 ////////////////////////////////////////////////////////////////////////////////
 /////////////////////////             MAIN             /////////////////////////
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
     // Define variables, initialize with invalid values to avoid flags
     // This allows a single check for input validity and result
     FILE* handle = NULL;  // Explicit null to avoid compiler warnings
