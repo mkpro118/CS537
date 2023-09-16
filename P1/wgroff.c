@@ -264,7 +264,7 @@ void parse_file(FILE* handle) {
     // First line is handled separately
     IS_NULL(fgets(buffer, MAX_STR_LENGTH, handle)) {
         _PRINTF_(INVALID_FORMAT, line_count);
-        printf("\nReturn `1`\n");
+
         // Invalid formatting is still a success
         exit(WGROFF_SUCCESS);
     }
@@ -280,8 +280,6 @@ void parse_file(FILE* handle) {
     // Validate section
     if (section < 1 || section > 9) {
         _PRINTF_(INVALID_FORMAT, line_count);
-
-        printf("\nReturn `3`\n");
 
         // Invalid formatting is still a success
         exit(WGROFF_SUCCESS);
