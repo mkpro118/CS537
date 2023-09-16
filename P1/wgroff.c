@@ -54,14 +54,14 @@
 #define INFILE_CSI_SLASH "//"       /* Infile control sequence for slash */
 #define INFILE_CSI_SLASH_L 2        /* Control sequence length for slash */
 
-#define ANSI_CSI_BOLD "/033[1m"       /* ANSI control sequence for bold */
-#define ANSI_CSI_BOLD_L 7             /* ANSI control sequence length for bold */
-#define ANSI_CSI_ITALIC "/033[3m"     /* ANSI control sequence for italic */
-#define ANSI_CSI_ITALIC_L 7           /* ANSI control sequence length for italic */
-#define ANSI_CSI_UNDERLINE "/033[4m"  /* ANSI control sequence for underline */
-#define ANSI_CSI_UNDERLINE_L 7        /* ANSI control sequence length for underline */
-#define ANSI_CSI_NORMAL "/033[0m"     /* ANSI control sequence for reset */
-#define ANSI_CSI_NORMAL_L 7           /* ANSI control sequence length for reset */
+#define ANSI_CSI_BOLD "\033[1m"       /* ANSI control sequence for bold */
+#define ANSI_CSI_BOLD_L 4             /* ANSI control sequence length for bold */
+#define ANSI_CSI_ITALIC "\033[3m"     /* ANSI control sequence for italic */
+#define ANSI_CSI_ITALIC_L 4           /* ANSI control sequence length for italic */
+#define ANSI_CSI_UNDERLINE "\033[4m"  /* ANSI control sequence for underline */
+#define ANSI_CSI_UNDERLINE_L 4        /* ANSI control sequence length for underline */
+#define ANSI_CSI_NORMAL "\033[0m"     /* ANSI control sequence for reset */
+#define ANSI_CSI_NORMAL_L 4           /* ANSI control sequence length for reset */
 #define ANSI_CSI_SLASH "/"            /* ANSI control sequence for slash */
 #define ANSI_CSI_SLASH_L 1              /* ANSI control sequence for slash */
 
