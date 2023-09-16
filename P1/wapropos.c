@@ -105,7 +105,7 @@ void print_apropos(char* name, int section) {
     int i = 0; // `i` holds the address of the first non space character
     int j; // `j` holds the address of the start of the name_one_liner
 
-    while (name[i++] == ' '); // loop over spaces, stop at non spaces
+    for (; name[i] == ' '; i++); // loop over spaces, stop at non spaces
 
     for (j = i; name[j] != '-'; j++); // for instead to initialize
 
@@ -259,7 +259,7 @@ int search_keyword(char* keyword) {
             // NULL means keyword was not found in this file
             IS_NOT_NULL(name) {
                 // print in wapropos format
-                print_apropos(handle, name, section);
+                print_apropos(name, section);
                 free(name);
                 count++; // increment number of files found with `keyword`
             }
