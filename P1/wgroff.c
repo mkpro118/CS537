@@ -63,7 +63,7 @@
 #define ANSI_CSI_NORMAL "\033[0m"     /* ANSI control sequence for reset */
 #define ANSI_CSI_NORMAL_L 4           /* ANSI control sequence length for reset */
 #define ANSI_CSI_SLASH "/"            /* ANSI control sequence for slash */
-#define ANSI_CSI_SLASH_L 1              /* ANSI control sequence for slash */
+#define ANSI_CSI_SLASH_L 1            /* ANSI control sequence for slash */
 
 #define INDENT "       "  /* 7 spaces for indentation */
 
