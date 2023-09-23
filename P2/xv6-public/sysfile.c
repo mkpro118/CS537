@@ -501,6 +501,10 @@ sys_getlastcat(void)
     return -1;
   }
 
+  if (0 == ret) {
+    return -1;
+  }
+
   strcpy(buf, last_cat_filename);
   return 0;
 }
