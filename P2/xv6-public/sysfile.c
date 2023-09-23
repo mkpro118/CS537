@@ -16,6 +16,31 @@
 #include "file.h"
 #include "fcntl.h"
 
+char*
+strcpy(char *s, const char *t)
+{
+  char *os;
+
+  os = s;
+  while((*s++ = *t++) != 0)
+    ;
+  return os;
+}
+
+int
+strcmp(const char *p, const char *q)
+{
+  while(*p && *p == *q)
+    p++, q++;
+  return (uchar)*p - (uchar)*q;
+}
+
+static char last_cat_filename[100] = "Cat has not yet been called";
+
+static inline char is_curr_command_cat() {
+  return (char) !strcmp("cat", myproc()->name);
+}
+
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
 static int
@@ -72,6 +97,14 @@ sys_read(void)
   struct file *f;
   int n;
   char *p;
+
+  if (is_curr_command_cat()) {
+    int fd;
+
+    if (argint(0, &fd) < 0) return -1;
+
+    if (fd == 0) strcpy(last_cat_filename, "No args were passed");
+  }
 
   if(argfd(0, 0, &f) < 0 || argint(2, &n) < 0 || argptr(1, &p, n) < 0)
     return -1;
@@ -285,6 +318,8 @@ create(char *path, short type, short major, short minor)
 int
 sys_open(void)
 {
+  int is_command_cat = is_curr_command_cat();
+
   char *path;
   int fd, omode;
   struct file *f;
@@ -293,23 +328,34 @@ sys_open(void)
   if(argstr(0, &path) < 0 || argint(1, &omode) < 0)
     return -1;
 
+  if (is_command_cat) { strcpy(last_cat_filename, path); }
+
   begin_op();
 
   if(omode & O_CREATE){
     ip = create(path, T_FILE, 0, 0);
     if(ip == 0){
       end_op();
+      if (is_command_cat){
+        strcpy(last_cat_filename, "Invalid filename");
+      }
       return -1;
     }
   } else {
     if((ip = namei(path)) == 0){
       end_op();
+      if (is_command_cat) {
+        strcpy(last_cat_filename, "Invalid filename");
+      }
       return -1;
     }
     ilock(ip);
     if(ip->type == T_DIR && omode != O_RDONLY){
       iunlockput(ip);
       end_op();
+      if (is_command_cat) {
+        strcpy(last_cat_filename, "Invalid filename");
+      }
       return -1;
     }
   }
@@ -319,6 +365,9 @@ sys_open(void)
       fileclose(f);
     iunlockput(ip);
     end_op();
+    if (is_command_cat) {
+      strcpy(last_cat_filename, "Invalid filename");
+    }
     return -1;
   }
   iunlock(ip);
@@ -440,5 +489,18 @@ sys_pipe(void)
   }
   fd[0] = fd0;
   fd[1] = fd1;
+  return 0;
+}
+
+
+int
+sys_getlastcat(void)
+{
+  char* buf;
+  if (argstr(0, &buf) < 0) {
+    return -1;
+  }
+
+  strcpy(buf, last_cat_filename);
   return 0;
 }
