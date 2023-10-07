@@ -9,7 +9,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-// #include <sys/wait.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "wsh.h"
@@ -42,7 +42,8 @@ Command* command_init(char* cmd) {
     command->argv = malloc(sizeof(char*) * argv_size);
     _MALLOC_CHECK_(command->argv)
 
-    char* token = strtok(cmd, _DELIMITER_);
+	char* end_ptr;
+    char* token = strtok_r(cmd, _DELIMITER_, &end_ptr);
 
     while (NULL != token) {
         if (command->argc == argv_size) {
@@ -58,7 +59,7 @@ Command* command_init(char* cmd) {
 
         strcpy(command->argv[command->argc++], token);
 
-        token = strtok(NULL, _DELIMITER_);
+        token = strtok_r(NULL, _DELIMITER_, &end_ptr);
     }
 
     command->argv = realloc(command->argv, sizeof(char*) * (command->argc + 1));
@@ -66,6 +67,13 @@ Command* command_init(char* cmd) {
 
 
     command->argv[command->argc] = NULL;
+
+	printf("Parsed command: %s\n", command->cmd);
+	printf("argc: %i\n", command->argc);
+	printf("argv:\n");
+	for (int i = 0; i < command->argc; i++) {
+		printf("     %s\n", command->argv[i]);
+	}
 
     return command;
 }
@@ -200,9 +208,11 @@ Job* parse_command(char* input) {
     int n_procs = 0;
 
     if (NULL != strstr(input, _PIPE_)) {
-        char* token = strtok(input, _PIPE_);
+		char* end_str;
+        char* token = strtok_r(input, _PIPE_, &end_str);
 
         while(NULL != token) {
+			printf("parsing piped command/token: %s\n", token);
             Command* cmd = command_init(token);
             if (NULL == cmd) _FAILURE_EXIT_("Command init failed!\n")
 
@@ -211,7 +221,18 @@ Job* parse_command(char* input) {
             if (NULL == procs[n_procs]) _FAILURE_EXIT_("Process init failed!\n")
 
             n_procs++;
+
+			token = strtok_r(NULL, _PIPE_, &end_str);
         }
+    } else {
+        Command* cmd = command_init(input);
+        if (NULL == cmd) _FAILURE_EXIT_("Command init failed!\n")
+
+        procs[n_procs] = process_init(cmd);
+
+        if (NULL == procs[n_procs]) _FAILURE_EXIT_("Process init failed!\n")
+
+        n_procs++;
     }
 
     Job* job = job_init(input, procs, n_procs, bg);
@@ -225,11 +246,11 @@ void dispatch_job(Job* job) {
 
     pid_t cpid = fork();
 
-    if (pid < 0) _FAILURE_EXIT_("fork failed!\n")
+    if (cpid < 0) _FAILURE_EXIT_("fork failed!\n")
 
+    char** argv = job->processes[0]->cmd->argv;
     switch (cpid) {
         case 0: // child
-            char** argv = job->processes[0]->cmd->argv;
             execvp(argv[0], argv);
 
             _FAILURE_EXIT_("execvp failed!\n")
@@ -238,7 +259,7 @@ void dispatch_job(Job* job) {
         default: // parent
             job->processes[0]->pid = cpid;
             if (job->bg == false) {
-                waitpid(cpid);
+                waitpid(cpid, NULL, 0);
             } else {
                 job->p_state = BACKGROUND;
             }
@@ -252,7 +273,7 @@ void dispatch_piped_jobs(Job* job) {
     int pipes[n_pipes][2];
 
     for (int i = 0; i < n_pipes; i++) {
-        if (pipe(pipes[i] < 0)) _FAILURE_EXIT_("pipe failed!\n")
+        if (pipe(pipes[i]) < 0) _FAILURE_EXIT_("pipe failed!\n")
     }
 
     pid_t cpid;
@@ -265,13 +286,13 @@ void dispatch_piped_jobs(Job* job) {
 
             // close write ends of pipes for previous processes
             if (i > 0) {
-                dup2(pipes[i-1][0], stdin);
+                dup2(pipes[i-1][0], STDIN_FILENO);
                 close(pipes[i-1][1]);
             }
 
             // close read ends of pipes for following processes
             if (i < n_pipes) {
-                dup2(pipes[i][1], stdout);
+                dup2(pipes[i][1], STDOUT_FILENO);
                 close(pipes[i][0]);
             }
 
@@ -292,7 +313,7 @@ void dispatch_piped_jobs(Job* job) {
     }
 
     if (job->bg == false) {
-        waitpid(cpid);
+        waitpid(cpid, NULL, 0);
     } else {
         job->p_state = BACKGROUND;
     }
@@ -322,22 +343,34 @@ void check_builtin(char* command) {
     }
 }
 
-void builtins_bg();
-void builtins_cd();
+void builtins_bg() {
+    printf("builtins_bg has not been implemented yet!\n");
+    exit(0);
+}
+void builtins_cd() {
+    printf("builtins_cd has not been implemented yet!\n");
+    exit(0);
+}
 
 void builtins_exit() {
     exit(_EXIT_SUCCESS_);
 }
 
-void builtins_fg();
-void builtins_jobs();
+void builtins_fg() {
+    printf("builtins_fg has not been implemented yet!\n");
+    exit(0);
+}
+void builtins_jobs() {
+    printf("\builtins_jobs has not been implemented yet!n");
+    exit(0);
+}
 
 /////////////////////// END BUILT-IN COMMANDS FUNCTIONS ////////////////////////
 
 
 //////////////////////////// APPLICATION FUNCTIONS /////////////////////////////
 
-void run_script_file(char* script_file) {
+void run_script_file(char const * script_file) {
 
 }
 
@@ -345,6 +378,7 @@ void run_cli() {
     while (true) {
         display_prompt();
         char* command = get_command();
+		command[strlen(command) - 1] = '\0';
 
         check_builtin(command);
 
@@ -358,9 +392,11 @@ void run_cli() {
                 _FAILURE_EXIT_("SOMETHING WENT WRONG\n")
                 break;
             case 1:
+				printf("dispatch_jobs\n");
                 dispatch_job(job);
                 break;
             default:
+				printf("dispatch_piped_jobs\n");
                 dispatch_piped_jobs(job);
                 break;
         }

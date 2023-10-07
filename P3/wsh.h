@@ -1,6 +1,8 @@
 #ifndef _MK_WSH_
 #define _MK_WSH_
 
+#include <sys/types.h>
+
 /* Exit codes */
 #define _EXIT_FAILURE_ 1
 #define _EXIT_SUCCESS_ 0
@@ -21,6 +23,9 @@
 
 /* Shell Prompt */
 #define _PROMPT_ "wsh> "
+
+/* String Terminator */
+#define _NULL_TERMINATOR_ '\0'
 
 /* Maximum number of jobs */
 #define MAX_JOBS 128
@@ -43,7 +48,7 @@ typedef enum {
     FOREGROUND,
     BACKGROUND,
     STOPPED,
-} ProcessState;
+} JobState;
 
 typedef struct {
     char* cmd;    /* Command name (ex. "ls", "echo") */
@@ -61,7 +66,7 @@ typedef struct {
     int n_process;         /* Number of Jobs */
     Process** processes;   /* Job ID */
     bool bg;               /* Flag indicating if this command run in the background */
-    ProcessState p_state;  /* State of the job */
+    JobState p_state;  /* State of the job */
 } Job;
 
 /* Initializer Functions */
