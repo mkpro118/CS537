@@ -29,6 +29,9 @@
 /* Malloc Check */
 #define _MALLOC_CHECK_(x) if (NULL == x) {printf("malloc failed!\n"); exit(1);}
 
+/* Exit on Failure Macro */
+#define _FAILURE_EXIT_(msg) { printf(msg); exit(_EXIT_FAILURE_); }
+
 /* Booleans */
 typedef enum {
     false,

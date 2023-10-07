@@ -183,9 +183,8 @@ char* get_command() {
     ssize_t n_chars = getline(&cmd, &size, stdin);
 
     if (n_chars < 0) {
-        printf("getline failed to read input!\n");
         free(cmd);
-        exit(_EXIT_FAILURE_);
+        _FAILURE_EXIT_("getline failed to read input!\n")
     }
 
     return cmd;
@@ -205,17 +204,11 @@ Job* parse_command(char* input) {
 
         while(NULL != token) {
             Command* cmd = command_init(token);
-            if (NULL == cmd) {
-                printf("Command init failed!\n");
-                exit(_EXIT_FAILURE_);
-            }
+            if (NULL == cmd) _FAILURE_EXIT_("Command init failed!\n")
 
             procs[n_procs] = process_init(cmd);
 
-            if (NULL == procs[n_procs]) {
-                printf("Process init failed!\n");
-                exit(_EXIT_FAILURE_);
-            }
+            if (NULL == procs[n_procs]) _FAILURE_EXIT_("Process init failed!\n")
 
             n_procs++;
         }
@@ -223,10 +216,7 @@ Job* parse_command(char* input) {
 
     Job* job = job_init(input, procs, n_procs, bg);
 
-    if (NULL == job) {
-        printf("Job init failed!");
-        exit(_EXIT_FAILURE_);
-    }
+    if (NULL == job) _FAILURE_EXIT_("Job init failed!\n")
 
     return job;
 }
@@ -235,16 +225,14 @@ void dispatch_job(Job* job) {
 
     pid_t cpid = fork();
 
+    if (pid < 0) _FAILURE_EXIT_("execvp failed!\n")
+
     switch (cpid) {
-        case -1: // error
-            printf("fork failed\n");
-            exit(_EXIT_FAILURE_);
-            break;
         case 0: // child
-            if(execvp(job->processes[0]->cmd[0], job->processes[0]->cmd) < 0) {
-                printf("execvp failed!\n");
-                exit(_EXIT_FAILURE_);
-            }
+            execvp(job->processes[0]->cmd[0], job->processes[0]->cmd);
+
+            _FAILURE_EXIT_("execvp failed!\n")
+
             break;
         default: // parent
             if (job->bg == false) { waitpid(cpid); }
@@ -258,9 +246,16 @@ void dispatch_piped_jobs(Job* job) {
     int pipes[n_pipes][2];
 
     for (int i = 0; i < n_pipes; i++) {
-        if (pipe(pipes[i] < 0)) {
-            printf("pipe failed!\n");
-            exit(_EXIT_FAILURE_);
+        if (pipe(pipes[i] < 0)) _FAILURE_EXIT_("pipe failed!\n")
+    }
+
+    for (int i = 0; i < jobs->n_process; i++) {
+        pid_t pid = fork();
+
+        if (pid < 0) _FAILURE_EXIT_("Fork failure\n")
+
+        switch () {
+
         }
     }
 }
@@ -291,9 +286,11 @@ void check_builtin(char* command) {
 
 void builtins_bg();
 void builtins_cd();
+
 void builtins_exit() {
     exit(_EXIT_SUCCESS_);
 }
+
 void builtins_fg();
 void builtins_jobs();
 
@@ -320,8 +317,7 @@ void run_cli() {
 
         switch(job->n_process) {
             case 0:
-                printf("SOMETHING WENT WRONG\n");
-                exit(_EXIT_FAILURE_);
+                _FAILURE_EXIT_("SOMETHING WENT WRONG\n")
                 break;
             case 1:
                 dispatch_job(job);
