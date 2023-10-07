@@ -1,6 +1,10 @@
 #ifndef _MK_WSH_
 #define _MK_WSH_
 
+/* Exit codes */
+#define _EXIT_FAILURE_ 1
+#define _EXIT_SUCCESS_ 0
+
 /* Built-in commands */
 #define _BUITLINS_BG_    "bg"
 #define _BUITLINS_CD_    "cd"

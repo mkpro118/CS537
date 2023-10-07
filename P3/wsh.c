@@ -185,7 +185,7 @@ char* get_command() {
     if (n_chars < 0) {
         printf("getline failed to read input!\n");
         free(cmd);
-        exit(1);
+        exit(_EXIT_FAILURE_);
     }
 
     return cmd;
@@ -207,14 +207,14 @@ Job* parse_command(char* input) {
             Command* cmd = command_init(token);
             if (NULL == cmd) {
                 printf("Command init failed!\n");
-                exit(1);
+                exit(_EXIT_FAILURE_);
             }
 
             procs[n_procs] = process_init(cmd);
 
             if (NULL == procs[n_procs]) {
                 printf("Process init failed!\n");
-                exit(1);
+                exit(_EXIT_FAILURE_);
             }
 
             n_procs++;
@@ -225,7 +225,7 @@ Job* parse_command(char* input) {
 
     if (NULL == job) {
         printf("Job init failed!");
-        exit(1);
+        exit(_EXIT_FAILURE_);
     }
 
     return job;
@@ -238,12 +238,12 @@ void dispatch_job(Job* job) {
     switch (cpid) {
         case -1: // error
             printf("fork failed\n");
-            exit(1);
+            exit(_EXIT_FAILURE_);
             break;
         case 0: // child
             if(execvp(job->processes[0]->cmd[0], job->processes[0]->cmd) < 0) {
                 printf("execvp failed!\n");
-                exit(1);
+                exit(_EXIT_FAILURE_);
             }
             break;
         default: // parent
@@ -253,9 +253,16 @@ void dispatch_job(Job* job) {
 }
 
 void dispatch_piped_jobs(Job* job) {
-    int n_procs = job->n_process;
+    int n_pipes = job->n_process - 1;
 
-    int pipes
+    int pipes[n_pipes][2];
+
+    for (int i = 0; i < n_pipes; i++) {
+        if (pipe(pipes[i] < 0)) {
+            printf("pipe failed!\n");
+            exit(_EXIT_FAILURE_);
+        }
+    }
 }
 
 
@@ -285,7 +292,7 @@ void check_builtin(char* command) {
 void builtins_bg();
 void builtins_cd();
 void builtins_exit() {
-    exit(0);
+    exit(_EXIT_SUCCESS_);
 }
 void builtins_fg();
 void builtins_jobs();
@@ -314,7 +321,7 @@ void run_cli() {
         switch(job->n_process) {
             case 0:
                 printf("SOMETHING WENT WRONG\n");
-                exit(1);
+                exit(_EXIT_FAILURE_);
                 break;
             case 1:
                 dispatch_job(job);
@@ -333,8 +340,13 @@ int main(int argc, char const *argv[]) {
     switch (argc - 1) {
         case 0:
             run_cli();
+            break;
         case 1:
             run_script_file(argv[1]);
+            break;
+        default:
+            printf("Usage:\n>>>./wsh [script_file]\n");
+            break;
     }
     return 0;
 }
