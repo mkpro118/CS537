@@ -42,7 +42,7 @@ Command* command_init(char* cmd) {
     command->argv = malloc(sizeof(char*) * argv_size);
     _MALLOC_CHECK_(command->argv)
 
-	char* end_ptr;
+    char* end_ptr;
     char* token = strtok_r(cmd, _DELIMITER_, &end_ptr);
 
     while (NULL != token) {
@@ -65,15 +65,7 @@ Command* command_init(char* cmd) {
     command->argv = realloc(command->argv, sizeof(char*) * (command->argc + 1));
     _MALLOC_CHECK_(command->argv)
 
-
     command->argv[command->argc] = NULL;
-
-	printf("Parsed command: %s\n", command->cmd);
-	printf("argc: %i\n", command->argc);
-	printf("argv:\n");
-	for (int i = 0; i < command->argc; i++) {
-		printf("     %s\n", command->argv[i]);
-	}
 
     return command;
 }
@@ -208,11 +200,10 @@ Job* parse_command(char* input) {
     int n_procs = 0;
 
     if (NULL != strstr(input, _PIPE_)) {
-		char* end_str;
+        char* end_str;
         char* token = strtok_r(input, _PIPE_, &end_str);
 
         while(NULL != token) {
-			printf("parsing piped command/token: %s\n", token);
             Command* cmd = command_init(token);
             if (NULL == cmd) _FAILURE_EXIT_("Command init failed!\n")
 
@@ -222,7 +213,7 @@ Job* parse_command(char* input) {
 
             n_procs++;
 
-			token = strtok_r(NULL, _PIPE_, &end_str);
+            token = strtok_r(NULL, _PIPE_, &end_str);
         }
     } else {
         Command* cmd = command_init(input);
@@ -378,7 +369,7 @@ void run_cli() {
     while (true) {
         display_prompt();
         char* command = get_command();
-		command[strlen(command) - 1] = '\0';
+        command[strlen(command) - 1] = '\0';
 
         check_builtin(command);
 
@@ -392,11 +383,9 @@ void run_cli() {
                 _FAILURE_EXIT_("SOMETHING WENT WRONG\n")
                 break;
             case 1:
-				printf("dispatch_jobs\n");
                 dispatch_job(job);
                 break;
             default:
-				printf("dispatch_piped_jobs\n");
                 dispatch_piped_jobs(job);
                 break;
         }
