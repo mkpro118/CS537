@@ -58,9 +58,9 @@ typedef struct {
 
 typedef struct {
     char* cmd;
-    int n_process;        /* Number of Jobs */
-    Process** processes;  /* Job ID */
-    bool bg;              /* Flag indicating if this command run in the background */
+    int n_process;         /* Number of Jobs */
+    Process** processes;   /* Job ID */
+    bool bg;               /* Flag indicating if this command run in the background */
     ProcessState p_state;  /* State of the job */
 } Job;
 
