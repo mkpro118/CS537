@@ -78,8 +78,6 @@ Process* process_init(Command* cmd) {
 
     proc->cmd = cmd;
 
-    proc->p_state = FOREGROUND;
-
     return proc;
 }
 
@@ -107,6 +105,8 @@ Job* job_init(char* cmd, Process** procs, int n_procs, bool bg) {
             break;
         }
     }
+
+    job->p_state = FOREGROUND;
 
     return job;
 }
@@ -225,17 +225,23 @@ void dispatch_job(Job* job) {
 
     pid_t cpid = fork();
 
-    if (pid < 0) _FAILURE_EXIT_("execvp failed!\n")
+    if (pid < 0) _FAILURE_EXIT_("fork failed!\n")
 
     switch (cpid) {
         case 0: // child
-            execvp(job->processes[0]->cmd[0], job->processes[0]->cmd);
+            char** argv = job->processes[0]->cmd->argv;
+            execvp(argv[0], argv);
 
             _FAILURE_EXIT_("execvp failed!\n")
 
             break;
         default: // parent
-            if (job->bg == false) { waitpid(cpid); }
+            job->processes[0]->pid = cpid;
+            if (job->bg == false) {
+                waitpid(cpid);
+            } else {
+                job->p_state = BACKGROUND;
+            }
             break;
     }
 }
@@ -249,14 +255,46 @@ void dispatch_piped_jobs(Job* job) {
         if (pipe(pipes[i] < 0)) _FAILURE_EXIT_("pipe failed!\n")
     }
 
-    for (int i = 0; i < jobs->n_process; i++) {
-        pid_t pid = fork();
+    pid_t cpid;
+    for (int i = 0; i < job->n_process; i++) {
+        cpid = fork();
 
-        if (pid < 0) _FAILURE_EXIT_("Fork failure\n")
+        if (cpid < 0) _FAILURE_EXIT_("Fork failure\n")
 
-        switch () {
+        if (0 == cpid) {
 
+            // close write ends of pipes for previous processes
+            if (i > 0) {
+                dup2(pipes[i-1][0], stdin);
+                close(pipes[i-1][1]);
+            }
+
+            // close read ends of pipes for following processes
+            if (i < n_pipes) {
+                dup2(pipes[i][1], stdout);
+                close(pipes[i][0]);
+            }
+
+            char** argv = job->processes[i]->cmd->argv;
+
+            execvp(argv[0], argv);
+
+            _FAILURE_EXIT_("execvp failed!\n");
+        } else {
+            job->processes[i]->pid = cpid;
         }
+    }
+
+    // Close all remaining pipe file descriptors
+    for (int i = 0; i < n_pipes; i++) {
+        close(pipes[i][0]);
+        close(pipes[i][1]);
+    }
+
+    if (job->bg == false) {
+        waitpid(cpid);
+    } else {
+        job->p_state = BACKGROUND;
     }
 }
 

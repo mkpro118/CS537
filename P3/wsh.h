@@ -54,7 +54,6 @@ typedef struct {
 typedef struct {
     Command* cmd;          /* The Command struct representing the job */
     pid_t pid;             /* Process ID of the job */
-    ProcessState p_state;  /* State of the job */
 } Process;
 
 typedef struct {
@@ -62,6 +61,7 @@ typedef struct {
     int n_process;        /* Number of Jobs */
     Process** processes;  /* Job ID */
     bool bg;              /* Flag indicating if this command run in the background */
+    ProcessState p_state;  /* State of the job */
 } Job;
 
 /* Initializer Functions */
