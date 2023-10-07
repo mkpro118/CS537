@@ -14,12 +14,12 @@
 #define _BUITLINS_FG_    "fg"
 #define _BUITLINS_JOBS_  "jobs"
 
-/* Special characters */
-#define _PIPE_ "|"
-#define _AMPERSAND_ "&"
-
 /* Token delimiter */
 #define _DELIMITER_ " "
+
+/* Special characters */
+#define _PIPE_ "|"
+#define _AMPERSAND_ '&'
 
 /* Shell Prompt */
 #define _PROMPT_ "wsh> "

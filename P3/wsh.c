@@ -192,8 +192,10 @@ char* get_command() {
 
 Job* parse_command(char* input) {
     bool bg = false;
-    if (NULL != strstr(input, _AMPERSAND_)) {
+    ssize_t len = strlen(input);
+    if (input[len - 1] == _AMPERSAND_) {
         bg = true;
+        input[len - 1] = _NULL_TERMINATOR_;
     }
 
     Process* procs[32];
@@ -259,6 +261,7 @@ void dispatch_job(Job* job) {
 }
 
 void dispatch_piped_jobs(Job* job) {
+    printf("# Jobs: %i\n", job->n_process);
     int n_pipes = job->n_process - 1;
 
     int pipes[n_pipes][2];
@@ -274,7 +277,7 @@ void dispatch_piped_jobs(Job* job) {
         if (cpid < 0) _FAILURE_EXIT_("Fork failure\n")
 
         if (0 == cpid) {
-
+            printf("starting command: %s | pid = %i\n", job->processes[i]->cmd->argv[0], getpid());
             // close write ends of pipes for previous processes
             if (i > 0) {
                 dup2(pipes[i-1][0], STDIN_FILENO);
@@ -304,7 +307,11 @@ void dispatch_piped_jobs(Job* job) {
     }
 
     if (job->bg == false) {
-        waitpid(cpid, NULL, 0);
+        printf("nprocs: %i\n", job->n_process);
+        for (int i = 0; i < job->n_process; i++) {
+            printf("Waiting for child %i\n", job->processes[i]->pid);
+            waitpid(job->processes[i]->pid, NULL, 0);
+        }
     } else {
         job->p_state = BACKGROUND;
     }
