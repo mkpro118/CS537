@@ -8,11 +8,20 @@
 #define _EXIT_SUCCESS_ 0
 
 /* Built-in commands */
-#define _BUITLINS_BG_    "bg"
-#define _BUITLINS_CD_    "cd"
-#define _BUITLINS_EXIT_  "exit"
-#define _BUITLINS_FG_    "fg"
-#define _BUITLINS_JOBS_  "jobs"
+#define _BUILTINS_BG_    "bg"
+#define _BUILTINS_CD_    "cd"
+#define _BUILTINS_EXIT_  "exit"
+#define _BUILTINS_FG_    "fg"
+#define _BUILTINS_JOBS_  "jobs"
+
+#define _N_BUILTINS_ 5
+static char* _builtins_[_N_BUILTINS_] = {
+    _BUILTINS_BG_,
+    _BUILTINS_CD_,
+    _BUILTINS_EXIT_,
+    _BUILTINS_FG_,
+    _BUILTINS_JOBS_,
+};
 
 /* Token delimiter */
 #define _DELIMITER_ " "
@@ -43,12 +52,19 @@ typedef enum {
     true,
 } bool;
 
-/* Process States */
+/* Job States */
 typedef enum {
     FOREGROUND,
     BACKGROUND,
     STOPPED,
 } JobState;
+
+typedef enum {
+    SCHEDULED,
+    RUNNING,
+    PAUSED,
+    DONE,
+} ProcessState;
 
 typedef struct {
     int argc;     /* Number of arguments in the args array */
@@ -58,6 +74,7 @@ typedef struct {
 typedef struct {
     Command* cmd;          /* The Command struct representing the job */
     pid_t pid;             /* Process ID of the job */
+    ProcessState state;    /* Is the process running */
 } Process;
 
 typedef struct {

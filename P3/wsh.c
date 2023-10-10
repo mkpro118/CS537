@@ -16,6 +16,7 @@
 #include "wsh.h"
 
 static Job* all_jobs[128];
+static Job* foreground_job;
 
 /////////////////////////// INITIALIZATION FUNCTIONS ///////////////////////////
 
@@ -73,6 +74,7 @@ Process* process_init(Command* cmd) {
     _MALLOC_CHECK_(proc)
 
     proc->cmd = cmd;
+    proc->state = SCHEDULED;
 
     return proc;
 }
@@ -94,6 +96,17 @@ Job* job_init(char* cmd, Process** procs, int n_procs, bool bg) {
 
     job->n_process = n_procs;
     job->bg = bg;
+    job->p_state = FOREGROUND;
+
+    if (n_procs == 1) {
+        char* p0_cmd = procs[0]->cmd->argv[0];
+
+        for (int i = 0; i < _N_BUILTINS_; i++) {
+            if (0 == strcmp(p0_cmd, _builtins_[i])) {
+                return job;
+            }
+        }
+    }
 
     for (int i = JOB_START_IDX; i < MAX_JOBS; i++) {
         if (NULL == all_jobs[i]) {
@@ -102,7 +115,6 @@ Job* job_init(char* cmd, Process** procs, int n_procs, bool bg) {
         }
     }
 
-    job->p_state = FOREGROUND;
 
     return job;
 }
@@ -157,6 +169,10 @@ void job_destroy(Job* job) {
         }
     }
 
+    if (job == foreground_job) {
+        foreground_job = NULL;
+    }
+
     free(job);
 }
 
@@ -166,16 +182,27 @@ void job_destroy(Job* job) {
 /////////////////////////// SIGNAL HANDLER FUNCTIONS ///////////////////////////
 
 void sigchld_handler(int signal) {
-    pid_t cpid = wait(NULL);
+    pid_t cpid;
+    if (NULL != foreground_job) {
+        int n = foreground_job->n_process - 1;
+        cpid = wait(foreground_job->processes[n]->pid);
+    } else {
+        cpid = wait(NULL);
+    }
 
     if (cpid < 0) return;
-
-    printf("\nDone %i\n", cpid);
 
     for (int i = 1; i < MAX_JOBS; i++) {
         Job* job = all_jobs[i];
 
         if (NULL == job) continue;
+
+        for (int i = 0; i < job->n_process; i++) {
+            if (job->processes[i]->pid == cpid) {
+                job->processes[i]->state = DONE;
+                break;
+            }
+        }
 
         if (job->processes[job->n_process - 1]->pid == cpid) {
             job_destroy(job);
@@ -185,7 +212,27 @@ void sigchld_handler(int signal) {
 }
 
 void sigtstp_handler(int signal) {
+    printf("%i got a SIGTSTP\n", getpid());
+    if (NULL == foreground_job) {
+        return;
+    }
 
+    int n = foreground_job->n_process
+
+    for (int i = 0; i < n; i++) {
+        if (foreground_job->processes[i]->state != RUNNING) {
+            continue;
+        }
+
+        pid_t pid = foreground_job->processes[i]->pid;
+
+        if (kill(pid, SIGTSTP) < 0) {
+            _FAILURE_EXIT_("FATAL ERROR: Couldn't send SIGTSTP signal!\n");
+        }
+
+        foreground_job->processes[i]->state = PAUSED;
+    }
+    foreground_job = NULL;
 }
 
 
@@ -287,12 +334,15 @@ void dispatch_job(Job* job) {
             break;
         default: // parent
             job->processes[0]->pid = cpid;
+            job->processes[0]->state = RUNNING;
             if (job->bg == false) {
+                foreground_job = job;
                 waitpid(cpid, NULL, 0);
                 job_destroy(job);
             } else {
                 job->p_state = BACKGROUND;
             }
+
             break;
     }
 }
@@ -335,6 +385,7 @@ void dispatch_piped_jobs(Job* job) {
             _FAILURE_EXIT_("execvp failed!\n");
         } else {
             job->processes[i]->pid = cpid;
+            job->processes[i]->state = RUNNING;
 
             // Close all remaining pipe file descriptors in parent as well
             if (i > 0) {
@@ -347,6 +398,7 @@ void dispatch_piped_jobs(Job* job) {
     }
 
     if (job->bg == false) {
+        foreground_job = job;
         for (int i = 0; i < job->n_process; i++) {
             waitpid(job->processes[i]->pid, NULL, 0);
         }
@@ -355,7 +407,6 @@ void dispatch_piped_jobs(Job* job) {
         job->p_state = BACKGROUND;
     }
 }
-
 
 /////////////////////////// END MAIN LOOP FUNCTIONS ////////////////////////////
 
@@ -369,19 +420,19 @@ int check_builtin(Job* job) {
 
     char* command = job->processes[0]->cmd->argv[0];
 
-    if (strncmp(command, _BUITLINS_BG_, strlen(_BUITLINS_BG_)) == 0) {
+    if (strncmp(command, _BUILTINS_BG_, strlen(_BUILTINS_BG_)) == 0) {
         builtins_bg(job->processes[0]->cmd);
     }
-    else if (strncmp(command, _BUITLINS_CD_, strlen(_BUITLINS_CD_)) == 0) {
+    else if (strncmp(command, _BUILTINS_CD_, strlen(_BUILTINS_CD_)) == 0) {
         builtins_cd(job->processes[0]->cmd);
     }
-    else if (strncmp(command, _BUITLINS_EXIT_, strlen(_BUITLINS_EXIT_)) == 0) {
+    else if (strncmp(command, _BUILTINS_EXIT_, strlen(_BUILTINS_EXIT_)) == 0) {
         builtins_exit(job->processes[0]->cmd);
     }
-    else if (strncmp(command, _BUITLINS_FG_, strlen(_BUITLINS_FG_)) == 0) {
+    else if (strncmp(command, _BUILTINS_FG_, strlen(_BUILTINS_FG_)) == 0) {
         builtins_fg(job->processes[0]->cmd);
     }
-    else if (strncmp(command, _BUITLINS_JOBS_, strlen(_BUITLINS_JOBS_)) == 0) {
+    else if (strncmp(command, _BUILTINS_JOBS_, strlen(_BUILTINS_JOBS_)) == 0) {
         builtins_jobs(job->processes[0]->cmd);
     } else {
         return 0;
@@ -399,7 +450,9 @@ void builtins_cd(Command* cmd) {
         return;
     }
 
-    chdir(cmd->argv[1]);
+    if(chdir(cmd->argv[1]) < 0) {
+        printf("cd failed!");
+    }
 }
 
 void builtins_exit(Command* cmd) {
@@ -470,7 +523,10 @@ void run_cli() {
 
 ////////////////////////// END APPLICATION FUNCTIONS ///////////////////////////
 
+//////////////////////////////// MAIN FUNCTION /////////////////////////////////
+
 int main(int argc, char const *argv[]) {
+    printf("wsh pid: %i\n", getpid());
     // set up SIGCHLD
     {
         struct sigaction chld_handler = { .sa_handler = NULL,
@@ -483,6 +539,20 @@ int main(int argc, char const *argv[]) {
             _FAILURE_EXIT_("FATAL ERROR: Couldn't bind SIGCHLD!\n");
         }
     }
+
+    // set up SIGTSTP
+    {
+        struct sigaction chld_handler = { .sa_handler = NULL,
+                                          .sa_flags = SA_RESTART };
+
+        chld_handler.sa_handler = sigtstp_handler;
+
+        // ensure the handler is bound properly
+        if (sigaction(SIGTSTP, &chld_handler, NULL) < 0) {
+            _FAILURE_EXIT_("FATAL ERROR: Couldn't bind SIGCHLD!\n");
+        }
+    }
+
 
     switch (argc - 1) {
         case 0:
@@ -497,3 +567,5 @@ int main(int argc, char const *argv[]) {
     }
     return 0;
 }
+
+////////////////////////////// END MAIN FUNCTION ///////////////////////////////
