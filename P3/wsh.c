@@ -4,6 +4,7 @@
  * @author Mrigank Kumar
  */
 
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,11 +29,6 @@ Command* command_init(char* cmd) {
 
     Command* command = malloc(sizeof(Command));
     _MALLOC_CHECK_(command)
-
-    command->cmd = malloc(sizeof(char) * (n + 1));
-    _MALLOC_CHECK_(command->cmd)
-
-    strcpy(command->cmd, cmd);
 
     command->argc = 0;
 
@@ -120,8 +116,6 @@ Job* job_init(char* cmd, Process** procs, int n_procs, bool bg) {
 void command_destroy(Command* cmd) {
     if (NULL == cmd) return;
 
-    if (cmd->cmd)
-        free(cmd->cmd);
 
     if (cmd->argv) {
         for (int i = 0; i < cmd->argc; i++) {
@@ -169,6 +163,35 @@ void job_destroy(Job* job) {
 /////////////////////////// END DESTRUCTOR FUNCTIONS ///////////////////////////
 
 
+/////////////////////////// SIGNAL HANDLER FUNCTIONS ///////////////////////////
+
+void sigchld_handler(int signal) {
+    pid_t cpid = wait(NULL);
+
+    if (cpid < 0) return;
+
+    printf("\nDone %i\n", cpid);
+
+    for (int i = 1; i < MAX_JOBS; i++) {
+        Job* job = all_jobs[i];
+
+        if (NULL == job) continue;
+
+        if (job->processes[job->n_process - 1]->pid == cpid) {
+            job_destroy(job);
+            return;
+        }
+    }
+}
+
+void sigtstp_handler(int signal) {
+
+}
+
+
+///////////////////////// END SIGNAL HANDLER FUNCTIONS /////////////////////////
+
+
 ///////////////////////////// MAIN LOOP FUNCTIONS //////////////////////////////
 
 void display_prompt() {
@@ -193,6 +216,14 @@ char* get_command() {
 Job* parse_command(char* input) {
     bool bg = false;
     ssize_t len = strlen(input);
+
+    if (len <= 0) {
+        return NULL;
+    }
+
+    char* cmd_cpy = malloc(sizeof(char) * (len + 1));
+    strcpy(cmd_cpy, input);
+
     if (input[len - 1] == _AMPERSAND_) {
         bg = true;
         input[len - 1] = _NULL_TERMINATOR_;
@@ -228,7 +259,9 @@ Job* parse_command(char* input) {
         n_procs++;
     }
 
-    Job* job = job_init(input, procs, n_procs, bg);
+    Job* job = job_init(cmd_cpy, procs, n_procs, bg);
+
+    free(cmd_cpy);
 
     if (NULL == job) _FAILURE_EXIT_("Job init failed!\n")
 
@@ -244,6 +277,9 @@ void dispatch_job(Job* job) {
     char** argv = job->processes[0]->cmd->argv;
     switch (cpid) {
         case 0: // child
+            if (job->bg == true) {
+                close(STDIN_FILENO);
+            }
             execvp(argv[0], argv);
 
             _FAILURE_EXIT_("execvp failed!\n")
@@ -253,6 +289,7 @@ void dispatch_job(Job* job) {
             job->processes[0]->pid = cpid;
             if (job->bg == false) {
                 waitpid(cpid, NULL, 0);
+                job_destroy(job);
             } else {
                 job->p_state = BACKGROUND;
             }
@@ -309,16 +346,11 @@ void dispatch_piped_jobs(Job* job) {
         }
     }
 
-    // Close all remaining pipe file descriptors
-    for (int i = 0; i < n_pipes; i++) {
-        close(pipes[i][0]);
-        close(pipes[i][1]);
-    }
-
     if (job->bg == false) {
         for (int i = 0; i < job->n_process; i++) {
             waitpid(job->processes[i]->pid, NULL, 0);
         }
+        job_destroy(job);
     } else {
         job->p_state = BACKGROUND;
     }
@@ -330,44 +362,68 @@ void dispatch_piped_jobs(Job* job) {
 
 ///////////////////////// BUILT-IN COMMANDS FUNCTIONS //////////////////////////
 
-void check_builtin(char* command) {
-    if (strcmp(command, _BUITLINS_BG_) == 0) {
-        builtins_bg();
+int check_builtin(Job* job) {
+    if (job->n_process != 1) {
+        return 0;
     }
-    else if (strcmp(command, _BUITLINS_CD_) == 0) {
-        builtins_cd();
+
+    char* command = job->processes[0]->cmd->argv[0];
+
+    if (strncmp(command, _BUITLINS_BG_, strlen(_BUITLINS_BG_)) == 0) {
+        builtins_bg(job->processes[0]->cmd);
     }
-    else if (strcmp(command, _BUITLINS_EXIT_) == 0) {
-        builtins_exit();
+    else if (strncmp(command, _BUITLINS_CD_, strlen(_BUITLINS_CD_)) == 0) {
+        builtins_cd(job->processes[0]->cmd);
     }
-    else if (strcmp(command, _BUITLINS_FG_) == 0) {
-        builtins_fg();
+    else if (strncmp(command, _BUITLINS_EXIT_, strlen(_BUITLINS_EXIT_)) == 0) {
+        builtins_exit(job->processes[0]->cmd);
     }
-    else if (strcmp(command, _BUITLINS_JOBS_) == 0) {
-        builtins_jobs();
+    else if (strncmp(command, _BUITLINS_FG_, strlen(_BUITLINS_FG_)) == 0) {
+        builtins_fg(job->processes[0]->cmd);
     }
+    else if (strncmp(command, _BUITLINS_JOBS_, strlen(_BUITLINS_JOBS_)) == 0) {
+        builtins_jobs(job->processes[0]->cmd);
+    } else {
+        return 0;
+    }
+    return 1;
 }
 
-void builtins_bg() {
+void builtins_bg(Command* cmd) {
     printf("builtins_bg has not been implemented yet!\n");
     exit(0);
 }
-void builtins_cd() {
-    printf("builtins_cd has not been implemented yet!\n");
-    exit(0);
+void builtins_cd(Command* cmd) {
+    if (cmd->argc != 2) {
+        printf("`cd` takes exactly 1 argument, the path to a directory to switch to\n");
+        return;
+    }
+
+    chdir(cmd->argv[1]);
 }
 
-void builtins_exit() {
+void builtins_exit(Command* cmd) {
+    if (cmd->argc != 1) {
+        printf("`exit` does not accept any arguments\n");
+        return;
+    }
     exit(_EXIT_SUCCESS_);
 }
 
-void builtins_fg() {
+void builtins_fg(Command* cmd) {
     printf("builtins_fg has not been implemented yet!\n");
     exit(0);
 }
-void builtins_jobs() {
-    printf("\builtins_jobs has not been implemented yet!n");
-    exit(0);
+
+void builtins_jobs(Command* cmd) {
+    Job* job;
+    for (int i = 1; i < MAX_JOBS; i++) {
+        if (NULL == (job = all_jobs[i])) {
+            continue;
+        }
+
+        printf("%i: %s\n", i, job->cmd);
+    }
 }
 
 /////////////////////// END BUILT-IN COMMANDS FUNCTIONS ////////////////////////
@@ -385,9 +441,14 @@ void run_cli() {
         char* command = get_command();
         command[strlen(command) - 1] = '\0';
 
-        check_builtin(command);
-
         Job* job = parse_command(command);
+
+        if(check_builtin(job)) {
+            // Release Memory
+            free(command);
+            job_destroy(job);
+            continue;
+        }
 
         // Release memory
         free(command);
@@ -410,6 +471,19 @@ void run_cli() {
 ////////////////////////// END APPLICATION FUNCTIONS ///////////////////////////
 
 int main(int argc, char const *argv[]) {
+    // set up SIGCHLD
+    {
+        struct sigaction chld_handler = { .sa_handler = NULL,
+                                          .sa_flags = SA_RESTART };
+
+        chld_handler.sa_handler = sigchld_handler;
+
+        // ensure the handler is bound properly
+        if (sigaction(SIGCHLD, &chld_handler, NULL) < 0) {
+            _FAILURE_EXIT_("FATAL ERROR: Couldn't bind SIGCHLD!\n");
+        }
+    }
+
     switch (argc - 1) {
         case 0:
             run_cli();
