@@ -41,10 +41,10 @@ static char* _builtins_[_N_BUILTINS_] = {
 #define JOB_START_IDX 1
 
 /* Malloc Check */
-#define _MALLOC_CHECK_(x) if (NULL == x) {printf("malloc failed!\n"); exit(1);}
+#define _MALLOC_CHECK_(x) if (NULL == x) {perror("malloc failed!\n"); exit(1);}
 
 /* Exit on Failure Macro */
-#define _FAILURE_EXIT_(msg) { printf(msg); exit(_EXIT_FAILURE_); }
+#define _FAILURE_EXIT_(msg) { perror(msg); exit(_EXIT_FAILURE_); }
 
 /* Booleans */
 typedef enum {
@@ -82,7 +82,8 @@ typedef struct {
     int n_process;         /* Number of Jobs */
     Process** processes;   /* Job ID */
     bool bg;               /* Flag indicating if this command run in the background */
-    JobState p_state;  /* State of the job */
+    JobState p_state;      /* State of the job */
+    pid_t pgid;            /* Process Group ID */
 } Job;
 
 /* Initializer Functions */

@@ -18,7 +18,7 @@ run: wsh
 	./wsh
 
 pack: wsh.h wsh.c Makefile README.md
-	tar -czf $(LOGIN).tar.gz $<
+	tar -czf $(LOGIN).tar.gz $^
 
 submit: pack
 	cp $(LOGIN).tar.gz $(SUBMITPATH)
