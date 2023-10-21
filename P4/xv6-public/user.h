@@ -1,3 +1,5 @@
+#include "psched.h"
+
 struct stat;
 struct rtcdate;
 
@@ -37,3 +39,6 @@ void* memset(void*, int, uint);
 void* malloc(uint);
 void free(void*);
 int atoi(const char*);
+
+int nice(int);
+int getschedstate(struct pschedinfo *);

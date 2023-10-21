@@ -15,6 +15,7 @@
 #include "sleeplock.h"
 #include "file.h"
 #include "fcntl.h"
+#include "psched.h"
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
@@ -440,5 +441,42 @@ sys_pipe(void)
   }
   fd[0] = fd0;
   fd[1] = fd1;
+  return 0;
+}
+
+int
+sys_nice(void) {
+  const static int min_nice = 0;
+  const static int max_nice = 20;
+  const static int err_retval = -1;
+
+  int nice;
+
+  if (argint(0, &nice) < 0)
+    return err_retval;
+
+  if (nice < min_nice || nice > max_nice)
+    return err_retval;
+
+  struct proc* curr = myproc();
+
+  int ret_val = curr->nice;
+
+  curr->nice = nice;
+
+  return ret_val;
+}
+
+int
+sys_getschedstate(void) {
+  struct pschedinfo* psched;
+
+  if (argptr(0, (char **) &psched, sizeof(struct pschedinfo)) < 0)
+    return -1;
+
+  if (psched <= 0)
+    return -1;
+
+  get_pschedinfo(psched);
   return 0;
 }
