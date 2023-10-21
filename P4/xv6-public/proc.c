@@ -113,6 +113,8 @@ found:
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
 
+  p->priority = 0;
+  p->nice = 0;
   return p;
 }
 
@@ -312,6 +314,27 @@ wait(void)
   }
 }
 
+static inline int decay(int n) { return n >> 1; }
+
+static inline void set_new_priority(struct proc* p) {
+  p->ticks = decay(p->ticks);
+  p->priority = (p->ticks >> 1) + p->nice;
+}
+
+void recalculate_priorities() {
+  struct proc* p;
+
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    // Uncomment to only calculate runnable processes
+    // if(p->state != RUNNABLE)
+    //   continue;
+
+    set_new_priority(p);
+  }
+  release(&ptable.lock);
+}
+
 //PAGEBREAK: 42
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -326,33 +349,74 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
-  
+
+  static struct proc* p_arr[NPROC];
+  int n_p_arr = 0;
+
   for(;;){
-    // Enable interrupts on this processor.
-    sti();
+    // // Enable interrupts on this processor.
+    // sti();
+
+    calculate_priority:
+
+    acquire(&tickslock);
+    if (ticks % 100) { recalculate_priorities(); }
+    release(&tickslock);
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
-        continue;
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
+    // Relies on integer overflow
+    n_p_arr = 0;
+    for (int priority = 0; priority < 0x7fffffff; priority++) {
+      for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+        if (p->priority != priority) continue;
 
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
+        p_arr[n_p_arr++] = p;
+      }
 
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
+      if (n_p_arr > 0) break;
     }
+
     release(&ptable.lock);
 
+    for (;;) {
+      // Enable interrupts on this processor.
+      sti();
+
+      acquire(&ptable.lock);
+      for(int j = 0; j < n_p_arr; j++){
+        p = p_arr[j];
+        if(p->state != RUNNABLE)
+          continue;
+
+        // Switch to chosen process.  It is the process's job
+        // to release ptable.lock and then reacquire it
+        // before jumping back to us.
+        c->proc = p;
+        switchuvm(p);
+        p->state = RUNNING;
+        p->ticks++;
+
+        swtch(&(c->scheduler), p->context);
+        switchkvm();
+
+        acquire(&tickslock);
+        int t = ticks;
+        release(&tickslock);
+
+        if ((t % 100) == 0) {
+          release(&ptable.lock);
+          goto calculate_priority;
+        }
+
+        // Process is done running for now.
+        // It should have changed its p->state before coming back.
+        c->proc = 0;
+      }
+
+      release(&ptable.lock);
+    }
   }
 }
 
