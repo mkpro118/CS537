@@ -343,13 +343,14 @@ scheduler(void)
   struct cpu *c = mycpu();
   c->proc = 0;
 
+  int last_update = -1;
+
   for(;;){
     // Enable interrupts on this processor.
     sti();
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
-    recalc:
     int low = MAX_POSITIVE_INT;
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
       if (p->state == RUNNABLE && p->priority < low)
@@ -358,7 +359,7 @@ scheduler(void)
 
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE || p->priority > low)
-        continue;
+        goto recalc;
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
@@ -371,19 +372,19 @@ scheduler(void)
 
       swtch(&(c->scheduler), p->context);
       switchkvm();
-
-      int t;
-      acquire(&tickslock);
-      t = ticks;
-      release(&tickslock);
-      if (t % 100 == 0) {
-        recalculate_priorities();
-        goto recalc;
-      }
-
       // Process is done running for now.
       // It should have changed its p->state before coming back.
       c->proc = 0;
+
+      recalc:
+      acquire(&tickslock);
+      int t = ticks;
+      release(&tickslock);
+      if (t > last_update && t % 100 == 0) {
+        recalculate_priorities();
+        last_update = t;
+        break;
+      }
     }
     release(&ptable.lock);
 
@@ -495,8 +496,11 @@ wakeup1(void *chan)
   struct proc *p;
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == SLEEPING && p->chan == chan)
-      p->state = RUNNABLE;
+    if(p->state == SLEEPING && p->chan == chan) {
+      if ((--p->sleep_ticks) <= 0) {
+        p->state = RUNNABLE;
+      }
+    }
 }
 
 // Wake up all processes sleeping on chan.
