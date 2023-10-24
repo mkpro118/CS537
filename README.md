@@ -2,7 +2,7 @@
 
 - **Due date**: November 7th, 2023 at 11:59pm.
 - **Handing it in**: 
-  - **Only one person in your group** should copy all of the modified xv6 files to `~cs537-1/handin/<cslogin>/P5/`.  Each partnership should have one submission (the other partner should have an empty handin for P5).
+  - **Only one person in your group** should copy all of the xv6 files to `~cs537-1/handin/<cslogin>/P5/`.  Each partnership should have one submission (the other partner should have an empty handin directory for P5).
 - Late submissions
   - Projects may be turned in up to 3 days late but you will receive a penalty of
 10 percentage points for every day it is turned in late.
