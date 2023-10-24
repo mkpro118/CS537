@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 
 data = np.genfromtxt('data.csv', delimiter=',')
-proc_ticks, global_ticks, pids = data[:, 0], data[:, 2], data[:, 1]
+pids, proc_ticks, global_ticks, = data[:, 0], data[:, 1], data[:, 2]
 
 unique_pids = np.unique(pids)
 
