@@ -12,7 +12,7 @@ fig, ax = plt.subplots(nrows=1, ncols=1)
 for pid in unique_pids:
     idxs = (pids == pid)
 
-    ax.plot(proc_ticks[idxs], global_ticks[idxs], label=f'pid = {pid}')
+    ax.plot(global_ticks[idxs], proc_ticks[idxs], label=f'pid = {pid}')
 
 ax.xlabel('Global Ticks')
 ax.ylabel('Process Ticks')
