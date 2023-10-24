@@ -54,6 +54,7 @@ struct proc {
   int priority;                // Process priority
   int nice;                    // Niceness of the process
   int ticks;                   // Ticks
+  int cpu;                     // CPU Usage
 };
 
 // Process memory is laid out contiguously, low addresses first:
