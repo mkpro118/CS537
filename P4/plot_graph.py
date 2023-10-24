@@ -14,4 +14,10 @@ for pid in unique_pids:
 
     ax.plot(proc_ticks[idxs], global_ticks[idxs], label=f'pid = {pid}')
 
+ax.xlabel('Global Ticks')
+ax.ylabel('Process Ticks')
+
+fig.suptitle('Ticks per process vs Time')
+fig.legend()
+
 plt.show()
