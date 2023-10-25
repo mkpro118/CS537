@@ -192,7 +192,7 @@ You are strongly advised to start small for this project. Make sure you provide 
 
 Following these steps should help you go with the implementation:
 
-1) First of all, make sure you understand how xv6 does memory management. Refer to the [xv6 manual](https://git.doit.wisc.edu/cdis/cs/courses/cs537/private/-/blob/main/book-rev11.pdf). The second chapter called 'page tables' gives a good insight of memory layout in xv6. Furthermore, it references some related source files. Looking at those sources should help you understand how mapping happens. You'll need to use those routines while implementing `mmap`, so you'll appreciate the time you spent on this step later.
+1) First of all, make sure you understand how xv6 does memory management. Refer to the [xv6 manual](https://pdos.csail.mit.edu/6.828/2018/xv6/book-rev11.pdf). The second chapter called 'page tables' gives a good insight of memory layout in xv6. Furthermore, it references some related source files. Looking at those sources should help you understand how mapping happens. You'll need to use those routines while implementing `mmap`, so you'll appreciate the time you spent on this step later.
 2) Try to implement a basic `mmap`. Do not worry about file-backed mapping at the moment, just try MAP_ANONYMOUS | MAP_FIXED | MAP_SHARED. It should just check if that particular region asked by the user is available or not. If it is, you should map the pages at that range.
 3) Implement `munmap`. For now, just remove the mappings.
 4) Modify your `mmap` such that it's able to search for an available region in the process's address space. This should make your `mmap` work without MAP_FIXED.
