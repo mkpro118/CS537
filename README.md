@@ -1,4 +1,4 @@
-[- red NEW INSTRUCTIONS: -]
+[- NEW INSTRUCTIONS: -]
 A page fault handler, identified as trap number 14 in X86, is triggered when the CPU fails to translate a virtual address. In this project, management of the lazy allocation and the MAP_GROWSUP flag relies heavily on the page fault handler. In certain instances, users may access a virtual address that doesn't fall under either the category of a lazy allocation or a guard page (in the case of MAP_GROWSUP). In such scenarios, it is imperative to display an error. The exact error message to be printed should be 'Segmentation Fault\n'. Consequently, the code flow for the page fault handler could be structured as follows:
 
 ```
@@ -15,7 +15,7 @@ if guard_page:
 cprintf("Segmentation Fault\n");
 kill_the_process() 
 ```
-[- red END NEW INSTRUCTIONS -]
+[- END NEW INSTRUCTIONS -]
 
 # Administrivia
 
