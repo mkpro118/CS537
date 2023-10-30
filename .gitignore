@@ -53,3 +53,5 @@ dkms.conf
 
 # git command to subtree from gitlab (https://git.doit.wisc.edu/)
 gitlabcmd.txt
+
+*.csv
