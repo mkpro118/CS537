@@ -442,3 +442,35 @@ sys_pipe(void)
   fd[1] = fd1;
   return 0;
 }
+
+int sys_mmap(void) {
+  // TODO
+  // void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
+
+  void* addr;
+  int length, prot, flags, fd;
+  int offset = 0;
+
+  if (argptr(0, (void*)&addr, sizeof(void*)) < 0
+      || argint(1, &length) < 0 || argint(2, &prot) < 0
+      || argint(3, &flags) < 0 || argint(4, &fd) < 0) {
+    return -1;
+  }
+
+  return 0;
+}
+
+int sys_munmap(void) {
+  // TODO
+  // void*, size_t
+
+  void* addr;
+  int length;
+
+  if (argptr(0, (void*)&addr, sizeof(void*)) < 0
+      || argint(1, &length) < 0) {
+    return -1;
+  }
+
+  return 0;
+}
