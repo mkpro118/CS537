@@ -14,7 +14,7 @@
 #define PROT_WRITE 0x2
 
 /* BASE LIMIT FOR MMAP */
-#define
+#define MMAP_BASE 0x60000000
 
 struct vir_mem {
   int is_valid : 1;
