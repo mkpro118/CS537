@@ -1,4 +1,4 @@
-#ifndef
+#ifndef _XV6_MMAP_
 #define _XV6_MMAP_
 
 /* Define mmap flags */
@@ -16,7 +16,10 @@
 /* BASE LIMIT FOR MMAP */
 #define MMAP_BASE 0x60000000
 
-struct vir_mem {
+/* NUMBER OF MMAPS*/
+#define N_MMAPS 0x20
+
+struct mmap {
   int is_valid : 1;
   int prot: 2;
   int flags: 5;
@@ -24,10 +27,11 @@ struct vir_mem {
   int length;
 
   void* start_ad;
-  void* end_ad;
 
   int fd;
-  struct file* file;
+//  struct file* file;
+
+  int refcount;
 };
 
 #endif
