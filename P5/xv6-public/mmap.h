@@ -26,7 +26,7 @@ struct mmap {
 
   unsigned int length;
 
-  void* start_ad;
+  void* addr;
 
   int fd;
   struct file* file;
