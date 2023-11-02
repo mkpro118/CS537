@@ -20,18 +20,18 @@
 #define N_MMAPS 0x20
 
 struct mmap {
-  int is_valid : 1;
-  int prot: 2;
-  int flags: 5;
+  unsigned int is_valid : 1;
+  unsigned int prot: 2;
+  unsigned int flags: 5;
 
-  int length;
+  unsigned int length;
 
   void* start_ad;
 
   int fd;
-//  struct file* file;
+  struct file* file;
 
-  int refcount;
+  unsigned int refcount;
 };
 
 #endif
