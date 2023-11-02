@@ -2,6 +2,7 @@
 #include "defs.h"
 #include "param.h"
 #include "memlayout.h"
+#include "mmap.h"
 #include "mmu.h"
 #include "x86.h"
 #include "proc.h"
@@ -88,6 +89,7 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  p->parent = 0;
 
   release(&ptable.lock);
 
@@ -111,6 +113,11 @@ found:
   p->context = (struct context*)sp;
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
+
+  struct mmap* mp;
+
+  for (mp = p->mmaps; mp < &p->mmaps[N_MMAPS]; mp++)
+    memset(mp, 0, sizeof(struct mmap));
 
   return p;
 }
