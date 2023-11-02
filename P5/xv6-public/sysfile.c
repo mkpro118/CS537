@@ -460,7 +460,36 @@ int sys_mmap(void) {
     return -1;
   }
 
-  return 0;
+  struct mmap * touse = 0;
+  struct proc *p = myproc(); 
+
+  // find a struct in our arr we can use 
+  for(int i = 0; i < 32; i++){
+      if(!p->mmaps[i].is_valid){
+        touse = &p->mmaps[i];
+        break;
+      }
+  }
+
+  // set fields
+  if(touse != 0){
+      touse->is_valid  = 1;
+      touse->prot = prot;
+      touse->flags = flags;
+      touse->length = length;
+      touse->addr = addr;
+
+      touse->fd = fd;
+      touse->file = p->ofile[fd];
+      touse->refcount = 1;
+
+  }else{
+    // for some reason we didnt find a struct we could use
+    return -1; 
+    
+  }
+
+  return addr;
 }
 
 int sys_munmap(void) {
@@ -469,6 +498,7 @@ int sys_munmap(void) {
 
   void* addr;
   int length;
+  
 
   if (argptr(0, (void*)&addr, sizeof(void*)) < 0
       || argint(1, &length) < 0) {
