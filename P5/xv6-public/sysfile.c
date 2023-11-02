@@ -17,6 +17,8 @@
 #include "file.h"
 #include "fcntl.h"
 
+// define global min var 
+int freeadr = MMAP_BASE;
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
 static int
@@ -460,9 +462,50 @@ int sys_mmap(void) {
     return -1;
   }
 
+  int ret_addr = addr;
+  // check if its in between end and start addr 
   struct mmap * touse = 0;
   struct proc *p = myproc(); 
+  // check if fixed flag is set - if it is then we can use the address we
+  // read in
+  if(flags == MAP_FIXED){
+    // check if process is using addr if its not then give it to them 
+    // CONFUSEDand check if next page size isn't being used
+    for(int i = 0; i < 32; i++){
+      if(p->mmaps[i].addr == addr && p->mmaps[i].is_valid == 1){
+        return -1;
+      }
+    }
 
+    for(int i = 0; i < 32; i++){
+      if(!p->mmaps[i].is_valid){
+        touse = &p->mmaps[i];
+        break;
+      }
+    }
+
+    // set fields
+    if(touse != 0){
+      touse->is_valid  = 1;
+      touse->prot = prot;
+      touse->flags = flags;
+      touse->length = length;
+      touse->addr = freeadr;
+      touse->fd = fd;
+      touse->file = p->ofile[fd];
+      touse->refcount = 1;
+      touse->addr = addr;
+      ret_addr = addr;
+    }else{
+    // for some reason we didnt find a struct we could use
+    return -1; 
+    
+   } 
+
+    // 
+  }else{
+
+  // if it isn't then we get an address ourselves 
   // find a struct in our arr we can use 
   for(int i = 0; i < 32; i++){
       if(!p->mmaps[i].is_valid){
@@ -477,19 +520,24 @@ int sys_mmap(void) {
       touse->prot = prot;
       touse->flags = flags;
       touse->length = length;
-      touse->addr = addr;
-
+      touse->addr = freeadr;
       touse->fd = fd;
       touse->file = p->ofile[fd];
       touse->refcount = 1;
-
+      unsigned int address = addr;
+      unsigned int size = length;
+      freeadr = PGROUNDUP(address + size);
+      touse->addr = freeadr;
+      ret_addr = addr;
   }else{
     // for some reason we didnt find a struct we could use
     return -1; 
     
   }
+  }
 
-  return addr;
+   
+  return ret_addr;
 }
 
 int sys_munmap(void) {
