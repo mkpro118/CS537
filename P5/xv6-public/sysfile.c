@@ -468,11 +468,14 @@ int sys_mmap(void) {
   struct proc *p = myproc(); 
   // check if fixed flag is set - if it is then we can use the address we
   // read in
-  if(flags == MAP_FIXED){
+  if(IS_MMAP_FIXED(MAP_FIXED)){
     // check if process is using addr if its not then give it to them 
     // CONFUSEDand check if next page size isn't being used
+    unsigned int address = addr;
+    unsigned int size = length;
+    int endaddr = PGROUNDUP(address + size);
     for(int i = 0; i < 32; i++){
-      if(p->mmaps[i].addr == addr && p->mmaps[i].is_valid == 1){
+      if((p->mmaps[i].addr >= addr && p->mmaps[i].addr < endaddr ) && p->mmaps[i].is_valid == 1){
         return -1;
       }
     }
@@ -492,7 +495,7 @@ int sys_mmap(void) {
       touse->length = length;
       touse->addr = freeadr;
       touse->fd = fd;
-      touse->file = p->ofile[fd];
+      //touse->file = p->ofile[fd];
       touse->refcount = 1;
       touse->addr = addr;
       ret_addr = addr;
@@ -522,7 +525,7 @@ int sys_mmap(void) {
       touse->length = length;
       touse->addr = freeadr;
       touse->fd = fd;
-      touse->file = p->ofile[fd];
+      // touse->file = p->ofile[fd];
       touse->refcount = 1;
       unsigned int address = addr;
       unsigned int size = length;
@@ -532,7 +535,7 @@ int sys_mmap(void) {
   }else{
     // for some reason we didnt find a struct we could use
     return -1; 
-    
+
   }
   }
 
