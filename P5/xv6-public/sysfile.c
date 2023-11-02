@@ -452,9 +452,11 @@ int sys_mmap(void) {
   int length, prot, flags, fd;
   int offset = 0;
 
+  struct file* f;
+
   if (argptr(0, (void*)&addr, sizeof(void*)) < 0
-      || argint(1, &length) < 0 || argint(2, &prot) < 0
-      || argint(3, &flags) < 0 || argint(4, &fd) < 0) {
+      || argint(1, &length) < 0 || argint(2, &prot)  < 0
+      || argint(3, &flags)  < 0 || argfd(4, &fd, &f) < 0) {
     return -1;
   }
 
