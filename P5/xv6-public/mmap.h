@@ -26,10 +26,10 @@ struct mmap {
 
   unsigned int length;
 
-  void* addr;
+  unsigned int addr;
 
   int fd;
-  struct file* file;
+//  struct file* mfile;
 
   unsigned int refcount;
 };
