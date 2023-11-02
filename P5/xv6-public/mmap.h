@@ -19,6 +19,12 @@
 /* NUMBER OF MMAPS*/
 #define N_MMAPS 0x20
 
+#define IS_MMAP_PRIVATE(flags) (((x) & MAP_PRIVATE) > 0)
+#define IS_MMAP_SHARED(flags) (((x) & MAP_SHARED) > 0)
+#define IS_MMAP_ANON(flags) (((x) & MAP_ANON) > 0)
+#define IS_MMAP_FIXED(flags) (((x) & MAP_FIXED) > 0)
+#define IS_MMAP_GROWSUP(flags) (((x) & MAP_GROWSUP) > 0)
+
 struct mmap {
   unsigned int is_valid : 1;
   unsigned int prot: 2;
