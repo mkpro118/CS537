@@ -122,7 +122,6 @@ trap(struct trapframe *tf)
       }
      }
 
-     not_in_mmap:
      cprintf("Segmentation Fault\n");
 
      mmap_lazy_done:
