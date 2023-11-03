@@ -447,30 +447,29 @@ sys_pipe(void)
   return 0;
 }
 
-void mmap_alloc(void* start, void* end, int flags) {
-  void* newsz = end - (IS_MMAP_GROWSUP(flags) ? PGSIZE: 0);
+int mmap_alloc(void* start, void* end, int flags) {
+  void* adjusted_end = end - (IS_MMAP_GROWSUP(flags) ? PGSIZE: 0);
 
-  for(; a < newsz; a += PGSIZE){
+  void* a = start;
+
+  for(; a < adjusted_end; a += PGSIZE){
     mem = kalloc();
     if(mem == 0){
       cprintf("allocuvm out of memory\n");
-      deallocuvm(pgdir, newsz, oldsz);
-      return 0;
+      deallocuvm(pgdir, adjusted_end, start);
+      return -1;
     }
     memset(mem, 0, PGSIZE);
     if(mappages(pgdir, (char*)a, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
       cprintf("allocuvm out of memory (2)\n");
-      deallocuvm(pgdir, newsz, oldsz);
+      deallocuvm(pgdir, adjusted_end, start);
       kfree(mem);
-      return 0;
+      return -1;
     }
   }
 }
 
 int sys_mmap(void) {
-  // TODO
-  // void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
-
   void* addr;
   int length, prot, flags, fd;
   int offset = 0;
@@ -541,7 +540,7 @@ int sys_mmap(void) {
   if (MMAP_BASE > addr || KERNBASE <= addr) goto mmap_failed;
 
   struct mmap* mp_;
-  for (mp_ = p->mmap; mp_ < &p->mmaps[N_MMAPS]; mp_++) {
+  for (mp_ = p->mmaps; mp_ < &p->mmaps[N_MMAPS]; mp_++) {
     if (mp->is_valid && mp_->start_addr >= addr
           && mp_->start_addr < end) {
       goto mmap_failed;
@@ -550,11 +549,13 @@ int sys_mmap(void) {
   // addr exists
 
   found_addr:
-  if(mmap_alloc(addr, end, flags) < 0) {
+  if(mmap_alloc(mp->pgdir, addr, end, flags) < 0) {
     goto mmap_failed;
   }
 
   MMAP_INIT(mp, prot, flags, start, end, fd, refcount);
+
+  return mp->start_addr;
 
   mmap_failed:
   return (void*) -1;
