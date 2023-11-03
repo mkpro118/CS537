@@ -45,8 +45,8 @@ struct mmap {
 /* MMAP INIT MACRO */
 #define MMAP_INIT(mp, prot, flags, length, start, end, fd, refcount) \
   (mp)->is_valid = 1;\
-  (mp)->prot = (prot);\
-  (mp)->flags = (flags);\
+  (mp)->prot = (prot) & 0b11;\
+  (mp)->flags = (flags) & 0b11111;\
   (mp)->length = (length);\
   (mp)->start_addr = (start);\
   (mp)->end_addr = (end);\
