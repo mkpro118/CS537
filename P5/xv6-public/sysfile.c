@@ -8,6 +8,7 @@
 #include "defs.h"
 #include "param.h"
 #include "stat.h"
+#include "memlayout.h"
 #include "mmap.h"
 #include "mmu.h"
 #include "proc.h"
@@ -446,6 +447,26 @@ sys_pipe(void)
   return 0;
 }
 
+void mmap_alloc(void* start, void* end, int flags) {
+  void* newsz = end - (IS_MMAP_GROWSUP(flags) ? PGSIZE: 0);
+
+  for(; a < newsz; a += PGSIZE){
+    mem = kalloc();
+    if(mem == 0){
+      cprintf("allocuvm out of memory\n");
+      deallocuvm(pgdir, newsz, oldsz);
+      return 0;
+    }
+    memset(mem, 0, PGSIZE);
+    if(mappages(pgdir, (char*)a, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
+      cprintf("allocuvm out of memory (2)\n");
+      deallocuvm(pgdir, newsz, oldsz);
+      kfree(mem);
+      return 0;
+    }
+  }
+}
+
 int sys_mmap(void) {
   // TODO
   // void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset)
@@ -454,93 +475,89 @@ int sys_mmap(void) {
   int length, prot, flags, fd;
   int offset = 0;
 
-  struct file* f;
+  struct file* mf;
 
   if (argptr(0, (void*)&addr, sizeof(void*)) < 0
       || argint(1, &length) < 0 || argint(2, &prot)  < 0
-      || argint(3, &flags)  < 0 || argfd(4, &fd, &f) < 0) {
+      || argint(3, &flags)  < 0 /*|| argfd(4, &fd, &mf) < 0*/) {
     return -1;
   }
 
-  int ret_addr = addr;
-  // check if its in between end and start addr 
-  struct mmap * touse = 0;
-  struct proc *p = myproc(); 
-  // check if fixed flag is set - if it is then we can use the address we
-  // read in
-  if(IS_MMAP_FIXED(MAP_FIXED)){
-    // check if process is using addr if its not then give it to them 
-    // CONFUSEDand check if next page size isn't being used
-    unsigned int address = addr;
-    unsigned int size = length;
-    int endaddr = PGROUNDUP(address + size);
-    for(int i = 0; i < 32; i++){
-      if((p->mmaps[i].addr >= addr && p->mmaps[i].addr < endaddr ) && p->mmaps[i].is_valid == 1){
-        return -1;
+  struct mmap* mp;
+  struct proc* p = myproc();
+
+  for (mp = p->mmap; mp < &p->mmaps[N_MMAPS]; mp++) {
+    if (!mp->is_valid) {
+      goto found_slot;
+    }
+  }
+
+  // No more available mmaps
+  goto mmap_failed;
+
+  found_slot:
+  // If MAP_FIXED is given
+  if (IS_MMAP_FIXED(flags)) goto mmap_fixed;
+
+  // Otherwise, find a spot in memory.
+  addr = MMAP_BASE;
+  void* end = PGROUNDUP(addr + length);
+
+  // If grows up, add another page for guard page
+  if (IS_MMAP_GROWSUP(flags))
+    end += PGSIZE;
+
+  // while we don't exceed KERNBASE
+  while (end < KERNBASE) {
+    struct mmap* mp_;
+
+    // Go over the mmaps to see that if any of them lie in the range
+    // [addr, end)
+    for (mp_ = p->mmap; mp_ < &p->mmaps[N_MMAPS]; mp_++) {
+      if (mp->is_valid && mp_->start_addr >= addr
+            && mp_->start_addr < end) {
+        goto retry;
       }
     }
 
-    for(int i = 0; i < 32; i++){
-      if(!p->mmaps[i].is_valid){
-        touse = &p->mmaps[i];
-        break;
-      }
+    // Found an address, it is `addr`
+    goto found_addr;
+
+    // addr didn't work
+    retry:
+    addr = mp->end_addr;
+    end = PGROUNDUP(addr + length);
+
+    // If grows up, add another page for guard page
+    if (IS_MMAP_GROWSUP(flags))
+     end += PGSIZE;
+  }
+  // Reached KERNBASE, no more memory
+  goto mmap_failed;
+
+  // addr was given, check if it's available
+  mmap_fixed:
+  // Given address must lie in MMAP and KERNBASE
+  if (MMAP_BASE > addr || KERNBASE <= addr) goto mmap_failed;
+
+  struct mmap* mp_;
+  for (mp_ = p->mmap; mp_ < &p->mmaps[N_MMAPS]; mp_++) {
+    if (mp->is_valid && mp_->start_addr >= addr
+          && mp_->start_addr < end) {
+      goto mmap_failed;
     }
+  }
+  // addr exists
 
-    // set fields
-    if(touse != 0){
-      touse->is_valid  = 1;
-      touse->prot = prot;
-      touse->flags = flags;
-      touse->length = length;
-      touse->addr = freeadr;
-      touse->fd = fd;
-      //touse->file = p->ofile[fd];
-      touse->refcount = 1;
-      touse->addr = addr;
-      ret_addr = addr;
-    }else{
-    // for some reason we didnt find a struct we could use
-    return -1; 
-    
-   } 
-
-    // 
-  }else{
-
-  // if it isn't then we get an address ourselves 
-  // find a struct in our arr we can use 
-  for(int i = 0; i < 32; i++){
-      if(!p->mmaps[i].is_valid){
-        touse = &p->mmaps[i];
-        break;
-      }
+  found_addr:
+  if(mmap_alloc(addr, end, flags) < 0) {
+    goto mmap_failed;
   }
 
-  // set fields
-  if(touse != 0){
-      touse->is_valid  = 1;
-      touse->prot = prot;
-      touse->flags = flags;
-      touse->length = length;
-      touse->addr = freeadr;
-      touse->fd = fd;
-      // touse->file = p->ofile[fd];
-      touse->refcount = 1;
-      unsigned int address = addr;
-      unsigned int size = length;
-      freeadr = PGROUNDUP(address + size);
-      touse->addr = freeadr;
-      ret_addr = addr;
-  }else{
-    // for some reason we didnt find a struct we could use
-    return -1; 
+  MMAP_INIT(mp, prot, flags, start, end, fd, refcount);
 
-  }
-  }
-
-   
-  return ret_addr;
+  mmap_failed:
+  return (void*) -1;
 }
 
 int sys_munmap(void) {
