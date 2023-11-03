@@ -557,7 +557,9 @@ int sys_mmap(void) {
     goto mmap_failed;
   }
 
-  MMAP_INIT(mp, prot, flags, length, addr, end, fd, /* refcount = */ 1);
+  int refcount = 1;
+
+  MMAP_INIT(mp, prot, flags, length, addr, end, fd, refcount);
 
   return (int)((void*) (mp->start_addr));
 
