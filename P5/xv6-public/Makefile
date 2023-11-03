@@ -283,4 +283,7 @@ tar:
 	cp dist/* dist/.gdbinit.tmpl /tmp/xv6
 	(cd /tmp; tar cf - xv6) | gzip >xv6-rev10.tar.gz  # the next one will be 10 (9/17)
 
+mk_test: clean
+	/home/mrigank/private/CS537/Partnered/P5/tests/runtests
+
 .PHONY: dist-test dist
