@@ -2,6 +2,7 @@
 #include "defs.h"
 #include "param.h"
 #include "memlayout.h"
+#include "mmap.h"
 #include "mmu.h"
 #include "proc.h"
 #include "x86.h"
@@ -76,6 +77,10 @@ trap(struct trapframe *tf)
     cprintf("cpu%d: spurious interrupt at %x:%x\n",
             cpuid(), tf->cs, tf->eip);
     lapiceoi();
+    break;
+
+  case T_PGFLT:
+    rcr2(); // gets the fault address
     break;
 
   //PAGEBREAK: 13
