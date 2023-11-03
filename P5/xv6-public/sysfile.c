@@ -477,6 +477,7 @@ int sys_mmap(void) {
   uint addr;
   int length, prot, flags, fd;
   fd = 0;
+  uint end = 0;
   // int offset = 0;
 
   // struct file* mf;
@@ -505,7 +506,7 @@ int sys_mmap(void) {
 
   // Otherwise, find a spot in memory.
   addr = MMAP_BASE;
-  uint end = 0;
+  
   end = PGROUNDUP(addr + length);
 
   // If grows up, add another page for guard page
