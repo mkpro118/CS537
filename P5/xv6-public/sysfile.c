@@ -505,7 +505,8 @@ int sys_mmap(void) {
 
   // Otherwise, find a spot in memory.
   addr = MMAP_BASE;
-  uint end = PGROUNDUP(addr + length);
+  uint end = 0;
+  end = PGROUNDUP(addr + length);
 
   // If grows up, add another page for guard page
   if (IS_MMAP_GROWSUP(flags))
