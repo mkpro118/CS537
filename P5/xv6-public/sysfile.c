@@ -482,16 +482,17 @@ int sys_mmap(void) {
 
   // struct file* mf;
 
-  if (argptr(0, (void*)&addr, sizeof(void*)) < 0
-      || argint(1, &length) < 0 || argint(2, &prot)  < 0
-      || argint(3, &flags)  < 0 /*|| argfd(4, &fd, &mf) < 0*/) {
-    return -1;
+  if (argint(1, &length) < 0
+        || argint(2, &prot)  < 0
+        || argint(3, &flags)  < 0) {
+    goto mmap_failed;
   }
 
   struct mmap* mp;
   struct proc* p = myproc();
 
-  for (mp = p->mmaps; mp < &p->mmaps[N_MMAPS]; mp++) {
+  for (int i = 0; i < N_MMAPS; i++) {
+    mp = &(p->mmaps[i]);
     if (!mp->is_valid) {
       goto found_slot;
     }
@@ -515,13 +516,14 @@ int sys_mmap(void) {
 
   // while we don't exceed KERNBASE
   while (end < KERNBASE) {
-    struct mmap* mp_;
+    struct mmap* mp2;
 
     // Go over the mmaps to see that if any of them lie in the range
     // [addr, end)
-    for (mp_ = p->mmaps; mp_ < &p->mmaps[N_MMAPS]; mp_++) {
-      if (mp->is_valid && mp_->start_addr >= addr
-            && mp_->start_addr < end) {
+    for (int i = 0; i < N_MMAPS; i++) {
+      mp2 = &(p->mmaps[i]);
+      if (mp2->is_valid && mp2->start_addr >= addr
+            && mp2->start_addr < end) {
         goto retry;
       }
     }
@@ -531,7 +533,7 @@ int sys_mmap(void) {
 
     // addr didn't work
     retry:
-    addr = mp->end_addr;
+    addr = mp2->end_addr;
     end = PGROUNDUP(addr + length);
 
     // If grows up, add another page for guard page
@@ -544,12 +546,13 @@ int sys_mmap(void) {
   // addr was given, check if it's available
   mmap_fixed:
   // Given address must lie in MMAP and KERNBASE
+  if (argint(0, &addr) < 0) goto mmap_failed;
   if (MMAP_BASE > addr || KERNBASE <= addr) goto mmap_failed;
 
-  struct mmap* mp_;
-  for (mp_ = p->mmaps; mp_ < &p->mmaps[N_MMAPS]; mp_++) {
-    if (mp->is_valid && mp_->start_addr >= addr
-          && mp_->start_addr < end) {
+  struct mmap* mp2;
+  for (mp2 = p->mmaps; mp2 < &p->mmaps[N_MMAPS]; mp2++) {
+    if (mp2->is_valid && mp2->start_addr >= addr
+          && mp2->start_addr < end) {
       goto mmap_failed;
     }
   }
