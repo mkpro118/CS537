@@ -550,7 +550,8 @@ int sys_mmap(void) {
   if (MMAP_BASE > addr || KERNBASE <= addr) goto mmap_failed;
 
   struct mmap* mp2;
-  for (mp2 = p->mmaps; mp2 < &p->mmaps[N_MMAPS]; mp2++) {
+  for (int i = 0; i < N_MMAPS; i++) {
+    mp2 = &(p->mmaps[i]);
     if (mp2->is_valid && mp2->start_addr >= addr
           && mp2->start_addr < end) {
       goto mmap_failed;
@@ -591,7 +592,7 @@ int sys_munmap(void) {
 
   for (int i = 0; i < N_MMAPS; i++) {
     mp = &(p->mmaps[i]);
-    if (mp->start_addr <= addr && mp->end_addr > addr) {
+    if (mp->is_valid & mp->start_addr <= addr && mp->end_addr > addr) {
       mp->is_valid = 0;
       break;
     }

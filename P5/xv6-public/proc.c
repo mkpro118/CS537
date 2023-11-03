@@ -116,8 +116,10 @@ found:
 
   struct mmap* mp;
 
-  for (mp = p->mmaps; mp < &p->mmaps[N_MMAPS]; mp++)
-    memset(mp, 0, sizeof(struct mmap));
+  for (int i = 0; i < N_MMAPS; i++) {
+    mp = &(p->mmaps[i]);
+    mp->is_valid = 0;
+  }
 
   return p;
 }
