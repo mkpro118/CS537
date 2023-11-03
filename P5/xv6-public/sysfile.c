@@ -577,13 +577,24 @@ int sys_munmap(void) {
   // TODO
   // void*, size_t
 
-  void* addr;
+  uint addr;
   int length;
   
 
-  if (argptr(0, (void*)&addr, sizeof(void*)) < 0
-      || argint(1, &length) < 0) {
+  if (argint(0, (int*)) < 0 || argint(1, &length) < 0) {
     return -1;
+  }
+
+  struct mmap* mp;
+
+  struct proc* p = myproc();
+
+  for (int i = 0; i < N_MMAPS; i++) {
+    mp = &(p->mmaps[i]);
+    if (mp->start_addr <= addr && mp->end_addr > addr) {
+      mp->is_valid = 0;
+      break;
+    }
   }
 
   return 0;
