@@ -447,30 +447,34 @@ sys_pipe(void)
   return 0;
 }
 
-int mmap_alloc(void* start, void* end, int flags) {
-  void* adjusted_end = end - (IS_MMAP_GROWSUP(flags) ? PGSIZE: 0);
+int mmap_alloc(pde_t* pgdir, void* start, void* end, int flags) {
+  uint adjusted_end = (uint) (end - (IS_MMAP_GROWSUP(flags) ? PGSIZE: 0));
 
-  void* a = start;
+  uint a = (uint) start;
+  char *mem;
+
 
   for(; a < adjusted_end; a += PGSIZE){
     mem = kalloc();
     if(mem == 0){
       cprintf("allocuvm out of memory\n");
-      deallocuvm(pgdir, adjusted_end, start);
+      deallocuvm(pgdir, adjusted_end, (uint) start);
       return -1;
     }
     memset(mem, 0, PGSIZE);
     if(mappages(pgdir, (char*)a, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
       cprintf("allocuvm out of memory (2)\n");
-      deallocuvm(pgdir, adjusted_end, start);
+      deallocuvm(pgdir, adjusted_end, (uint) start);
       kfree(mem);
       return -1;
     }
   }
+
+  return 0;
 }
 
 int sys_mmap(void) {
-  void* addr;
+  uint addr;
   int length, prot, flags, fd;
   int offset = 0;
 
@@ -500,7 +504,7 @@ int sys_mmap(void) {
 
   // Otherwise, find a spot in memory.
   addr = MMAP_BASE;
-  void* end = PGROUNDUP(addr + length);
+  uint end = PGROUNDUP(addr + length);
 
   // If grows up, add another page for guard page
   if (IS_MMAP_GROWSUP(flags))
@@ -512,7 +516,7 @@ int sys_mmap(void) {
 
     // Go over the mmaps to see that if any of them lie in the range
     // [addr, end)
-    for (mp_ = p->mmap; mp_ < &p->mmaps[N_MMAPS]; mp_++) {
+    for (mp_ = p->mmaps; mp_ < &p->mmaps[N_MMAPS]; mp_++) {
       if (mp->is_valid && mp_->start_addr >= addr
             && mp_->start_addr < end) {
         goto retry;
@@ -549,16 +553,16 @@ int sys_mmap(void) {
   // addr exists
 
   found_addr:
-  if(mmap_alloc(mp->pgdir, addr, end, flags) < 0) {
+  if(mmap_alloc(p->pgdir, addr, end, flags) < 0) {
     goto mmap_failed;
   }
 
-  MMAP_INIT(mp, prot, flags, start, end, fd, refcount);
+  MMAP_INIT(mp, prot, flags, length, start, end, fd, refcount);
 
-  return mp->start_addr;
+  return (int)((void*) (mp->start_addr));
 
   mmap_failed:
-  return (void*) -1;
+  return (int)((void*) -1);
 }
 
 int sys_munmap(void) {

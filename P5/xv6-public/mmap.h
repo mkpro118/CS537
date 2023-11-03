@@ -27,19 +27,19 @@
 #define IS_MMAP_GROWSUP(flags) (((flags) & MAP_GROWSUP) > 0)
 
 struct mmap {
-  unsigned int is_valid : 1;
-  unsigned int prot : 2;
-  unsigned int flags : 5;
+  uint is_valid : 1;
+  uint prot : 2;
+  uint flags : 5;
 
-  unsigned int length;
+  uint length;
 
-  void* start_addr;
-  void* end_addr;
+  uint start_addr;
+  uint end_addr;
 
   int fd;
 //  struct file* mfile;
 
-  unsigned int refcount;
+  uint refcount;
 };
 
 /* MMAP INIT MACRO */
