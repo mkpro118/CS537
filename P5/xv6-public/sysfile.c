@@ -534,9 +534,9 @@ int sys_mmap(void) {
   // addr exists
 
   found_addr:
-  if(mmap_alloc(p->pgdir, addr, end, flags) < 0) {
-    goto mmap_failed;
-  }
+  // if(mmap_alloc(p->pgdir, addr, end, flags) < 0) {
+  //   goto mmap_failed;
+  // }
 
   int refcount = 1;
 
