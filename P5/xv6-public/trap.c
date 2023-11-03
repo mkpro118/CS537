@@ -33,6 +33,32 @@ idtinit(void)
   lidt(idt, sizeof(idt));
 }
 
+int mmap_alloc(pde_t* pgdir, struct mmap* mp) {
+  uint adjusted_end = (uint) (mp->end_addr - (IS_MMAP_GROWSUP(mp->flags) ? PGSIZE: 0));
+
+  uint a = (uint) mp->start_addr;
+  char *mem;
+
+
+  for(; a < adjusted_end; a += PGSIZE){
+    mem = kalloc();
+    if(mem == 0){
+      cprintf("allocuvm out of memory\n");
+      deallocuvm(pgdir, adjusted_end, (uint) start);
+      return -1;
+    }
+    memset(mem, 0, PGSIZE);
+    if(mappages(pgdir, (char*)a, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
+      cprintf("allocuvm out of memory (2)\n");
+      deallocuvm(pgdir, adjusted_end, (uint) start);
+      kfree(mem);
+      return -1;
+    }
+  }
+
+  return 0;
+}
+
 //PAGEBREAK: 41
 void
 trap(struct trapframe *tf)
@@ -80,7 +106,26 @@ trap(struct trapframe *tf)
     break;
 
    case T_PGFLT:
-     rcr2(); // gets the fault address
+     uint fault = rcr2(); // gets the fault address
+
+     struct proc* p = myproc();
+     struct mmap* mp;
+
+     for (int i = 0; i < N_MMAPS; i++) {
+      mp = &(p->mmaps[i]);
+      if (fault >= mp->start_addr && fault < mp->end_addr) {
+        if (mmap_alloc(p->pgdir, mp) < 0) {
+          cprintf("FAILED MMAP ALLOC!");
+        }
+
+        goto mmap_lazy_done;
+      }
+     }
+
+     not_in_mmap:
+     cprintf("Segmentation Fault\n");
+
+     mmap_lazy_done:
      break;
 
   //PAGEBREAK: 13

@@ -447,32 +447,6 @@ sys_pipe(void)
   return 0;
 }
 
-int mmap_alloc(pde_t* pgdir, uint start, uint end, int flags) {
-  uint adjusted_end = (uint) (end - (IS_MMAP_GROWSUP(flags) ? PGSIZE: 0));
-
-  uint a = (uint) start;
-  char *mem;
-
-
-  for(; a < adjusted_end; a += PGSIZE){
-    mem = kalloc();
-    if(mem == 0){
-      cprintf("allocuvm out of memory\n");
-      deallocuvm(pgdir, adjusted_end, (uint) start);
-      return -1;
-    }
-    memset(mem, 0, PGSIZE);
-    if(mappages(pgdir, (char*)a, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
-      cprintf("allocuvm out of memory (2)\n");
-      deallocuvm(pgdir, adjusted_end, (uint) start);
-      kfree(mem);
-      return -1;
-    }
-  }
-
-  return 0;
-}
-
 int sys_mmap(void) {
   uint addr;
   int length, prot, flags, fd;
