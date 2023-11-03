@@ -476,6 +476,7 @@ int mmap_alloc(pde_t* pgdir, uint start, uint end, int flags) {
 int sys_mmap(void) {
   uint addr;
   int length, prot, flags, fd;
+  fd = 0;
   // int offset = 0;
 
   // struct file* mf;
