@@ -27,12 +27,13 @@
 
 struct mmap {
   unsigned int is_valid : 1;
-  unsigned int prot: 2;
-  unsigned int flags: 5;
+  unsigned int prot : 2;
+  unsigned int flags : 5;
 
   unsigned int length;
 
-  unsigned int addr;
+  void* start_addr;
+  void* end_addr;
 
   int fd;
 //  struct file* mfile;
