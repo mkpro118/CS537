@@ -592,7 +592,7 @@ int sys_munmap(void) {
 
   for (int i = 0; i < N_MMAPS; i++) {
     mp = &(p->mmaps[i]);
-    if (mp->is_valid & mp->start_addr <= addr && mp->end_addr > addr) {
+    if (mp->is_valid && mp->start_addr <= addr && mp->end_addr > addr) {
       mp->is_valid = 0;
       break;
     }
