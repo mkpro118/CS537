@@ -447,7 +447,7 @@ sys_pipe(void)
   return 0;
 }
 
-int mmap_alloc(pde_t* pgdir, void* start, void* end, int flags) {
+int mmap_alloc(pde_t* pgdir, uint start, uint end, int flags) {
   uint adjusted_end = (uint) (end - (IS_MMAP_GROWSUP(flags) ? PGSIZE: 0));
 
   uint a = (uint) start;
@@ -476,9 +476,9 @@ int mmap_alloc(pde_t* pgdir, void* start, void* end, int flags) {
 int sys_mmap(void) {
   uint addr;
   int length, prot, flags, fd;
-  int offset = 0;
+  // int offset = 0;
 
-  struct file* mf;
+  // struct file* mf;
 
   if (argptr(0, (void*)&addr, sizeof(void*)) < 0
       || argint(1, &length) < 0 || argint(2, &prot)  < 0
@@ -489,7 +489,7 @@ int sys_mmap(void) {
   struct mmap* mp;
   struct proc* p = myproc();
 
-  for (mp = p->mmap; mp < &p->mmaps[N_MMAPS]; mp++) {
+  for (mp = p->mmaps; mp < &p->mmaps[N_MMAPS]; mp++) {
     if (!mp->is_valid) {
       goto found_slot;
     }
@@ -557,7 +557,7 @@ int sys_mmap(void) {
     goto mmap_failed;
   }
 
-  MMAP_INIT(mp, prot, flags, length, start, end, fd, refcount);
+  MMAP_INIT(mp, prot, flags, length, addr, end, fd, /* refcount = */ 1);
 
   return (int)((void*) (mp->start_addr));
 
