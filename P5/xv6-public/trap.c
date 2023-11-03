@@ -44,13 +44,13 @@ int mmap_alloc(pde_t* pgdir, struct mmap* mp) {
     mem = kalloc();
     if(mem == 0){
       cprintf("allocuvm out of memory\n");
-      deallocuvm(pgdir, adjusted_end, (uint) start);
+      deallocuvm(pgdir, adjusted_end, (uint) mp->start_addr);
       return -1;
     }
     memset(mem, 0, PGSIZE);
     if(mappages(pgdir, (char*)a, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
       cprintf("allocuvm out of memory (2)\n");
-      deallocuvm(pgdir, adjusted_end, (uint) start);
+      deallocuvm(pgdir, adjusted_end, (uint) mp->start_addr);
       kfree(mem);
       return -1;
     }
