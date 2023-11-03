@@ -79,9 +79,9 @@ trap(struct trapframe *tf)
     lapiceoi();
     break;
 
-  case T_PGFLT:
-    rcr2(); // gets the fault address
-    break;
+  // case T_PGFLT:
+  //   rcr2(); // gets the fault address
+  //   break;
 
   //PAGEBREAK: 13
   default:
