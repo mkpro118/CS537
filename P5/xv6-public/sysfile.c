@@ -546,7 +546,7 @@ int sys_mmap(void) {
   // addr was given, check if it's available
   mmap_fixed:
   // Given address must lie in MMAP and KERNBASE
-  if (argint(0, &addr) < 0) goto mmap_failed;
+  if (argint(0, (int*) &addr) < 0) goto mmap_failed;
   if (MMAP_BASE > addr || KERNBASE <= addr) goto mmap_failed;
 
   struct mmap* mp2;
@@ -581,7 +581,7 @@ int sys_munmap(void) {
   int length;
   
 
-  if (argint(0, (int*)) < 0 || argint(1, &length) < 0) {
+  if (argint(0, (int*) &addr) < 0 || argint(1, &length) < 0) {
     return -1;
   }
 
