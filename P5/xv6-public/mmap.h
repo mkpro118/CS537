@@ -19,6 +19,7 @@
 /* NUMBER OF MMAPS*/
 #define N_MMAPS 0x20
 
+/* Macros to check flags */
 #define IS_MMAP_PRIVATE(flags) (((flags) & MAP_PRIVATE) > 0)
 #define IS_MMAP_SHARED(flags) (((flags) & MAP_SHARED) > 0)
 #define IS_MMAP_ANON(flags) (((flags) & MAP_ANON) > 0)
@@ -40,5 +41,17 @@ struct mmap {
 
   unsigned int refcount;
 };
+
+/* MMAP INIT MACRO */
+#define MMAP_INIT(mp, prot, flags, start, end, fd, refcount) \
+  (mp)->is_valid = 1;\
+  (mp)->prot = (prot);\
+  (mp)->flags = (flags);\
+  (mp)->length = (length);\
+  (mp)->start_addr = (start);\
+  (mp)->end_addr = (end);\
+  (mp)->fd = (fd);\
+  (mp)->refcount = (refcount);
+
 
 #endif
