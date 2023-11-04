@@ -590,6 +590,7 @@ int sys_munmap(void) {
   if ((f = p->ofile[mp->fd]) == 0)
     goto failure;
 
+  // Explicitly set offset to 0
   f->off = 0;
 
   if(filewrite(f, (char*) mp->start_addr, mp->length) != mp->length)
