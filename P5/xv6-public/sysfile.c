@@ -577,7 +577,7 @@ int sys_munmap(void) {
   for (int i = 0; i < N_MMAPS; i++) {
     mp = &(p->mmaps[i]);
     if (mp->is_valid && mp->start_addr <= addr && mp->end_addr > addr) {
-      
+      if (!(IS_MMAP_ANON(mp->flags))) {
       struct proc * p = myproc();
       int fd = mp->fd; 
       struct file * myfile = p->ofile[fd];
@@ -585,6 +585,7 @@ int sys_munmap(void) {
       char * charstart = (char *) start_addr; 
       int length = mp->length; 
       filewrite(myfile, charstart, length);
+      }
       mp->is_valid = 0;
       break;
     }
