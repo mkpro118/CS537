@@ -37,8 +37,6 @@ struct mmap {
   uint end_addr;
 
   int fd;
-//  struct file* mfile;
-
   uint refcount;
 };
 
