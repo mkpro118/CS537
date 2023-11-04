@@ -582,24 +582,18 @@ int sys_munmap(void) {
   goto failure;
 
   found_mmap:
-  if (IS_MMAP_ANON(mp->flags)) {
+  if (IS_MMAP_ANON(mp->flags))
     goto free_mmap;
-  }
 
   struct file* f;
 
-  if ((f = p->ofile[mp->fd]) == 0) {
+  if ((f = p->ofile[mp->fd]) == 0)
     goto failure;
-  }
 
-  char* mem = (char *) mp->start_addr;
+  f->off = 0;
 
-  cprintf("%s\n", mem);
-  PRINT_MMAP(mp)
-
-  if(filewrite(f, mem, mp->length) < 0){
+  if(filewrite(f, (char*) mp->start_addr, mp->length) != mp->length)
     return -1;
-  }
 
   free_mmap:
   addr = PGROUNDDOWN(addr);
@@ -608,18 +602,15 @@ int sys_munmap(void) {
   pte_t* pt_entry;
 
   for(; addr < end; addr += PGSIZE) {
-    if ((pt_entry = walkpgdir(p->pgdir, (void*) addr, 0)) == 0) {
-      goto failure;
-    }
+    if ((pt_entry = walkpgdir(p->pgdir, (char*) addr, 0)) == 0)
+      continue;
 
-    uint phys_addr = PTE_ADDR(*pt_entry);
-    char* to_free = P2V(phys_addr);
+    kfree(P2V(PTE_ADDR(*pt_entry)));
 
-    kfree(to_free);
     *pt_entry = 0;
   }
 
-  mp->is_valid = 0;
+  memset(mp, 0, sizeof(struct mmap));
   // success:
   return 0;
 
