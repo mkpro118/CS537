@@ -113,7 +113,7 @@ trap(struct trapframe *tf)
 
      for (int i = 0; i < N_MMAPS; i++) {
       mp = &(p->mmaps[i]);
-      if (fault >= mp->start_addr && fault < mp->end_addr) {
+      if (mp->is_valid && fault >= mp->start_addr && fault < mp->end_addr) {
         if (mmap_alloc(p->pgdir, mp) < 0) {
           cprintf("FAILED MMAP ALLOC!");
         }
