@@ -462,8 +462,6 @@ int sys_mmap(void) {
     goto mmap_failed;
   }
 
-  end = PGROUNDUP(addr + length);
-
   struct mmap* mp;
   struct proc* p = myproc();
 
