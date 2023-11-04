@@ -113,6 +113,7 @@ trap(struct trapframe *tf)
 
      for (int i = 0; i < N_MMAPS; i++) {
       mp = &(p->mmaps[i]);
+      PRINT_MMAP(mp)
       if (mp->is_valid && fault >= mp->start_addr && fault < mp->end_addr) {
         if (mmap_alloc(p->pgdir, mp) < 0) {
           cprintf("FAILED MMAP ALLOC!");
@@ -122,7 +123,7 @@ trap(struct trapframe *tf)
       }
      }
 
-     cprintf("Segmentation Fault\n");
+     cprintf("Segmentation Fault at address %x\n", (void*) fault);
 
      mmap_lazy_done:
      break;

@@ -54,4 +54,15 @@ struct mmap {
   (mp)->refcount = (refcount);
 
 
+#define PRINT_MMAP(mp) {\
+  cprintf("mp->is_valid:   %d\n", mp->is_valid); \
+  cprintf("mp->prot:       %d\n", mp->prot); \
+  cprintf("mp->flags:      %d\n", mp->flags); \
+  cprintf("mp->length:     %d\n", mp->length); \
+  cprintf("mp->start_addr: %x\n", mp->start_addr); \
+  cprintf("mp->end_addr:   %x\n", mp->end_addr); \
+  cprintf("mp->fd:         %d\n", mp->fd); \
+  cprintf("mp->refcount:   %d\n", mp->refcount); \
+};
+
 #endif
