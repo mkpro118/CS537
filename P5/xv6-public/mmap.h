@@ -36,8 +36,8 @@ struct mmap {
   uint start_addr;
   uint end_addr;
 
-  int fd;
-  uint refcount;
+  int fd: 8;
+  uint refcount: 8;
 };
 
 /* MMAP INIT MACRO */
