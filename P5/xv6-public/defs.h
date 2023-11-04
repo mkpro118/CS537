@@ -1,3 +1,5 @@
+#include "mmu.h"
+
 struct buf;
 struct context;
 struct file;
