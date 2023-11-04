@@ -1,5 +1,6 @@
 #include "types.h"
 #include "defs.h"
+#include "file.h"
 #include "param.h"
 #include "memlayout.h"
 #include "mmap.h"
@@ -136,7 +137,7 @@ trap(struct trapframe *tf)
       if (mp->is_valid && fault >= mp->start_addr && fault < mp->end_addr) {
         // TODO
         if (IS_MMAP_GROWSUP(mp->flags)) {
-          
+
         }
         if (mmap_alloc(p->pgdir, mp) < 0) {
           cprintf("FAILED MMAP ALLOC!\n");
