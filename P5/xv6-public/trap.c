@@ -35,6 +35,7 @@ idtinit(void)
 
 int alloc_mem(pde_t* pgdir, uint start, uint end) {
   char *mem;
+  int i = 0;
   for(uint a = start; a < end; a += PGSIZE){
     mem = kalloc();
     if(mem == 0){
@@ -49,6 +50,7 @@ int alloc_mem(pde_t* pgdir, uint start, uint end) {
       kfree(mem);
       return -1;
     }
+    cprintf("Allocated %d pages\n", i++);
   }
   return 0;
 }
@@ -124,7 +126,7 @@ trap(struct trapframe *tf)
 
   case T_PGFLT:
     uint fault = rcr2(); // gets the fault address
-
+    cprintf("Faulting addr: %x\n", fault);
     struct proc* p = myproc();
     struct mmap* mp;
 
@@ -132,20 +134,23 @@ trap(struct trapframe *tf)
       mp = &(p->mmaps[i]);
       if (mp->is_valid && fault >= mp->start_addr && fault < mp->end_addr) {
         if (walkpgdir(p->pgdir, (void*) mp->start_addr, 0) == 0) {
+          cprintf("GOTO MMAP_LAZY_ALLOC 1\n");
           goto mmap_lazy_alloc;
         }
 
         if (!IS_MMAP_GROWSUP(mp->flags)) {
+          cprintf("BREAK 1\n");
           break;
         }
-
+        cprintf("GOTO ALLOC_GUARD 1\n");
         goto alloc_guard;
 
         mmap_lazy_alloc:
         if (mmap_alloc(p->pgdir, mp) < 0) {
           cprintf("FAILED MMAP ALLOC!\n");
         }
-
+    
+		cprintf("GOTO MMAP_LAZY_DONE 2\n");
         goto mmap_lazy_done;
       }
     }
@@ -156,12 +161,15 @@ trap(struct trapframe *tf)
     if (!(IS_MMAP_ANON(mp->flags))) {
       mmap_read(mp);
     }
+    cprintf("GOTO DONE_MMAP_ALLOC 1\n");
+    PRINT_MMAP(mp);
     goto done_mmap_alloc;
 
     alloc_guard:
-
+    cprintf("IN ALLOC GUARD\n");
     if (!(fault >= mp->end_addr - PGSIZE)) {
-      cprintf("Segmentation Fault at address %x\n", (void*) fault);
+      PRINT_MMAP(mp)
+      cprintf("Segmentation Fault 2 at address %x. %x\n", (void*) fault, (void*) mp->end_addr - PGSIZE);
       goto done_mmap_alloc;
     }
 
@@ -169,6 +177,7 @@ trap(struct trapframe *tf)
     for (int i = 0; i < N_MMAPS; i++) {
       mp2 = &(p->mmaps[i]);
       if (mp2->is_valid && mp2->start_addr == mp->end_addr) {
+        cprintf("GOTO DONE_MMAP_ALLOC 2\n");
         goto done_mmap_alloc;
       }
     }
