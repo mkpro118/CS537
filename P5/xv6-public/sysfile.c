@@ -582,7 +582,10 @@ int sys_munmap(void) {
         int fd = mp->fd; 
         struct file * myfile = p->ofile[fd];
         uint start_addr = mp->start_addr;
-        char * charstart = (char *) start_addr; 
+        char * charstart = (char *) start_addr;
+
+        cprintf("%s\n", charstart);
+
         int length = mp->length; 
         if((filewrite(myfile, charstart, length) ) < 0){
             return -1;
