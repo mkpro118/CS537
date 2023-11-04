@@ -59,6 +59,25 @@ int mmap_alloc(pde_t* pgdir, struct mmap* mp) {
   return 0;
 }
 
+int mmap_read(struct mmap* mp) {
+  uint start_addr = mp->start_addr;
+  uint end_addr = mp->end_addr;
+
+  if (IS_MMAP_GROWSUP(mp->flags)) {
+    end_addr -= PGSIZE;
+  }
+  ////////////////////SAANVI WRITE YOUR CODE HERE///////////
+
+
+
+  ////////////////////SAANVI STOP WRITING YOUR CODE HERE///////////
+  success:
+  return 0;
+
+  fail:
+  return -1;
+}
+
 //PAGEBREAK: 41
 void
 trap(struct trapframe *tf)
@@ -105,28 +124,32 @@ trap(struct trapframe *tf)
     lapiceoi();
     break;
 
-   case T_PGFLT:
-     uint fault = rcr2(); // gets the fault address
+  case T_PGFLT:
+    uint fault = rcr2(); // gets the fault address
 
-     struct proc* p = myproc();
-     struct mmap* mp;
+    struct proc* p = myproc();
+    struct mmap* mp;
 
-     for (int i = 0; i < N_MMAPS; i++) {
+    for (int i = 0; i < N_MMAPS; i++) {
       mp = &(p->mmaps[i]);
-      PRINT_MMAP(mp)
       if (mp->is_valid && fault >= mp->start_addr && fault < mp->end_addr) {
+        // TODO
+        // if (IS_MMAP_GROWSUP())
         if (mmap_alloc(p->pgdir, mp) < 0) {
           cprintf("FAILED MMAP ALLOC!");
         }
 
         goto mmap_lazy_done;
       }
-     }
+    }
 
-     cprintf("Segmentation Fault at address %x\n", (void*) fault);
+    cprintf("Segmentation Fault at address %x\n", (void*) fault);
 
-     mmap_lazy_done:
-     break;
+    mmap_lazy_done:
+    if (!(IS_MMAP_ANON(mp->flags))) {
+      mmap_read(mp);
+    }
+    break;
 
   //PAGEBREAK: 13
   default:
