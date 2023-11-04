@@ -584,7 +584,9 @@ int sys_munmap(void) {
         uint start_addr = mp->start_addr;
         char * charstart = (char *) start_addr; 
         int length = mp->length; 
-        filewrite(myfile, charstart, length);
+        if((filewrite(myfile, charstart, length) ) < 0){
+            return -1;
+        }
       }
       mp->is_valid = 0;
       break;
