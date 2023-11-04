@@ -71,14 +71,14 @@ int mmap_read(struct mmap* mp) {
   }
   ////////////////////SAANVI WRITE YOUR CODE HERE///////////
   char * charstart = (char *) start_addr; 
-  char * charend = (char *) end_addr; 
+  //char * charend = (char *) end_addr; 
   struct file * myfile = p->ofile[fd];
 
-  if( fileread(myfile, start_addr, length) < 0) {
+  if( fileread(myfile, charstart, length) < 0) {
     goto fail;
   }
   ////////////////////SAANVI STOP WRITING YOUR CODE HERE///////////
-  success:
+  //success:
   return 0;
 
   fail:
