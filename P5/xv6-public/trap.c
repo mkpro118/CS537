@@ -50,6 +50,7 @@ int alloc_mem(pde_t* pgdir, uint start, uint end) {
       return -1;
     }
   }
+  return 0;
 }
 
 int mmap_alloc(pde_t* pgdir, struct mmap* mp) {
@@ -173,7 +174,12 @@ trap(struct trapframe *tf)
     }
 
     // No mmap already has that, so allocate.
-    alloc_mem(p->pgdir, PGROUNDDOWN(fault), PGROUNDUP(fault));
+    if (alloc_mem(p->pgdir, PGROUNDDOWN(fault), PGROUNDUP(fault)) < 0) {
+      cprintf("FAILED MMAP GUARD ALLOC!\n");
+      goto done_mmap_alloc;
+    }
+
+    // GUARD was allocated properly, set new guard
     mp->length += PGSIZE;
     mp->end_addr += PGSIZE;
 
