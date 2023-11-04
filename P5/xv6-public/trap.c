@@ -61,15 +61,15 @@ int mmap_alloc(pde_t* pgdir, struct mmap* mp) {
 
 int mmap_read(struct mmap* mp) {
   struct proc * p = myproc();
-  struct file* f;
+  // struct file* f;
 
-  if ((f = p->ofile[mp->fd]) == 0)
+  if (p->ofile[mp->fd] == 0)
     goto failure;
 
   // Explicitly set offset to 0
-  f->off = 0;
+  p->ofile[mp->fd]->off = 0;
 
-  if(fileread(f, (char*) mp->start_addr, mp->length) < 0)
+  if(fileread(p->ofile[mp->fd], (char*) mp->start_addr, mp->length) < 0)
     goto fail;
 
   //success:
@@ -135,7 +135,9 @@ trap(struct trapframe *tf)
       mp = &(p->mmaps[i]);
       if (mp->is_valid && fault >= mp->start_addr && fault < mp->end_addr) {
         // TODO
-        // if (IS_MMAP_GROWSUP())
+        if (IS_MMAP_GROWSUP(mp->flags)) {
+          
+        }
         if (mmap_alloc(p->pgdir, mp) < 0) {
           cprintf("FAILED MMAP ALLOC!\n");
         }
