@@ -286,4 +286,16 @@ tar:
 mk_test: clean
 	/home/mrigank/private/CS537/Partnered/P5/tests/runtests
 
+mk_test_c: clean
+	/home/mrigank/private/CS537/Partnered/P5/tests/runtests -c
+
+mk_test_q: clean
+	/home/mrigank/private/CS537/Partnered/P5/tests/runtests -q
+
+mk_test_l: clean
+	/home/mrigank/private/CS537/Partnered/P5/tests/runtests -l
+
+mk_test_b: clean
+	/home/mrigank/private/CS537/Partnered/P5/tests/runtests -b
+
 .PHONY: dist-test dist
