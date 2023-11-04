@@ -33,19 +33,19 @@ idtinit(void)
   lidt(idt, sizeof(idt));
 }
 
-int alloc_mem(uint start, uint end) {
+int alloc_mem(pde_t* pgdir,, uint start, uint end) {
   char *mem;
   for(uint a = start; a < end; a += PGSIZE){
     mem = kalloc();
     if(mem == 0){
       cprintf("allocuvm out of memory\n");
-      deallocuvm(pgdir, adjusted_end, start);
+      deallocuvm(pgdir, end, start);
       return -1;
     }
     memset(mem, 0, PGSIZE);
     if(mappages(pgdir, (char*) a, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
       cprintf("allocuvm out of memory (2)\n");
-      deallocuvm(pgdir, adjusted_end, (uint) mp->start_addr);
+      deallocuvm(pgdir, end, (uint) start);
       kfree(mem);
       return -1;
     }
@@ -55,7 +55,7 @@ int alloc_mem(uint start, uint end) {
 int mmap_alloc(pde_t* pgdir, struct mmap* mp) {
   uint adjusted_end = (uint) (mp->end_addr - (IS_MMAP_GROWSUP(mp->flags) ? PGSIZE: 0));
 
-  return alloc_mem((uint) mp->start_addr, adjusted_end);
+  return alloc_mem(pgdir, (uint) mp->start_addr, adjusted_end);
 }
 
 int mmap_read(struct mmap* mp) {
@@ -130,7 +130,7 @@ trap(struct trapframe *tf)
     for (int i = 0; i < N_MMAPS; i++) {
       mp = &(p->mmaps[i]);
       if (mp->is_valid && fault >= mp->start_addr && fault < mp->end_addr) {
-        if (walkpgdir(p->pgdir, mp->start_addr, 0) == 0) {
+        if (walkpgdir(p->pgdir, (void*) mp->start_addr, 0) == 0) {
           goto mmap_lazy_alloc;
         }
 
@@ -173,7 +173,7 @@ trap(struct trapframe *tf)
     }
 
     // No mmap already has that, so allocate.
-    alloc_mem(PGROUNDDOWN(fault), PGRROUNDUP(fault));
+    alloc_mem(p->pgdir, PGROUNDDOWN(fault), PGROUNDUP(fault));
     mp->length += PGSIZE;
     mp->end_addr += PGSIZE;
 
