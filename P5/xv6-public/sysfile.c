@@ -559,9 +559,6 @@ int sys_mmap(void) {
 }
 
 int sys_munmap(void) {
-  // TODO
-  // void*, size_t
-
   uint addr;
   int length;
   
@@ -577,24 +574,57 @@ int sys_munmap(void) {
   for (int i = 0; i < N_MMAPS; i++) {
     mp = &(p->mmaps[i]);
     if (mp->is_valid && mp->start_addr <= addr && mp->end_addr > addr) {
-      if (!(IS_MMAP_ANON(mp->flags))) {
-        struct proc * p = myproc();
-        int fd = mp->fd; 
-        struct file * myfile = p->ofile[fd];
-        uint start_addr = mp->start_addr;
-        char * charstart = (char *) start_addr;
-
-        cprintf("%s\n", charstart);
-
-        int length = mp->length; 
-        if((filewrite(myfile, charstart, length) ) < 0){
-            return -1;
-        }
-      }
-      mp->is_valid = 0;
-      break;
+      goto found_mmap;
     }
   }
 
+  // No mmap found at addr, failure
+  goto failure;
+
+  found_mmap:
+  if (IS_MMAP_ANON(mp->flags)) {
+    goto free_mmap;
+  }
+
+  struct proc* p = myproc();
+
+  struct file* f;
+
+  if ((f = p->ofile[mp->fd]) == 0) {
+    goto failure;
+  }
+
+  char* mem = (char *) mp->start_addr;
+
+  cprintf("%s\n", mem);
+  PRINT_MMAP(mp)
+
+  if(filewrite(f, mem, mp->length) < 0){
+    return -1;
+  }
+
+  free_mmap:
+  addr = PGROUNDDOWN(addr);
+  end = PGROUNDUP(addr + length);
+
+  pte_t* pt_entry;
+
+  for(; addr < end; addr += PGSIZE) {
+    if ((pt_entry = walkpgdir(p->pgdir, addr, 0)) == 0) {
+      goto failure;
+    }
+
+    uint phys_addr = PTE_ADDR(*pt_entry);
+    char* to_free = P2V(phys_addr);
+
+    kfree(to_free);
+    *pt_entry = 0;
+  }
+
+  mp->is_valid = 0;
+  // success:
   return 0;
+
+  failure:
+  return -1;
 }
