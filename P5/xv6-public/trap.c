@@ -1,6 +1,5 @@
 #include "types.h"
 #include "defs.h"
-#include "file.h"
 #include "param.h"
 #include "memlayout.h"
 #include "mmap.h"
@@ -62,15 +61,15 @@ int mmap_alloc(pde_t* pgdir, struct mmap* mp) {
 
 int mmap_read(struct mmap* mp) {
   struct proc * p = myproc();
-  // struct file* f;
+  struct file* f;
 
-  if (p->ofile[mp->fd] == 0)
+  if ((f = p->ofile[mp->fd]) == 0)
     goto failure;
 
   // Explicitly set offset to 0
-  p->ofile[mp->fd]->off = 0;
+  f->off = 0;
 
-  if(fileread(p->ofile[mp->fd], (char*) mp->start_addr, mp->length) < 0)
+  if(fileread(f, (char*) mp->start_addr, mp->length) < 0)
     goto fail;
 
   //success:
