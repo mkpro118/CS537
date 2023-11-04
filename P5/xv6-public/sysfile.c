@@ -586,8 +586,6 @@ int sys_munmap(void) {
     goto free_mmap;
   }
 
-  struct proc* p = myproc();
-
   struct file* f;
 
   if ((f = p->ofile[mp->fd]) == 0) {
@@ -605,12 +603,12 @@ int sys_munmap(void) {
 
   free_mmap:
   addr = PGROUNDDOWN(addr);
-  end = PGROUNDUP(addr + length);
+  uint end = PGROUNDUP(addr + length);
 
   pte_t* pt_entry;
 
   for(; addr < end; addr += PGSIZE) {
-    if ((pt_entry = walkpgdir(p->pgdir, addr, 0)) == 0) {
+    if ((pt_entry = walkpgdir(p->pgdir, (void*) addr, 0)) == 0) {
       goto failure;
     }
 
