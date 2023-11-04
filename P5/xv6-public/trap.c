@@ -64,10 +64,7 @@ int mmap_read(struct mmap* mp) {
   struct file* f;
 
   if ((f = p->ofile[mp->fd]) == 0)
-    goto failure;
-
-  // Explicitly set offset to 0
-  f->off = 0;
+    goto fail;
 
   if(fileread(f, (char*) mp->start_addr, mp->length) < 0)
     goto fail;
