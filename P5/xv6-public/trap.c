@@ -62,7 +62,7 @@ int mmap_alloc(pde_t* pgdir, struct mmap* mp) {
 int mmap_read(struct mmap* mp) {
   uint start_addr = mp->start_addr;
   uint end_addr = mp->end_addr;
-  uint length = (mp->length) / sizeof(char);
+  uint length = mp->length;
   struct proc * p = myproc();
   int fd = mp->fd; 
 
