@@ -63,7 +63,7 @@ struct mmap {
   cprintf("mp->end_addr:   %x\n", mp->end_addr); \
   cprintf("mp->fd:         %d\n", mp->fd); \
   cprintf("mp->refcount:   %d\n", mp->refcount); \
-  cprintf(""); \
+  cprintf("\n"); \
 };
 
 #endif

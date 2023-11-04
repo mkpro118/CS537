@@ -448,17 +448,18 @@ sys_pipe(void)
 }
 
 int sys_mmap(void) {
-  uint addr;
+  uint addr, end;
   int length, prot, flags, fd;
-  fd = 0;
-  uint end = 0;
+  addr = MMAP_BASE;
+  end = PGROUNDUP(addr + length);
   // int offset = 0;
 
   // struct file* mf;
 
   if (argint(1, &length) < 0
         || argint(2, &prot)  < 0
-        || argint(3, &flags)  < 0) {
+        || argint(3, &flags) < 0
+        || argint(4, &fd) < 0) {
     goto mmap_failed;
   }
 
@@ -487,6 +488,8 @@ int sys_mmap(void) {
   // If grows up, add another page for guard page
   if (IS_MMAP_GROWSUP(flags))
     end += PGSIZE;
+
+  if (KERNBASE <= end) goto mmap_failed;
 
   // while we don't exceed KERNBASE
   while (end < KERNBASE) {
@@ -522,6 +525,14 @@ int sys_mmap(void) {
   // Given address must lie in MMAP and KERNBASE
   if (argint(0, (int*) &addr) < 0) goto mmap_failed;
   if (MMAP_BASE > addr || KERNBASE <= addr) goto mmap_failed;
+
+  end = PGROUNDUP(addr + length);
+
+  // If grows up, add another page for guard page
+  if (IS_MMAP_GROWSUP(flags))
+   end += PGSIZE;
+
+  if (KERNBASE <= end) goto mmap_failed;
 
   struct mmap* mp2;
   for (int i = 0; i < N_MMAPS; i++) {
