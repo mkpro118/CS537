@@ -451,7 +451,6 @@ int sys_mmap(void) {
   uint addr, end;
   int length, prot, flags, fd;
   addr = MMAP_BASE;
-  end = PGROUNDUP(addr + length);
   // int offset = 0;
 
   // struct file* mf;
@@ -462,6 +461,8 @@ int sys_mmap(void) {
         || argint(4, &fd) < 0) {
     goto mmap_failed;
   }
+
+  end = PGROUNDUP(addr + length);
 
   struct mmap* mp;
   struct proc* p = myproc();
