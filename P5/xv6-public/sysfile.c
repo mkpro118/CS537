@@ -562,20 +562,17 @@ int sys_munmap(void) {
   uint addr;
   int length;
   
-
   if (argint(0, (int*) &addr) < 0 || argint(1, &length) < 0) {
     return -1;
   }
 
   struct mmap* mp;
-
   struct proc* p = myproc();
 
   for (int i = 0; i < N_MMAPS; i++) {
     mp = &(p->mmaps[i]);
-    if (mp->is_valid && mp->start_addr <= addr && mp->end_addr > addr) {
+    if (mp->is_valid && mp->start_addr <= addr && mp->end_addr > addr)
       goto found_mmap;
-    }
   }
 
   // No mmap found at addr, failure

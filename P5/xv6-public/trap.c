@@ -33,30 +33,29 @@ idtinit(void)
   lidt(idt, sizeof(idt));
 }
 
-int mmap_alloc(pde_t* pgdir, struct mmap* mp) {
-  uint adjusted_end = (uint) (mp->end_addr - (IS_MMAP_GROWSUP(mp->flags) ? PGSIZE: 0));
-
-  uint a = (uint) mp->start_addr;
+int alloc_mem(uint start, uint end) {
   char *mem;
-
-
-  for(; a < adjusted_end; a += PGSIZE){
+  for(uint a = start; a < end; a += PGSIZE){
     mem = kalloc();
     if(mem == 0){
       cprintf("allocuvm out of memory\n");
-      deallocuvm(pgdir, adjusted_end, (uint) mp->start_addr);
+      deallocuvm(pgdir, adjusted_end, start);
       return -1;
     }
     memset(mem, 0, PGSIZE);
-    if(mappages(pgdir, (char*)a, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
+    if(mappages(pgdir, (char*) a, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
       cprintf("allocuvm out of memory (2)\n");
       deallocuvm(pgdir, adjusted_end, (uint) mp->start_addr);
       kfree(mem);
       return -1;
     }
   }
+}
 
-  return 0;
+int mmap_alloc(pde_t* pgdir, struct mmap* mp) {
+  uint adjusted_end = (uint) (mp->end_addr - (IS_MMAP_GROWSUP(mp->flags) ? PGSIZE: 0));
+
+  return alloc_mem((uint) mp->start_addr, adjusted_end);
 }
 
 int mmap_read(struct mmap* mp) {
@@ -131,10 +130,17 @@ trap(struct trapframe *tf)
     for (int i = 0; i < N_MMAPS; i++) {
       mp = &(p->mmaps[i]);
       if (mp->is_valid && fault >= mp->start_addr && fault < mp->end_addr) {
-        // TODO
-        if (IS_MMAP_GROWSUP(mp->flags)) {
-
+        if (walkpgdir(p->pgdir, mp->start_addr, 0) == 0) {
+          goto mmap_lazy_alloc;
         }
+
+        if (!IS_MMAP_GROWSUP(mp->flags)) {
+          break;
+        }
+
+        goto alloc_guard;
+
+        mmap_lazy_alloc:
         if (mmap_alloc(p->pgdir, mp) < 0) {
           cprintf("FAILED MMAP ALLOC!\n");
         }
@@ -149,6 +155,29 @@ trap(struct trapframe *tf)
     if (!(IS_MMAP_ANON(mp->flags))) {
       mmap_read(mp);
     }
+    goto done_mmap_alloc;
+
+    alloc_guard:
+
+    if (!(fault >= mp->end_addr - PGSIZE)) {
+      cprintf("Segmentation Fault at address %x\n", (void*) fault);
+      goto done_mmap_alloc;
+    }
+
+    struct mmap* mp2;
+    for (int i = 0; i < N_MMAPS; i++) {
+      mp2 = &(p->mmaps[i]);
+      if (mp2->is_valid && mp2->start_addr == mp->end_addr) {
+        goto done_mmap_alloc;
+      }
+    }
+
+    // No mmap already has that, so allocate.
+    alloc_mem(PGROUNDDOWN(fault), PGRROUNDUP(fault));
+    mp->length += PGSIZE;
+    mp->end_addr += PGSIZE;
+
+    done_mmap_alloc:
     break;
 
   //PAGEBREAK: 13
