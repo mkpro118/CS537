@@ -33,7 +33,7 @@ idtinit(void)
   lidt(idt, sizeof(idt));
 }
 
-int alloc_mem(pde_t* pgdir,, uint start, uint end) {
+int alloc_mem(pde_t* pgdir, uint start, uint end) {
   char *mem;
   for(uint a = start; a < end; a += PGSIZE){
     mem = kalloc();
