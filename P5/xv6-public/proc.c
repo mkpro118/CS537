@@ -115,11 +115,8 @@ found:
   p->context->eip = (uint)forkret;
 
   struct mmap* mp;
-
-  for (int i = 0; i < N_MMAPS; i++) {
-    mp = &(p->mmaps[i]);
+  for (mp = p->mmaps; mp < &p->mmaps[N_MMAPS]; mp++)
     mp->is_valid = 0;
-  }
 
   return p;
 }
