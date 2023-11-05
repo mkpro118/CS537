@@ -248,6 +248,8 @@ fork(void)
         }
 
         memmove(mem, (char*) P2V(papa), PGSIZE);
+      } else {
+        mem = P2V(papa);
       }
 
       if(mappages(np->pgdir, (char*) addr, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
