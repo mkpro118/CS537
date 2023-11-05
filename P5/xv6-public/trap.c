@@ -15,7 +15,7 @@ extern uint vectors[];  // in vectors.S: array of 256 entry pointers
 struct spinlock tickslock;
 uint ticks;
 
-static const char* SEGFAULT = "Segmentation Fault\n";
+static char* SEGFAULT = "Segmentation Fault\n";
 
 void
 tvinit(void)
@@ -36,11 +36,9 @@ idtinit(void)
 }
 
 int alloc_mem(pde_t* pgdir, uint start, uint end) {
-  char *mem;
-  int i = 0;
   for(uint a = start; a < end; a += PGSIZE){
-    mem = kalloc();
-    if(mem == 0){
+    char *mem;
+    if((mem = kalloc()) == 0){
       cprintf("mmap out of memory\n");
       return -1;
     }
