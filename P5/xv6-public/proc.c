@@ -205,21 +205,6 @@ fork(void)
     np->state = UNUSED;
     return -1;
   }
-  np->sz = curproc->sz;
-  np->parent = curproc;
-  *np->tf = *curproc->tf;
-
-  // Clear %eax so that fork returns 0 in the child.
-  np->tf->eax = 0;
-
-  for(i = 0; i < NOFILE; i++)
-    if(curproc->ofile[i])
-      np->ofile[i] = filedup(curproc->ofile[i]);
-  np->cwd = idup(curproc->cwd);
-
-  safestrcpy(np->name, curproc->name, sizeof(curproc->name));
-
-  pid = np->pid;
 
   for (int i = 0; i < N_MMAPS; i++) {
     np->mmaps[i] = curproc->mmaps[i];
@@ -238,12 +223,14 @@ fork(void)
 
       uint papa = PTE_ADDR(*pt_entry);
 
+      if (!papa) continue;
+
       char* mem;
       if (IS_MMAP_PRIVATE(mp->flags)) {
         mem = kalloc();
         if(mem == 0){
           cprintf("mmap out of memory\n");
-          deallocuvm(curproc->pgdir, end, mp->start_addr);
+          deallocuvm(np->pgdir, end, mp->start_addr);
           return -1;
         }
 
@@ -254,7 +241,7 @@ fork(void)
 
       if(mappages(np->pgdir, (char*) addr, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
         cprintf("mmap out of memory (2)\n");
-        deallocuvm(curproc->pgdir, end, (uint) mp->start_addr);
+        deallocuvm(np->pgdir, end, (uint) mp->start_addr);
         kfree(mem);
         return -1;
       }
@@ -262,8 +249,6 @@ fork(void)
   }
 
   acquire(&ptable.lock);
-
-  np->state = RUNNABLE;
 
   struct proc* p2;
   for(p2 = ptable.proc; p2 < &ptable.proc[NPROC]; p2++) {
@@ -275,6 +260,28 @@ fork(void)
       }
     }
   }
+
+  release(&ptable.lock);
+
+  np->sz = curproc->sz;
+  np->parent = curproc;
+  *np->tf = *curproc->tf;
+
+  // Clear %eax so that fork returns 0 in the child.
+  np->tf->eax = 0;
+
+  for(i = 0; i < NOFILE; i++)
+    if(curproc->ofile[i])
+      np->ofile[i] = filedup(curproc->ofile[i]);
+  np->cwd = idup(curproc->cwd);
+
+  safestrcpy(np->name, curproc->name, sizeof(curproc->name));
+
+  pid = np->pid;
+
+  acquire(&ptable.lock);
+
+  np->state = RUNNABLE;
 
   release(&ptable.lock);
 
