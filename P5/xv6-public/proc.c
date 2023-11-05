@@ -221,9 +221,59 @@ fork(void)
 
   pid = np->pid;
 
+  for (int i = 0; i < N_MMAPS; i++) {
+    np->mmaps[i] = p->mmaps[i];
+
+    if (!np->mmaps[i].is_valid) continue;
+
+    struct mmap* mp = &(np->mmaps[i]);
+
+    uint addr = mp->start_addr;
+    uint end = PGROUNDUP(addr + mp->length);
+
+    pte_t* pt_entry;
+    for (; addr < end; addr += PGSIZE) {
+      if ((pt_entry = walkpgdir(p->pgdir, (char*) addr, 0)) == 0)
+        continue;
+
+      uint papa = PTE_ADDR(*pt_entry);
+
+      char* mem;
+      if (IS_MMAP_PRIVATE(mp->flags)) {
+        mem = kalloc();
+        if(mem == 0){
+          cprintf("mmap out of memory\n");
+          deallocuvm(pgdir, end, start);
+          return -1;
+        }
+
+        memset(mem, (char*) P2V(pa), PGSIZE);
+      }
+
+      if(mappages(np->pgdir, (char*) addr, PGSIZE, cpa, PTE_W|PTE_U) < 0){
+        cprintf("mmap out of memory (2)\n");
+        deallocuvm(pgdir, end, (uint) start);
+        kfree(mem);
+        return -1;
+      }
+    }
+  }
+
   acquire(&ptable.lock);
 
   np->state = RUNNABLE;
+
+  struct proc* p2;
+  struct mmap* mp2;
+  for(p2 = ptable.proc; p2 < &ptable.proc[NPROC]; p2++) {
+    if (p2 != curproc && p2->parent != curproc) continue;
+
+    for (int i = 0; i < N_MMAPS; i++) {
+      if (IS_MMAP_SHARED(p2->mmaps[i].flags)) {
+        p2->mmaps[i].refcount++;
+      }
+    }
+  }
 
   release(&ptable.lock);
 
@@ -249,6 +299,46 @@ exit(void)
       fileclose(curproc->ofile[fd]);
       curproc->ofile[fd] = 0;
     }
+  }
+
+  if (!curproc->parent) goto try_free;
+  acquire(&ptable.lock);
+
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if (p != curproc && p->parent == curproc->parent) {
+      for (int i = 0; i < N_MMAPS; i++) {
+        if (p->mmaps[i].is_valid && IS_MMAP_SHARED(p->mmaps[i].flags)) {
+          p->mmaps[i].refcount--;
+        }
+      }
+    }
+  }
+
+  release(&ptable.lock);
+
+  try_free:
+  struct mmap* mp;
+  for (int i = 0; i < N_MMAPS; i++) {
+    if (!curproc->mmaps[i].is_valid) continue;
+
+    curproc->mmaps[i].refcount--;
+    if (curproc->mmaps[i].refcount >= 0) continue;
+
+    uint addr = PGROUNDDOWN(mp->start_addr);
+    uint end = PGROUNDUP(addr + length);
+
+    pte_t* pt_entry;
+
+    for(; addr < end; addr += PGSIZE) {
+      if ((pt_entry = walkpgdir(curproc->pgdir, (char*) addr, 0)) == 0)
+        continue;
+
+      kfree(P2V(PTE_ADDR(*pt_entry)));
+
+      *pt_entry = 0;
+    }
+
+    memset(&(curproc->mmaps[i]), 0, sizeof(struct mmap));
   }
 
   begin_op();

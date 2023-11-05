@@ -40,13 +40,13 @@ int alloc_mem(pde_t* pgdir, uint start, uint end) {
   for(uint a = start; a < end; a += PGSIZE){
     mem = kalloc();
     if(mem == 0){
-      cprintf("allocuvm out of memory\n");
+      cprintf("mmap out of memory\n");
       deallocuvm(pgdir, end, start);
       return -1;
     }
     memset(mem, 0, PGSIZE);
     if(mappages(pgdir, (char*) a, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
-      cprintf("allocuvm out of memory (2)\n");
+      cprintf("mmap out of memory (2)\n");
       deallocuvm(pgdir, end, (uint) start);
       kfree(mem);
       return -1;
@@ -63,7 +63,7 @@ int mmap_alloc(pde_t* pgdir, struct mmap* mp) {
 }
 
 int mmap_read(struct mmap* mp) {
-  struct proc * p = myproc();
+  struct proc* p = myproc();
   struct file* f;
 
   if ((f = p->ofile[mp->fd]) == 0)
@@ -185,7 +185,7 @@ trap(struct trapframe *tf)
     // No mmap already has that, so allocate.
     if (alloc_mem(p->pgdir, fault, fault + PGSIZE) < 0) {
       cprintf("FAILED MMAP GUARD ALLOC!\n");
-      goto done_mmap_alloc;
+      goto seg_fault;
     }
 
     // GUARD was allocated properly, set new guard

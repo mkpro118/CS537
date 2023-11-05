@@ -602,6 +602,7 @@ int sys_munmap(void) {
     *pt_entry = 0;
   }
 
+  // ONLY MEMSET IF TOTAL REMOVE
   memset(mp, 0, sizeof(struct mmap));
   // success:
   return 0;
