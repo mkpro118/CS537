@@ -209,7 +209,12 @@ fork(void)
   for (int i = 0; i < N_MMAPS; i++) {
     np->mmaps[i] = curproc->mmaps[i];
 
-    if (!np->mmaps[i].is_valid) continue;
+    if (!np->mmaps[i].is_valid) {
+      continue;
+    }
+
+    cprintf("Mapping %d\n", i+1);
+    PRINT_MMAP((&(np->mmaps[i])));
 
     struct mmap* mp = &(np->mmaps[i]);
 
@@ -218,7 +223,7 @@ fork(void)
 
     pte_t* pt_entry;
     for (; addr < end; addr += PGSIZE) {
-      if ((pt_entry = walkpgdir(np->pgdir, (char*) addr, 0)) == 0)
+      if ((pt_entry = walkpgdir(curproc->pgdir, (char*) addr, 0)) == 0)
         continue;
 
       uint papa = PTE_ADDR(*pt_entry);
@@ -227,6 +232,7 @@ fork(void)
 
       char* mem;
       if (IS_MMAP_PRIVATE(mp->flags)) {
+        cprintf("Has mmap private\n");
         mem = kalloc();
         if(mem == 0){
           cprintf("mmap out of memory\n");
@@ -234,8 +240,10 @@ fork(void)
           return -1;
         }
 
+        cprintf("mem:  %x\npapa: %x\n", (void*)mem, (void*)papa);
         memmove(mem, (char*) P2V(papa), PGSIZE);
       } else {
+        cprintf("Has mmap shared\n");
         mem = P2V(papa);
       }
 

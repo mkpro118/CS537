@@ -34,7 +34,7 @@ idtinit(void)
 }
 
 int alloc_mem(pde_t* pgdir, uint start, uint end) {
-  cprintf("Trying to allocate from %x to %x", (void*) start, (void*) end);
+  cprintf("Trying to allocate from %x to %x\n", (void*) start, (void*) end);
   char *mem;
   int i = 0;
   for(uint a = start; a < end; a += PGSIZE){
@@ -135,15 +135,12 @@ trap(struct trapframe *tf)
       mp = &(p->mmaps[i]);
       if (mp->is_valid && fault >= mp->start_addr && fault < mp->end_addr) {
         if (walkpgdir(p->pgdir, (void*) mp->start_addr, 0) == 0) {
-          cprintf("GOTO MMAP_LAZY_ALLOC 1\n");
           goto mmap_lazy_alloc;
         }
 
         if (!IS_MMAP_GROWSUP(mp->flags)) {
-          cprintf("BREAK 1\n");
           break;
         }
-        cprintf("GOTO ALLOC_GUARD 1\n");
         goto alloc_guard;
       }
     }
@@ -153,20 +150,16 @@ trap(struct trapframe *tf)
 
     mmap_lazy_alloc:
     if (mmap_alloc(p->pgdir, mp) < 0) {
-      cprintf("FAILED MMAP ALLOC!\n");
+      goto seg_fault;
     }
 
     if (!(IS_MMAP_ANON(mp->flags))) {
       mmap_read(mp);
     }
-    cprintf("GOTO DONE_MMAP_ALLOC 1\n");
-    PRINT_MMAP(mp);
     goto done_mmap_alloc;
 
     alloc_guard:
-    cprintf("IN ALLOC GUARD\n");
     if (!(fault >= mp->end_addr - PGSIZE)) {
-      PRINT_MMAP(mp)
       cprintf("Segmentation Fault 2 at address %x. %x\n", (void*) fault, (void*) mp->end_addr - PGSIZE);
       goto seg_fault;
     }
@@ -184,7 +177,6 @@ trap(struct trapframe *tf)
 
     // No mmap already has that, so allocate.
     if (alloc_mem(p->pgdir, fault, fault + PGSIZE) < 0) {
-      cprintf("FAILED MMAP GUARD ALLOC!\n");
       goto seg_fault;
     }
 
