@@ -233,7 +233,7 @@ fork(void)
 
     pte_t* pt_entry;
     for (; addr < end; addr += PGSIZE) {
-      if ((pt_entry = walkpgdir(p->pgdir, (char*) addr, 0)) == 0)
+      if ((pt_entry = walkpgdir(np->pgdir, (char*) addr, 0)) == 0)
         continue;
 
       uint papa = PTE_ADDR(*pt_entry);
@@ -243,16 +243,16 @@ fork(void)
         mem = kalloc();
         if(mem == 0){
           cprintf("mmap out of memory\n");
-          deallocuvm(currproc->pgdir, end, mp->start_addr);
+          deallocuvm(curproc->pgdir, end, mp->start_addr);
           return -1;
         }
 
-        memset(mem, (char*) P2V(papa), PGSIZE);
+        memmove(mem, (char*) P2V(papa), PGSIZE);
       }
 
       if(mappages(np->pgdir, (char*) addr, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
         cprintf("mmap out of memory (2)\n");
-        deallocuvm(pgdir, end, (uint) mp->start_addr);
+        deallocuvm(curproc->pgdir, end, (uint) mp->start_addr);
         kfree(mem);
         return -1;
       }
@@ -324,7 +324,7 @@ exit(void)
     if (curproc->mmaps[i].refcount >= 0) continue;
 
     uint addr = PGROUNDDOWN(mp->start_addr);
-    uint end = PGROUNDUP(addr + length);
+    uint end = PGROUNDUP(addr + mp->length);
 
     pte_t* pt_entry;
 
