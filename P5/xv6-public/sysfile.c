@@ -544,9 +544,9 @@ int sys_mmap(void) {
     // 2. A mmap region's end (but not start) lies in range [addr, end]
     // 3. A mmap region completely surrounds the requested region
     //    i.e, [addr, end] lies in the range [mp2->start_addr, mp2->end_addr]
-    if ((mp2->start_addr >= addr && mp2->start_addr <= end) /* Case 1*/
-          || (mp2->end_addr >= addr && mp2->end_addr <= end) /* Case 2*/
-          || (mp2->start_addr <= addr && mp2->end_addr >= end)) /* Case 3*/
+    if ((mp2->start_addr >= addr && mp2->start_addr < end) /* Case 1*/
+          || (mp2->end_addr > addr && mp2->end_addr <= end) /* Case 2*/
+          || (mp2->start_addr <= addr && mp2->end_addr > end)) /* Case 3*/
       goto mmap_failed;
   }
 
