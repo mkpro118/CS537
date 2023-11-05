@@ -462,6 +462,7 @@ int sys_mmap(void) {
   struct mmap* mp;
   struct proc* p = myproc();
 
+  // Find a spot in the array to store this mmap call data
   for (mp = p->mmaps; mp < &p->mmaps[N_MMAPS]; mp++) {
     if (!mp->is_valid) {
       goto found_slot;
@@ -502,7 +503,7 @@ int sys_mmap(void) {
     // Found an address, it is `addr`
     goto found_addr;
 
-    // addr didn't work
+    // `addr` didn't work
     retry:
     addr = mp2->end_addr;
     end = PGROUNDUP(addr + length);
@@ -511,14 +512,18 @@ int sys_mmap(void) {
     if (IS_MMAP_GROWSUP(flags))
      end += PGSIZE;
   }
+
   // Reached KERNBASE, no more memory
   goto mmap_failed;
 
   // addr was given, check if it's available
   mmap_fixed:
-  // Given address must lie in MMAP and KERNBASE
-  if (argint(0, (int*) &addr) < 0) goto mmap_failed;
-  if (MMAP_BASE > addr || KERNBASE <= addr) goto mmap_failed;
+  if (argint(0, (int*) &addr) < 0)
+    goto mmap_failed;
+
+  // Bounds check, given address must lie in MMAP_BASE and KERNBASE
+  if (MMAP_BASE > addr || KERNBASE <= addr)
+    goto mmap_failed;
 
   end = PGROUNDUP(addr + length);
 
@@ -526,27 +531,38 @@ int sys_mmap(void) {
   if (IS_MMAP_GROWSUP(flags))
    end += PGSIZE;
 
-  if (KERNBASE <= end) goto mmap_failed;
+  if (KERNBASE <= end)
+    goto mmap_failed;
 
   struct mmap* mp2;
   for (mp2 = p->mmaps; mp2 < &p->mmaps[N_MMAPS]; mp2++) {
-    if (mp2->is_valid && mp2->start_addr >= addr
-          && mp2->start_addr < end) {
-      // ADD Lilys checks
+    if (!mp2->is_valid)
+      continue;
+
+    // Three cases are possible
+    // 1. A mmap region's start (but not end) lies in range [addr, end]
+    // 2. A mmap region's end (but not start) lies in range [addr, end]
+    // 3. A mmap region completely surrounds the requested region
+    //    i.e, [addr, end] lies in the range [mp2->start_addr, mp2->end_addr]
+    if ((mp2->start_addr >= addr && mp2->start_addr <= end) /* Case 1*/
+          || (mp2->end_addr >= addr && mp2->end_addr <= end) /* Case 2*/
+          || (mp2->start_addr <= addr && mp2->end_addr >= end)) /* Case 3*/
       goto mmap_failed;
-    }
   }
 
   // addr exists
   found_addr:
+  // First mmap, refcount is 1.
   int refcount = 1;
 
+  // Initialize bookeeper struct mmap
   MMAP_INIT(mp, prot, flags, length, addr, end, fd, refcount);
 
-  return (int)((void*) (mp->start_addr));
+  // Success
+  return mp->start_addr;
 
   mmap_failed:
-  return (int)((void*) -1);
+  return -1;
 }
 
 int sys_munmap(void) {
@@ -560,15 +576,17 @@ int sys_munmap(void) {
   struct mmap* mp;
   struct proc* p = myproc();
 
+  // Find the mmap region that uses the addr
   for (mp = p->mmaps; mp < &p->mmaps[N_MMAPS]; mp++) {
     if (mp->is_valid && mp->start_addr <= addr && mp->end_addr > addr)
       goto found_mmap;
   }
 
-  // No mmap found at addr, failure
+  // No mmap found at `addr`, failure
   goto failure;
 
   found_mmap:
+  // Is the mapping was ANONYMOUS or PRIVATE, we do not write to a file
   if (IS_MMAP_ANON(mp->flags) || IS_MMAP_PRIVATE(mp->flags))
     goto free_mmap;
 
@@ -577,29 +595,35 @@ int sys_munmap(void) {
   if ((f = p->ofile[mp->fd]) == 0)
     goto failure;
 
-  // Explicitly set offset to 0
+  // Fileread updates the file offset.
+  // We set offset back to 0, to write to the start of the file.
   f->off = 0;
 
   if(filewrite(f, (char*) mp->start_addr, mp->length) != mp->length)
     return -1;
 
   free_mmap:
-  addr = PGROUNDDOWN(addr);
-  uint end = PGROUNDUP(addr + length);
+  // calculate length to deallocate
+  addr = PGROUNDDOWN(mp->start_addr);
+  uint end = PGROUNDUP(addr + mp->length);
 
   pte_t* pt_entry;
-
+  // Find page table entry for every mmaped page
+  // and free the physical pages.
   for(; addr < end; addr += PGSIZE) {
     if ((pt_entry = walkpgdir(p->pgdir, (char*) addr, 0)) == 0)
       continue;
 
     kfree(P2V(PTE_ADDR(*pt_entry)));
 
+    // Invalidate the page table entry
     *pt_entry = 0;
   }
 
-  // ONLY MEMSET IF TOTAL REMOVE
+  //////////////////////////////     KNOWN BUG     /////////////////////////////
+  // IDEALLY SHOULD ONLY MEMSET IF TOTAL MMAP IS REMOVED
   memset(mp, 0, sizeof(struct mmap));
+  //////////////////////////////   END KNOWN BUG   /////////////////////////////
   // success:
   return 0;
 
