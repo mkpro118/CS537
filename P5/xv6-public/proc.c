@@ -222,7 +222,7 @@ fork(void)
   pid = np->pid;
 
   for (int i = 0; i < N_MMAPS; i++) {
-    np->mmaps[i] = p->mmaps[i];
+    np->mmaps[i] = curproc->mmaps[i];
 
     if (!np->mmaps[i].is_valid) continue;
 
@@ -243,16 +243,16 @@ fork(void)
         mem = kalloc();
         if(mem == 0){
           cprintf("mmap out of memory\n");
-          deallocuvm(pgdir, end, start);
+          deallocuvm(currproc->pgdir, end, mp->start_addr);
           return -1;
         }
 
-        memset(mem, (char*) P2V(pa), PGSIZE);
+        memset(mem, (char*) P2V(papa), PGSIZE);
       }
 
-      if(mappages(np->pgdir, (char*) addr, PGSIZE, cpa, PTE_W|PTE_U) < 0){
+      if(mappages(np->pgdir, (char*) addr, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
         cprintf("mmap out of memory (2)\n");
-        deallocuvm(pgdir, end, (uint) start);
+        deallocuvm(pgdir, end, (uint) mp->start_addr);
         kfree(mem);
         return -1;
       }
@@ -264,7 +264,6 @@ fork(void)
   np->state = RUNNABLE;
 
   struct proc* p2;
-  struct mmap* mp2;
   for(p2 = ptable.proc; p2 < &ptable.proc[NPROC]; p2++) {
     if (p2 != curproc && p2->parent != curproc) continue;
 
