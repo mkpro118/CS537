@@ -451,9 +451,6 @@ int sys_mmap(void) {
   uint addr, end;
   int length, prot, flags, fd;
   addr = MMAP_BASE;
-  // int offset = 0;
-
-  // struct file* mf;
 
   if (argint(1, &length) < 0
         || argint(2, &prot)  < 0
@@ -538,16 +535,13 @@ int sys_mmap(void) {
     mp2 = &(p->mmaps[i]);
     if (mp2->is_valid && mp2->start_addr >= addr
           && mp2->start_addr < end) {
+      // ADD Lilys checks
       goto mmap_failed;
     }
   }
+
   // addr exists
-
   found_addr:
-  // if(mmap_alloc(p->pgdir, addr, end, flags) < 0) {
-  //   goto mmap_failed;
-  // }
-
   int refcount = 1;
 
   MMAP_INIT(mp, prot, flags, length, addr, end, fd, refcount);

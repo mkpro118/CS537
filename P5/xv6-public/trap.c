@@ -145,21 +145,17 @@ trap(struct trapframe *tf)
         }
         cprintf("GOTO ALLOC_GUARD 1\n");
         goto alloc_guard;
-
-        mmap_lazy_alloc:
-        if (mmap_alloc(p->pgdir, mp) < 0) {
-          cprintf("FAILED MMAP ALLOC!\n");
-        }
-    
-		cprintf("GOTO MMAP_LAZY_DONE 2\n");
-        goto mmap_lazy_done;
       }
     }
 
     cprintf("Segmentation Fault at address %x\n", (void*) fault);
     goto seg_fault;
 
-    mmap_lazy_done:
+    mmap_lazy_alloc:
+    if (mmap_alloc(p->pgdir, mp) < 0) {
+      cprintf("FAILED MMAP ALLOC!\n");
+    }
+
     if (!(IS_MMAP_ANON(mp->flags))) {
       mmap_read(mp);
     }
@@ -179,8 +175,8 @@ trap(struct trapframe *tf)
     for (int i = 0; i < N_MMAPS; i++) {
       mp2 = &(p->mmaps[i]);
       if (mp2->is_valid && mp2->start_addr == mp->end_addr) {
-        cprintf("GOTO DONE_MMAP_ALLOC 2\n");
-        goto done_mmap_alloc;
+        cprintf("Segmentation Fault\n");
+        goto seg_fault;
       }
     }
 
