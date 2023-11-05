@@ -316,9 +316,13 @@ exit(void)
     }
   }
 
+  // We set parent to null, so anything that doesn't have a parent doesn't need
+  // to update refcounts
+  // In this case, we directly try freeing the physical pages
   if (!curproc->parent) goto try_free;
   acquire(&ptable.lock);
 
+  // Decrease refcounts since process has exited
   struct mmap* mp;
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
     if (p == curproc || p->parent != curproc->parent)
@@ -331,6 +335,7 @@ exit(void)
 
   release(&ptable.lock);
 
+  // Free the physical pages if refcount is 0 (equivalent to munmap)
   try_free:
   for (mp = curproc->mmaps; mp < &curproc->mmaps[N_MMAPS]; mp++) {
     if (!mp->is_valid) continue;
