@@ -573,7 +573,7 @@ int sys_munmap(void) {
   goto failure;
 
   found_mmap:
-  if (IS_MMAP_ANON(mp->flags) || IS_MMAP_PRIVATE(flags))
+  if (IS_MMAP_ANON(mp->flags) || IS_MMAP_PRIVATE(mp->flags))
     goto free_mmap;
 
   struct file* f;
