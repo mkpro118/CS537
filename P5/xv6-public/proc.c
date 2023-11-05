@@ -213,9 +213,6 @@ fork(void)
       continue;
     }
 
-    cprintf("Mapping %d\n", i+1);
-    PRINT_MMAP((&(np->mmaps[i])));
-
     struct mmap* mp = &(np->mmaps[i]);
 
     uint addr = mp->start_addr;
@@ -226,30 +223,24 @@ fork(void)
       if ((pt_entry = walkpgdir(curproc->pgdir, (char*) addr, 0)) == 0)
         continue;
 
-      uint papa = PTE_ADDR(*pt_entry);
+      uint papa;
 
-      if (!papa) continue;
+      if (!(papa = PTE_ADDR(*pt_entry)))
+        continue;
 
-      char* mem;
+      char* mem = P2V(papa);
+
       if (IS_MMAP_PRIVATE(mp->flags)) {
-        cprintf("Has mmap private\n");
-        mem = kalloc();
-        if(mem == 0){
+        if((mem = kalloc()) == 0){
           cprintf("mmap out of memory\n");
-          deallocuvm(np->pgdir, end, mp->start_addr);
           return -1;
         }
 
-        cprintf("mem:  %x\npapa: %x\n", (void*)mem, (void*)papa);
         memmove(mem, (char*) P2V(papa), PGSIZE);
-      } else {
-        cprintf("Has mmap shared\n");
-        mem = P2V(papa);
       }
 
       if(mappages(np->pgdir, (char*) addr, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
         cprintf("mmap out of memory (2)\n");
-        deallocuvm(np->pgdir, end, (uint) mp->start_addr);
         kfree(mem);
         return -1;
       }
@@ -260,13 +251,13 @@ fork(void)
 
   struct proc* p2;
   for(p2 = ptable.proc; p2 < &ptable.proc[NPROC]; p2++) {
-    if (p2 != curproc && p2->parent != curproc) continue;
+    if (p2 != curproc && p2->parent != curproc)
+      continue;
 
-    for (int i = 0; i < N_MMAPS; i++) {
-      if (IS_MMAP_SHARED(p2->mmaps[i].flags)) {
-        p2->mmaps[i].refcount++;
-      }
-    }
+    struct mmap* mp;
+    for (mp = p2->mmaps; mp < &p2->mmaps[N_MMAPS]; mp++)
+      if (mp->is_valid && IS_MMAP_SHARED(mp->flags))
+        mp->refcount++;
   }
 
   release(&ptable.lock);
@@ -320,25 +311,24 @@ exit(void)
   if (!curproc->parent) goto try_free;
   acquire(&ptable.lock);
 
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-    if (p != curproc && p->parent == curproc->parent) {
-      for (int i = 0; i < N_MMAPS; i++) {
-        if (p->mmaps[i].is_valid && IS_MMAP_SHARED(p->mmaps[i].flags)) {
-          p->mmaps[i].refcount--;
-        }
-      }
-    }
+  struct mmap* mp;
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+    if (p == curproc || p->parent != curproc->parent)
+      continue;
+
+    for (mp = p->mmaps; mp < &p->mmaps[N_MMAPS]; mp++)
+      if (mp->is_valid && IS_MMAP_SHARED(mp->flags))
+        mp->refcount--;
   }
 
   release(&ptable.lock);
 
   try_free:
-  struct mmap* mp;
-  for (int i = 0; i < N_MMAPS; i++) {
-    if (!curproc->mmaps[i].is_valid) continue;
+  for (mp = curproc->mmaps; mp < &curproc->mmaps[N_MMAPS]; mp++) {
+    if (!mp->is_valid) continue;
 
-    curproc->mmaps[i].refcount--;
-    if (curproc->mmaps[i].refcount >= 0) continue;
+    mp->refcount--;
+    if (mp->refcount >= 0) continue;
 
     uint addr = PGROUNDDOWN(mp->start_addr);
     uint end = PGROUNDUP(addr + mp->length);
@@ -354,7 +344,7 @@ exit(void)
       *pt_entry = 0;
     }
 
-    memset(&(curproc->mmaps[i]), 0, sizeof(struct mmap));
+    memset(mp, 0, sizeof(struct mmap));
   }
 
   begin_op();

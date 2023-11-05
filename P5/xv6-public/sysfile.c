@@ -462,8 +462,7 @@ int sys_mmap(void) {
   struct mmap* mp;
   struct proc* p = myproc();
 
-  for (int i = 0; i < N_MMAPS; i++) {
-    mp = &(p->mmaps[i]);
+  for (mp = p->mmaps; mp < &p->mmaps[N_MMAPS]; mp++) {
     if (!mp->is_valid) {
       goto found_slot;
     }
@@ -493,8 +492,7 @@ int sys_mmap(void) {
 
     // Go over the mmaps to see that if any of them lie in the range
     // [addr, end)
-    for (int i = 0; i < N_MMAPS; i++) {
-      mp2 = &(p->mmaps[i]);
+    for (mp2 = p->mmaps; mp2 < &p->mmaps[N_MMAPS]; mp2++) {
       if (mp2->is_valid && mp2->start_addr >= addr
             && mp2->start_addr < end) {
         goto retry;
@@ -531,8 +529,7 @@ int sys_mmap(void) {
   if (KERNBASE <= end) goto mmap_failed;
 
   struct mmap* mp2;
-  for (int i = 0; i < N_MMAPS; i++) {
-    mp2 = &(p->mmaps[i]);
+  for (mp2 = p->mmaps; mp2 < &p->mmaps[N_MMAPS]; mp2++) {
     if (mp2->is_valid && mp2->start_addr >= addr
           && mp2->start_addr < end) {
       // ADD Lilys checks
@@ -563,8 +560,7 @@ int sys_munmap(void) {
   struct mmap* mp;
   struct proc* p = myproc();
 
-  for (int i = 0; i < N_MMAPS; i++) {
-    mp = &(p->mmaps[i]);
+  for (mp = p->mmaps; mp < &p->mmaps[N_MMAPS]; mp++) {
     if (mp->is_valid && mp->start_addr <= addr && mp->end_addr > addr)
       goto found_mmap;
   }

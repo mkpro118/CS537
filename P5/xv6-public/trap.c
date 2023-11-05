@@ -15,6 +15,8 @@ extern uint vectors[];  // in vectors.S: array of 256 entry pointers
 struct spinlock tickslock;
 uint ticks;
 
+static const char* SEGFAULT = "Segmentation Fault\n";
+
 void
 tvinit(void)
 {
@@ -34,24 +36,21 @@ idtinit(void)
 }
 
 int alloc_mem(pde_t* pgdir, uint start, uint end) {
-  cprintf("Trying to allocate from %x to %x\n", (void*) start, (void*) end);
   char *mem;
   int i = 0;
   for(uint a = start; a < end; a += PGSIZE){
     mem = kalloc();
     if(mem == 0){
       cprintf("mmap out of memory\n");
-      deallocuvm(pgdir, end, start);
       return -1;
     }
+
     memset(mem, 0, PGSIZE);
     if(mappages(pgdir, (char*) a, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
       cprintf("mmap out of memory (2)\n");
-      deallocuvm(pgdir, end, (uint) start);
       kfree(mem);
       return -1;
     }
-    cprintf("Allocated %d pages\n", i++);
   }
   return 0;
 }
@@ -127,58 +126,48 @@ trap(struct trapframe *tf)
 
   case T_PGFLT:
     uint fault = rcr2(); // gets the fault address
-    cprintf("Faulting addr: %x\n", fault);
     struct proc* p = myproc();
     struct mmap* mp;
 
-    for (int i = 0; i < N_MMAPS; i++) {
-      mp = &(p->mmaps[i]);
+    for (mp = p->mmaps; mp < &p->mmaps[N_MMAPS]; mp++) {
       if (mp->is_valid && fault >= mp->start_addr && fault < mp->end_addr) {
-        if (walkpgdir(p->pgdir, (void*) mp->start_addr, 0) == 0) {
+        if (walkpgdir(p->pgdir, (void*) mp->start_addr, 0) == 0)
           goto mmap_lazy_alloc;
-        }
 
-        if (!IS_MMAP_GROWSUP(mp->flags)) {
+        if (!IS_MMAP_GROWSUP(mp->flags))
           break;
-        }
+
         goto alloc_guard;
       }
     }
 
-    cprintf("Segmentation Fault at address %x\n", (void*) fault);
     goto seg_fault;
 
     mmap_lazy_alloc:
-    if (mmap_alloc(p->pgdir, mp) < 0) {
+    if (mmap_alloc(p->pgdir, mp) < 0)
       goto seg_fault;
-    }
 
-    if (!(IS_MMAP_ANON(mp->flags))) {
+
+    if (!(IS_MMAP_ANON(mp->flags)))
       mmap_read(mp);
-    }
+
     goto done_mmap_alloc;
 
     alloc_guard:
-    if (!(fault >= mp->end_addr - PGSIZE)) {
-      cprintf("Segmentation Fault 2 at address %x. %x\n", (void*) fault, (void*) mp->end_addr - PGSIZE);
+    if (!(fault >= mp->end_addr - PGSIZE))
       goto seg_fault;
-    }
+
 
     struct mmap* mp2;
-    for (int i = 0; i < N_MMAPS; i++) {
-      mp2 = &(p->mmaps[i]);
-      if (mp2->is_valid && mp2->start_addr == mp->end_addr) {
-        cprintf("Segmentation Fault\n");
+    for (mp2 = p->mmaps; mp2 < &p->mmaps[N_MMAPS]; mp2++)
+      if (mp2->is_valid && mp2->start_addr == mp->end_addr)
         goto seg_fault;
-      }
-    }
 
     fault = PGROUNDDOWN(fault);
 
     // No mmap already has that, so allocate.
-    if (alloc_mem(p->pgdir, fault, fault + PGSIZE) < 0) {
+    if (alloc_mem(p->pgdir, fault, fault + PGSIZE) < 0)
       goto seg_fault;
-    }
 
     // GUARD was allocated properly, set new guard
     mp->length += PGSIZE;
@@ -187,6 +176,7 @@ trap(struct trapframe *tf)
     goto done_mmap_alloc;
 
     seg_fault:
+    cprintf(SEGFAULT);
     p->killed = 1;
 
     done_mmap_alloc:
