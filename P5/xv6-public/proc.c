@@ -206,39 +206,46 @@ fork(void)
     return -1;
   }
 
+  // Copy over all mmaps from parent to child
   for (int i = 0; i < N_MMAPS; i++) {
     np->mmaps[i] = curproc->mmaps[i];
 
-    if (!np->mmaps[i].is_valid) {
+    // If mmap is not valid, nothing needs to be done
+    if (!np->mmaps[i].is_valid)
       continue;
-    }
 
     struct mmap* mp = &(np->mmaps[i]);
 
     uint addr = mp->start_addr;
     uint end = PGROUNDUP(addr + mp->length);
 
+    // Find physical pages from the parent, and copy the data to the child
     pte_t* pt_entry;
     for (; addr < end; addr += PGSIZE) {
       if ((pt_entry = walkpgdir(curproc->pgdir, (char*) addr, 0)) == 0)
         continue;
 
-      uint papa;
+      uint papa; // Parent Physical Address
 
+      // If PTE doesn't exist, do nothing
       if (!(papa = PTE_ADDR(*pt_entry)))
         continue;
 
+      // Assume MMAP_SHARED, use parent's physical pages
       char* mem = P2V(papa);
 
+      // If MMAP_PRIVATE, duplicate physical pages, and copy parent's data
       if (IS_MMAP_PRIVATE(mp->flags)) {
         if((mem = kalloc()) == 0){
           cprintf("mmap out of memory\n");
           return -1;
         }
 
+        // This *copies* the data parent's data to child
         memmove(mem, (char*) P2V(papa), PGSIZE);
       }
 
+      // Map the physical pages to the child' VAS
       if(mappages(np->pgdir, (char*) addr, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
         cprintf("mmap out of memory (2)\n");
         kfree(mem);
@@ -249,6 +256,7 @@ fork(void)
 
   acquire(&ptable.lock);
 
+  // Increase reference counts for shared mapping across forked processes.
   struct proc* p2;
   for(p2 = ptable.proc; p2 < &ptable.proc[NPROC]; p2++) {
     if (p2 != curproc && p2->parent != curproc)
