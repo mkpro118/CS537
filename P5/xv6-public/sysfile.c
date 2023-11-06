@@ -556,7 +556,7 @@ int sys_mmap(void) {
   int refcount = 1;
 
   // Get file if needed
-  if (!(IS_MMAP_ANON(x)))
+  if (!(IS_MMAP_ANON(flags)))
     filedup(p->ofile[fd]);
 
   // Initialize bookeeper struct mmap
