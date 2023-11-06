@@ -555,6 +555,10 @@ int sys_mmap(void) {
   // First mmap, refcount is 1.
   int refcount = 1;
 
+  // Get file if needed
+  if (!(IS_MMAP_ANON(x)))
+    filedup(p->ofile[fd]);
+
   // Initialize bookeeper struct mmap
   MMAP_INIT(mp, prot, flags, length, addr, end, fd, refcount);
 
@@ -597,10 +601,15 @@ int sys_munmap(void) {
 
   // Fileread updates the file offset.
   // We set offset back to 0, to write to the start of the file.
+  uint temp = f->off;
   f->off = 0;
 
   if(filewrite(f, (char*) mp->start_addr, mp->length) != mp->length)
     return -1;
+
+  f->off = temp;
+
+  fileclose(f);
 
   free_mmap:
   // calculate length to deallocate
