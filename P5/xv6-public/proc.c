@@ -114,9 +114,11 @@ found:
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
 
-  struct mmap* mp;
-  for (mp = p->mmaps; mp < &p->mmaps[N_MMAPS]; mp++)
-    mp->is_valid = 0;
+//  struct mmap* mp;
+//  for (mp = p->mmaps; mp < &p->mmaps[N_MMAPS]; mp++)
+//    memset(mp, 0, sizeof(struct mmap));
+
+  memset(p->mmaps, 0, N_MMAPS * sizeof(struct mmap));
 
   return p;
 }

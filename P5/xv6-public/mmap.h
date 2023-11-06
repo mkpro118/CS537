@@ -38,6 +38,8 @@ struct mmap {
 
   int fd: 8;
   uint refcount: 8;
+
+  struct file* f;
 };
 
 /* MMAP INIT MACRO */

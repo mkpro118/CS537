@@ -556,8 +556,17 @@ int sys_mmap(void) {
   int refcount = 1;
 
   // Get file if needed
-  if (!(IS_MMAP_ANON(flags)))
-    filedup(p->ofile[fd]);
+  if (!(IS_MMAP_ANON(flags))) {
+    if (fd < 0 || fd > NOFILE)
+      goto mmap_failed;
+    
+    if (argfd(4, &fd, &mp->f) < 0)
+      return 0;
+ 
+    mp->f = filedup(mp->f);
+  } else {
+    mp->f = 0;
+  }
 
   // Initialize bookeeper struct mmap
   MMAP_INIT(mp, prot, flags, length, addr, end, fd, refcount);
@@ -594,22 +603,22 @@ int sys_munmap(void) {
   if (IS_MMAP_ANON(mp->flags) || IS_MMAP_PRIVATE(mp->flags))
     goto free_mmap;
 
-  struct file* f;
-
-  if ((f = p->ofile[mp->fd]) == 0)
+  if (!mp->f) {
+    cprintf("NO FILE!!!!!! fd = %d\n", mp->fd);
     goto failure;
+  }
 
   // Fileread updates the file offset.
   // We set offset back to 0, to write to the start of the file.
-  uint temp = f->off;
-  f->off = 0;
+  uint temp = mp->f->off;
+  mp->f->off = 0;
 
-  if(filewrite(f, (char*) mp->start_addr, mp->length) != mp->length)
+  if(filewrite(mp->f, (char*) mp->start_addr, mp->length) != mp->length)
     return -1;
 
-  f->off = temp;
+  mp->f->off = temp;
 
-  fileclose(f);
+  fileclose(mp->f);
 
   free_mmap:
   // calculate length to deallocate
