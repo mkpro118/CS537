@@ -337,8 +337,7 @@ exit(void)
   for (mp = curproc->mmaps; mp < &curproc->mmaps[N_MMAPS]; mp++) {
     if (!mp->is_valid) continue;
 
-    mp->refcount--;
-    if (mp->refcount >= 0) continue;
+    if (--mp->refcount > 0) continue;
 
     uint addr = PGROUNDDOWN(mp->start_addr);
     uint end = PGROUNDUP(addr + mp->length);
