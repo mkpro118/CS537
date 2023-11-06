@@ -590,10 +590,9 @@ int sys_munmap(void) {
   struct proc* p = myproc();
 
   // Find the mmap region that uses the addr
-  for (mp = p->mmaps; mp < &p->mmaps[N_MMAPS]; mp++) {
+  for (mp = p->mmaps; mp < &p->mmaps[N_MMAPS]; mp++)
     if (mp->is_valid && mp->start_addr <= addr && mp->end_addr > addr)
       goto found_mmap;
-  }
 
   // No mmap found at `addr`, failure
   goto failure;
@@ -603,10 +602,8 @@ int sys_munmap(void) {
   if (IS_MMAP_ANON(mp->flags) || IS_MMAP_PRIVATE(mp->flags))
     goto free_mmap;
 
-  if (!mp->f) {
-    cprintf("NO FILE!!!!!! fd = %d\n", mp->fd);
+  if (!mp->f)
     goto failure;
-  }
 
   // Fileread updates the file offset.
   // We set offset back to 0, to write to the start of the file.
