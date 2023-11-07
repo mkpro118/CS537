@@ -60,8 +60,6 @@ int mmap_alloc(pde_t* pgdir, struct mmap* mp) {
 }
 
 int mmap_read(struct mmap* mp) {
-  struct proc* p = myproc();
-
   if(fileread(mp->f, (char*) mp->start_addr, mp->length) < 0)
     goto fail;
 
