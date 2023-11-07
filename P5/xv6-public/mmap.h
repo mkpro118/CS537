@@ -20,11 +20,11 @@
 #define N_MMAPS 0x20
 
 /* Macros to check flags */
-#define IS_MMAP_PRIVATE(flags) ((flags) & MAP_PRIVATE)
-#define IS_MMAP_SHARED(flags)  ((flags) & MAP_SHARED)
-#define IS_MMAP_ANON(flags)    ((flags) & MAP_ANON)
-#define IS_MMAP_FIXED(flags)   ((flags) & MAP_FIXED)
-#define IS_MMAP_GROWSUP(flags) ((flags) & MAP_GROWSUP)
+#define IS_MMAP_PRIVATE(flags) (((flags) & MAP_PRIVATE) > 0)
+#define IS_MMAP_SHARED(flags)  (((flags) & MAP_SHARED) > 0)
+#define IS_MMAP_ANON(flags)    (((flags) & MAP_ANON) > 0)
+#define IS_MMAP_FIXED(flags)   (((flags) & MAP_FIXED) > 0)
+#define IS_MMAP_GROWSUP(flags) (((flags) & MAP_GROWSUP) > 0)
 
 struct mmap {
   uint is_valid : 1;
@@ -36,8 +36,8 @@ struct mmap {
   uint start_addr;
   uint end_addr;
 
-  int fd: 8;
-  uint refcount: 8;
+  uint fd : 8;
+  uint refcount : 8;
 
   struct file* f;
 };

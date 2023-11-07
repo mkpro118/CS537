@@ -459,22 +459,31 @@ int sys_mmap(void) {
     goto mmap_failed;
   }
 
+  // Check arguments
+  if (length <= 0)
+    goto mmap_failed;
+
+  if (!(IS_MMAP_PRIVATE(flags) ^ IS_MMAP_SHARED(flags)))
+    goto mmap_failed;
+
+  if (!IS_MMAP_ANON(flags) && ((int) fd) < 0)
+    goto mmap_failed;
+
   struct mmap* mp;
   struct proc* p = myproc();
 
   // Find a spot in the array to store this mmap call data
-  for (mp = p->mmaps; mp < &p->mmaps[N_MMAPS]; mp++) {
-    if (!mp->is_valid) {
+  for (mp = p->mmaps; mp < &p->mmaps[N_MMAPS]; mp++)
+    if (!mp->is_valid)
       goto found_slot;
-    }
-  }
 
   // No more available mmaps
   goto mmap_failed;
 
   found_slot:
   // If MAP_FIXED is given
-  if (IS_MMAP_FIXED(flags)) goto mmap_fixed;
+  if (IS_MMAP_FIXED(flags))
+    goto mmap_fixed;
 
   // Otherwise, find a spot in memory.
   addr = MMAP_BASE;
@@ -485,20 +494,18 @@ int sys_mmap(void) {
   if (IS_MMAP_GROWSUP(flags))
     end += PGSIZE;
 
-  if (KERNBASE <= end) goto mmap_failed;
+  if (KERNBASE <= end)
+    goto mmap_failed;
+
+  struct mmap* mp2;
 
   // while we don't exceed KERNBASE
   while (end < KERNBASE) {
-    struct mmap* mp2;
-
     // Go over the mmaps to see that if any of them lie in the range
     // [addr, end)
-    for (mp2 = p->mmaps; mp2 < &p->mmaps[N_MMAPS]; mp2++) {
-      if (mp2->is_valid && mp2->start_addr >= addr
-            && mp2->start_addr < end) {
+    for (mp2 = p->mmaps; mp2 < &p->mmaps[N_MMAPS]; mp2++)
+      if (mp2->is_valid && mp2->start_addr >= addr && mp2->start_addr < end)
         goto retry;
-      }
-    }
 
     // Found an address, it is `addr`
     goto found_addr;
@@ -534,7 +541,6 @@ int sys_mmap(void) {
   if (KERNBASE <= end)
     goto mmap_failed;
 
-  struct mmap* mp2;
   for (mp2 = p->mmaps; mp2 < &p->mmaps[N_MMAPS]; mp2++) {
     if (!mp2->is_valid)
       continue;
@@ -557,11 +563,8 @@ int sys_mmap(void) {
 
   // Get file if needed
   if (!(IS_MMAP_ANON(flags))) {
-    if (fd < 0 || fd > NOFILE)
-      goto mmap_failed;
-    
     if (argfd(4, &fd, &mp->f) < 0)
-      return 0;
+      goto mmap_failed;
  
     mp->f = filedup(mp->f);
   } else {
@@ -582,9 +585,11 @@ int sys_munmap(void) {
   uint addr;
   int length;
   
-  if (argint(0, (int*) &addr) < 0 || argint(1, &length) < 0) {
-    return -1;
-  }
+  if (argint(0, (int*) &addr) < 0 || argint(1, &length) < 0)
+    goto failure;
+
+  if (length <= 0 || addr < MMAP_BASE || addr >= KERNBASE)
+    goto failure;
 
   struct mmap* mp;
   struct proc* p = myproc();
@@ -613,6 +618,7 @@ int sys_munmap(void) {
   if(filewrite(mp->f, (char*) mp->start_addr, mp->length) != mp->length)
     return -1;
 
+  // Reset offset, process has the illusion nothing was ever changed
   mp->f->off = temp;
 
   fileclose(mp->f);
@@ -636,7 +642,7 @@ int sys_munmap(void) {
   }
 
   //////////////////////////////     KNOWN BUG     /////////////////////////////
-  // IDEALLY SHOULD ONLY MEMSET IF TOTAL MMAP IS REMOVED
+  // IDEALLY SHOULD ONLY MEMSET TO 0g IF TOTAL MMAP IS REMOVED
   memset(mp, 0, sizeof(struct mmap));
   //////////////////////////////   END KNOWN BUG   /////////////////////////////
   // success:
