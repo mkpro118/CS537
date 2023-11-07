@@ -11,7 +11,7 @@ EXCEPT FOR THE GIVEN SOURCE CODE, ALL OF THE CODE IN THIS PROJECT WAS WRITTEN EN
 # Project Implementation and Description.
 
 ## Status
-The implementation submitted on Monday, 6th October 2023, passes all tests defined in the `~cs537-1/tests/P5` directory
+The implementation submitted on Tuesday, 7th October 2023, passes all tests defined in the `~cs537-1/tests/P5` directory
 - `~cs537-1/tests/P5/runtests`: Scores 16/16 (15 points out of 15)
 
 ## List of Files Changed
