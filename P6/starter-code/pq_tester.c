@@ -24,7 +24,7 @@ void test_pq_basic() {
     pq_element* elem = malloc(sizeof(pq_element));
     int val = 100;
     elem->value = (void*) &val;
-    elem->priority = 1;
+    elem->priority = 100;
 
     // Test Case 2: Enqueue
     printf("\n\n========================================\n");
@@ -59,8 +59,8 @@ void test_pq_basic() {
     printf("\n\n========================================\n");
     printf("Testing pq_dequeue\n");
     int* dequeued_elem = (int*) pq_dequeue(pq);
-    assert(*dequeued_elem == val);
-    printf("dequeued_elem == elem->value: PASSED\n");
+    assert(*dequeued_elem == *((int*)(elem->value)));
+    printf("*dequeued_elem == *((int*)(elem->value)): PASSED\n");
     assert(pq->size == 9);
     printf("pq->size == 9: PASSED\n");
 
