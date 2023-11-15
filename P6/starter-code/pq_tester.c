@@ -22,7 +22,8 @@ void test_pq_basic() {
 
     // Prepare a pq_element for testing
     pq_element* elem = malloc(sizeof(pq_element));
-    elem->value = 1;
+    int val = 1;
+    elem->value = (void*) &val;
     elem->priority = 1;
 
     // Test Case 2: Enqueue
@@ -46,7 +47,7 @@ void test_pq_basic() {
 
     pq_element* overflow_elem = malloc(sizeof(pq_element));
     int overflow_value = 10;
-    overflow_elem->value = (void*) &overflow_elem;
+    overflow_elem->value = (void*) &overflow_value;
     overflow_elem->priority = 10;
     enqueue_result = pq_enqueue(pq, overflow_elem);
     assert(enqueue_result == -1);
