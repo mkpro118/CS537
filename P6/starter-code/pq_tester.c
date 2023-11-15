@@ -18,9 +18,11 @@ int n;
 
 pthread_mutex_t retval_lock;
 
-#define assert_eq(a, b, f1, f2) if (a != b) {printf("Assertion Failed! "#a" ("#f1") != "#b" ("#f2") [Line: "__LINE__"]", a, b); fflush(stdout);exit(1);}
-#define assert_ne(a, b, f1, f2) if (a == b) {printf("Assertion Failed! "#a" ("#f1") == "#b" ("#f2") [Line: "__LINE__"]", a, b); fflush(stdout);exit(1);}
-#define assert_gt(a, b, f1, f2) if (a <= b) {printf("Assertion Failed! "#a" ("#f1") <= "#b" ("#f2") [Line: "__LINE__"]", a, b); fflush(stdout);exit(1);}
+#define assert(cond, a, b, f1, f2)  if ((a) (cond) (b)) {printf("Assertion Failed! " #a " (" #f1 ") " #cond " " #b " (" #f2 ") [Line: " (__LINE__) "]", (a), (b)); fflush(stdout); exit(1);}
+
+#define assert_eq(a, b, f1, f2) assert(!=, (a), (b), (f1), (f2))
+#define assert_ne(a, b, f1, f2) assert(==, (a), (b), (f1), (f2))
+#define assert_gt(a, b, f1, f2) assert(<=, (a), (b), (f1), (f2))
 
 void test_pq_basic() {
     // Test Case 1: Initialization
