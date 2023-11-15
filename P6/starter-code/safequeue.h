@@ -27,17 +27,20 @@ typedef struct {
 
 
 /* Abstract Priority Queue Implementation */
-priority_queue* pq_init(unsigned int);
-void pq_destroy();
-int pq_enqueue(priority_queue*, pq_element*);
-void* pq_dequeue(priority_queue*);
-int is_pq_full(priority_queue*);
-int is_pq_empty(priority_queue*);
+static priority_queue* pq_init(unsigned int);
+static void pq_destroy();
+static int pq_enqueue(priority_queue*, pq_element*);
+static void* pq_dequeue(priority_queue*);
+static int is_pq_full(priority_queue*);
+static int is_pq_empty(priority_queue*);
 
 /* Required Interface */
-void create_queue();
-void add_work();
-void get_work();
-void get_work_nonblocking();
+priority_queue* create_queue(uint);
+void add_work(priority_queue*, pq_element*);
+void* get_work(priority_queue*);
+void* get_work_nonblocking(priority_queue*);
+
+// Additional for clean up
+void destroy_queue(priority_queue*);
 
 #endif

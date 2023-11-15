@@ -13,7 +13,7 @@
  * @param  capacity The maximum capacity of the priority queue
  * @return          Pointer to a heap allocated priority queue
  */
-priority_queue* pq_init(uint capacity) {
+static priority_queue* pq_init(uint capacity) {
     priority_queue* pq = NULL;
     if (!capacity) {
         perror("pq_init failed because capacity = 0\n");
@@ -54,7 +54,7 @@ priority_queue* pq_init(uint capacity) {
  * Priority Queue destructor
  * @param pq The Priority Queue to destroy
  */
-void pq_destroy(priority_queue* pq) {
+static void pq_destroy(priority_queue* pq) {
     pthread_mutex_lock(&pq->pq_mutex);
 
     // Free each pq_element in the queue
@@ -84,7 +84,7 @@ void pq_destroy(priority_queue* pq) {
  * @param  pq The Priority Queue to test
  * @return    1 if full, 0 if not full
  */
-int is_pq_full(priority_queue* pq) { return pq->size == pq->capacity; }
+static int is_pq_full(priority_queue* pq) { return pq->size == pq->capacity; }
 
 /**
  * Checks if priority queue is empty.
@@ -92,7 +92,7 @@ int is_pq_full(priority_queue* pq) { return pq->size == pq->capacity; }
  * @param  pq The Priority Queue to test
  * @return    1 if empty, 0 if not empty
  */
-int is_pq_empty(priority_queue* pq) { return !pq->size; }
+static int is_pq_empty(priority_queue* pq) { return !pq->size; }
 
 // Get parent or child indices in the max-heap
 static inline uint parent_idx(uint idx) { return !idx ? idx : (idx - 1) >> 1; }
@@ -107,7 +107,7 @@ static inline uint rchld(uint idx) { return (idx << 1) + 2; }
  * @param  pq_elem The element to add
  * @return         0 on success, -1 on failure
  */
-int pq_enqueue(priority_queue* pq, pq_element* pq_elem) {
+static int pq_enqueue(priority_queue* pq, pq_element* pq_elem) {
     pthread_mutex_lock(&pq->pq_mutex);
 
     int retval = -1;
@@ -145,7 +145,7 @@ int pq_enqueue(priority_queue* pq, pq_element* pq_elem) {
  *
  * @param pq The Priority Queue to enqueue to
  */
-void* pq_dequeue(priority_queue* pq) {
+static void* pq_dequeue(priority_queue* pq) {
     pthread_mutex_lock(&pq->pq_mutex);
 
     pq_element* elem = NULL;

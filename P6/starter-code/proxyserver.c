@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #include "proxyserver.h"
+#include "safequeue.h"
 
 
 /*
@@ -102,16 +103,24 @@ void serve_request(int client_fd) {
 
     // Free resources and exit
     free(buffer);
+
+    // close the connection to the client
+    shutdown(client_fd, SHUT_WR);
+    close(client_fd);
 }
 
 
-int server_fd;
+int* server_fds;
 /*
  * opens a TCP stream socket on all interfaces with port number PORTNO. Saves
  * the fd number of the server socket in *socket_number. For each accepted
  * connection, calls request_handler with the accepted fd number.
  */
-void serve_forever(int *server_fd) {
+void* serve_forever(void* args) {
+
+    int idx = *((int*) args);
+
+    int* server_fd = &server_fds[idx];
 
     // create a socket to listen
     *server_fd = socket(PF_INET, SOCK_STREAM, 0);
@@ -129,7 +138,7 @@ void serve_forever(int *server_fd) {
     }
 
 
-    int proxy_port = listener_ports[0];
+    int proxy_port = listener_ports[idx];
     // create the full address of this proxyserver
     struct sockaddr_in proxy_address;
     memset(&proxy_address, 0, sizeof(proxy_address));
@@ -168,15 +177,16 @@ void serve_forever(int *server_fd) {
                inet_ntoa(client_address.sin_addr),
                client_address.sin_port);
 
-        serve_request(client_fd);
+        pq_element* elem = malloc(sizeof(pq_element));
 
-        // close the connection to the client
-        shutdown(client_fd, SHUT_WR);
-        close(client_fd);
+        
+
+        serve_request(client_fd);
     }
 
     shutdown(*server_fd, SHUT_RDWR);
     close(*server_fd);
+    return NULL;
 }
 
 /*
@@ -230,8 +240,7 @@ int main(int argc, char **argv) {
     /* Default settings */
     default_settings();
 
-    int i;
-    for (i = 1; i < argc; i++) {
+    for (int i = 1; i < argc; i++) {
         if (strcmp("-l", argv[i]) == 0) {
             num_listener = atoi(argv[++i]);
             free(listener_ports);
@@ -239,6 +248,8 @@ int main(int argc, char **argv) {
             for (int j = 0; j < num_listener; j++) {
                 listener_ports[j] = atoi(argv[++i]);
             }
+
+            server_fds = (int*) malloc(num_listener * sizeof(int));
         } else if (strcmp("-w", argv[i]) == 0) {
             num_workers = atoi(argv[++i]);
         } else if (strcmp("-q", argv[i]) == 0) {
@@ -254,7 +265,53 @@ int main(int argc, char **argv) {
     }
     print_settings();
 
-    serve_forever(&server_fd);
+    pthread_t* listener_threads;
+    listener_threads = malloc(sizeof(pthread_t) * num_listener);
+
+    if (!listener_threads) {
+        perror("FAILED TO MALLOC THREADS!\n");
+        exit(0);
+    }
+
+    int* thread_idx = malloc(sizeof(int) * num_listener);
+
+    if (!thread_idx) {
+        perror("MALLOC FAILED!\n");
+        exit(0);
+    }
+
+    for (int i = 0; i < num_listener; i++)
+        thread_idx[i] = i;
+
+    for (int i = 0; i < num_listener; i++) {
+        if (pthread_create(&listener_threads[i], NULL, serve_forever, (void*) &threads[i])) {
+            perror("FAILED TO CREATE LISTENER THREADS\n");
+            exit(0);
+        }
+    }
+
+    pthread_t* worker_threads;
+    worker_threads = malloc(sizeof(pthread_t) * num_workers);
+
+    if (!worker_threads) {
+        perror("FAILED TO MALLOC THREADS!\n");
+        exit(0);
+    }
+
+    for (int i = 0; i < num_workers; i++) {
+        if (pthread_create(&worker_threads[i], NULL, do_work, NULL)) {
+            perror("FAILED TO CREATE LISTENER THREADS\n");
+            exit(0);
+        }
+    }
+
+    for (int i = 0; i < num_listener; i++) {
+        pthread_join(&listener_threads[i], NULL);
+    }
+
+    for (int i = 0; i < num_workers; i++) {
+        pthread_join(&worker_threads[i], NULL);
+    }
 
     return EXIT_SUCCESS;
 }
