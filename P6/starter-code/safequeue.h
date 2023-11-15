@@ -25,6 +25,14 @@ typedef struct {
 }
 #endif
 
+/* Abstract Priority Queue Implementation */
+priority_queue* pq_init(unsigned int);
+void pq_destroy();
+int pq_enqueue(priority_queue*, pq_element*);
+void* pq_dequeue(priority_queue*);
+int is_pq_full(priority_queue*);
+int is_pq_empty(priority_queue*);
+
 /* Required Interface */
 priority_queue* create_queue(uint);
 void add_work(priority_queue*, pq_element*);
