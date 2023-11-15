@@ -29,7 +29,7 @@ priority_queue* pq_init(uint capacity) {
         goto end_op;
     }
 
-    pthread_mutex_init(&pq->pq_mutex);
+    pthread_mutex_init(&pq->pq_mutex, NULL);
 
     end_op:
     return pq;
