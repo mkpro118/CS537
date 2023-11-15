@@ -14,7 +14,7 @@ typedef struct {
 } args;
 
 
-int retvals[NUM_THREADS];
+int retvals[NUM_THREADS * NUM_OPERATIONS];
 int n;
 
 pthread_mutex_t retval_lock;
@@ -134,14 +134,18 @@ void test_pq_order() {
 
 void* thread_enqueue(void* arg) {
     priority_queue* pq = (priority_queue*)(((args*) arg)->pq);
-    int* x = malloc(sizeof(int));
-    *x = ((args*) arg)->val;
 
-    pq_element* elem = malloc(sizeof(pq_element));
-    elem->value = (void*) x;
-    elem->priority = *x;
+    int val = ((args*) arg)->val * NUM_OPERATIONS;
 
-    assert(pq_enqueue(pq, elem) == 0);
+    for (int i = val; i < val + NUM_OPERATIONS; i++) {
+        int* x = malloc(sizeof(int));
+        *x = i;
+        pq_element* elem = malloc(sizeof(pq_element));
+        elem->value = (void*) x;
+        elem->priority = *x;
+
+        assert(pq_enqueue(pq, elem) == 0);
+    }
     return NULL;
 }
 
@@ -191,7 +195,7 @@ void test_pq_thread_safety() {
         pthread_join(threads[i], NULL);
     }
 
-    for (int i = 0; i < NUM_THREADS - 1; i++) {
+    for (int i = 0; i < NUM_THREADS * NUM_OPERATIONS - 1; i++) {
         assert(retvals[i] > retvals[i+1]);
     }
 
