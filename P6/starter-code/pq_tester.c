@@ -8,7 +8,7 @@
 #define NUM_THREADS 10
 #define NUM_OPERATIONS 100
 
-struct {
+typedef struct {
     priority_queue* pq;
     int val;
 } args;
@@ -133,9 +133,9 @@ void test_pq_order() {
 }
 
 void* thread_enqueue(void* arg) {
-    priority_queue* pq = (priority_queue*)(((struct args*) arg)->pq);
+    priority_queue* pq = (priority_queue*)(((args*) arg)->pq);
     int* x = malloc(sizeof(int));
-    *x = ((struct args*) arg)->val;
+    *x = ((args*) arg)->val;
 
     pq_element* elem = malloc(sizeof(pq_element));
     elem->value = (void*) x;
@@ -146,7 +146,7 @@ void* thread_enqueue(void* arg) {
 }
 
 void* thread_dequeue(void* arg) {
-    priority_queue* pq = (priority_queue*)(((struct args*) arg)->pq);
+    priority_queue* pq = (priority_queue*)(((args*) arg)->pq);
     int* x = (int*) pq_dequeue(pq);
     pthread_mutex_lock(&retval_lock);
     retvals[n++] = *x;
@@ -162,11 +162,10 @@ void test_pq_thread_safety() {
 
     // Create threads
     pthread_t threads[NUM_THREADS];
-    struct args thread_args[NUM_THREADS];
+    args thread_args[NUM_THREADS];
     for (int i = 0; i < NUM_THREADS; i++) {
         thread_args[i].pq = pq;
         thread_args[i].val = i;
-        thread_args[i].retval = -1;
         pthread_create(&threads[i], NULL, thread_enqueue, &thread_args[i]);
     }
 
@@ -197,7 +196,7 @@ void test_pq_thread_safety() {
 
 int main() {
     n = 0;
-    retval_lock = PTHREAD_MUTEX_INITIALIZER;
+    pthread_mutex_init(&retval_lock, NULL);
 
     printf("\n\nStarting tests...\n\n");
     test_pq_basic();
