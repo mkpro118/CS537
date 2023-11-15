@@ -7,6 +7,14 @@
 ////////////////////////////////////////////////////////////////////////////////
 ///                  Abstract Priority Queue Implementation                  ///
 ////////////////////////////////////////////////////////////////////////////////
+/* Abstract Priority Queue Implementation */
+static priority_queue* pq_init(unsigned int);
+static void pq_destroy();
+static int pq_enqueue(priority_queue*, pq_element*);
+static void* pq_dequeue(priority_queue*);
+static int is_pq_full(priority_queue*);
+static int is_pq_empty(priority_queue*);
+
 
 /**
  * Priority Queue constructor
@@ -232,6 +240,11 @@ void* get_work(priority_queue* pq) {
 void* get_work_nonblocking(priority_queue* pq) {
     return pq_dequeue(pq);
 }
+
+int is_queue_full(priority_queue* pq) { return is_pq_full(pq); }
+
+int is_queue_empty(priority_queue* pq) { return is_pq_empty(pq); }
+
 
 void destroy_queue(priority_queue* pq) {
     pq_destroy(pq);
