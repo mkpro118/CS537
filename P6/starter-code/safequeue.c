@@ -208,7 +208,7 @@ void add_work(priority_queue* pq, pq_element* elem) {
     while (is_pq_full(pq))
         pthread_cond_wait(&pq->pq_cond_empty, &pq->pq_mutex);
 
-    pq_enqueue(elem);
+    pq_enqueue(pq, elem);
 
     pthread_cond_signal(&pq->pq_cond_fill);
 
@@ -223,7 +223,7 @@ void* get_work(priority_queue* pq) {
 
     void* elem = pq_dequeue(pq);
 
-    pthread_mutex_signal(&pq->pq_cond_empty);
+    pthread_cond_signal(&pq->pq_cond_empty);
     pthread_mutex_unlock(&pq->pq_mutex);
 
     return elem;
