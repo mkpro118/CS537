@@ -59,7 +59,7 @@ void test_pq_basic() {
     printf("\n\n========================================\n");
     printf("Testing pq_dequeue\n");
     int* dequeued_elem = (int*) pq_dequeue(pq);
-    assert(*dequeued_elem == *elem->value);
+    assert(*dequeued_elem == val);
     printf("dequeued_elem == elem->value: PASSED\n");
     assert(pq->size == 9);
     printf("pq->size == 9: PASSED\n");
