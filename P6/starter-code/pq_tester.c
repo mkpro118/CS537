@@ -8,6 +8,17 @@
 #define NUM_THREADS 10
 #define NUM_OPERATIONS 100
 
+struct {
+    priority_queue* pq;
+    int val;
+} args;
+
+
+int retvals[NUM_THREADS];
+int n;
+
+pthread_mutex_t retval_lock;
+
 void test_pq_basic() {
     // Test Case 1: Initialization
     printf("========================================\n");
@@ -121,19 +132,28 @@ void test_pq_order() {
     pq_destroy(pq);
 }
 
-void* thread_func(void* arg) {
-    priority_queue* pq = (priority_queue*)arg;
-    for (int i = 0; i < NUM_OPERATIONS; i++) {
-        pq_element* elem = malloc(sizeof(pq_element));
-        elem->value = (void*) &i;
-        elem->priority = i;
-        pq_enqueue(pq, elem);
-        void* dequeued_elem = pq_dequeue(pq);
-        assert(dequeued_elem == elem->value);
-        free(elem);
-    }
+void* thread_enqueue(void* arg) {
+    priority_queue* pq = (priority_queue*)(((struct args*) arg)->pq);
+    int* x = malloc(sizeof(int));
+    *x = ((struct args*) arg)->val;
+
+    pq_element* elem = malloc(sizeof(pq_element));
+    elem->value = (void*) x;
+    elem->priority = *x;
+
+    assert(pq_enqueue(pq, elem) == 0);
     return NULL;
 }
+
+void* thread_dequeue(void* arg) {
+    priority_queue* pq = (priority_queue*)(((struct args*) arg)->pq);
+    int* x = (int*) pq_dequeue(pq);
+    pthread_mutex_lock(&retval_lock);
+    retvals[n++] = *x;
+    pthread_mutex_unlock(&retval_lock);
+    return NULL;
+}
+
 
 void test_pq_thread_safety() {
     // Initialization
@@ -142,13 +162,30 @@ void test_pq_thread_safety() {
 
     // Create threads
     pthread_t threads[NUM_THREADS];
+    struct args thread_args[NUM_THREADS];
     for (int i = 0; i < NUM_THREADS; i++) {
-        pthread_create(&threads[i], NULL, thread_func, pq);
+        thread_args[i].pq = pq;
+        thread_args[i].val = i;
+        thread_args[i].retval = -1;
+        pthread_create(&threads[i], NULL, thread_enqueue, &thread_args[i]);
     }
 
     // Wait for threads to finish
     for (int i = 0; i < NUM_THREADS; i++) {
         pthread_join(threads[i], NULL);
+    }
+
+    for (int i = 0; i < NUM_THREADS; i++) {
+        pthread_create(&threads[i], NULL, thread_dequeue, NULL);
+    }
+
+    // Wait for threads to finish
+    for (int i = 0; i < NUM_THREADS; i++) {
+        pthread_join(threads[i], NULL);
+    }
+
+    for (int i = 0; i < NUM_THREADS - 1; i++) {
+        assert(retvals[i] > retvals[i+1]);
     }
 
     // Check if the queue is empty
@@ -159,6 +196,9 @@ void test_pq_thread_safety() {
 }
 
 int main() {
+    n = 0;
+    retval_lock = PTHREAD_MUTEX_INITIALIZER;
+
     printf("\n\nStarting tests...\n\n");
     test_pq_basic();
     printf("\n=======================\n");
@@ -177,5 +217,7 @@ int main() {
     printf("===============================\n");
 
     printf("All tests passed!\n");
+
+    pthread_mutex_destroy(&retval_lock);
     return 0;
 }
