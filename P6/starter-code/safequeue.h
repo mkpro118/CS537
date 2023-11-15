@@ -1,11 +1,12 @@
 ##ifndef __SAFEQUEUE_H__
 #define __SAFEQUEUE_H__
 
+typedef unsigned int uint;
+
 typedef struct {
     unsigned int priority;
     void* value;
 } pq_element;
-
 
 typedef struct {
     unsigned int size;
@@ -13,6 +14,18 @@ typedef struct {
     pq_element** queue;
     pthread_mutex_t pq_mutex;
 } priority_queue;
+
+#ifndef _PQ_SWAP_
+#define _PQ_SWAP_(x, y, z) {\
+    pq_element* temp = (x)->queue[(y)];\
+    (x)->queue[(y)] = (x)->queue[(z)];\
+    (x)->queue[(z)] = temp;\
+}
+#endif
+
+#ifndef __SI__
+#define __SI__ static inline
+#endif
 
 
 /* Abstract Priority Queue Implementation */
