@@ -157,12 +157,15 @@ void* thread_dequeue(void* arg) {
 
 void test_pq_thread_safety() {
     // Initialization
+    printf("Starting test thread safety\n");
     priority_queue* pq = pq_init(NUM_THREADS * NUM_OPERATIONS);
     assert(pq != NULL);
 
     // Create threads
     pthread_t threads[NUM_THREADS];
     args thread_args[NUM_THREADS];
+
+    printf("Creating Threads\n");
     for (int i = 0; i < NUM_THREADS; i++) {
         thread_args[i].pq = pq;
         thread_args[i].val = i;
@@ -170,16 +173,21 @@ void test_pq_thread_safety() {
     }
 
     // Wait for threads to finish
-    for (int i = 0; i < NUM_THREADS; i++) {
+   printf("Waiting threads 1\n");
+   for (int i = 0; i < NUM_THREADS; i++) {
         pthread_join(threads[i], NULL);
     }
 
+//    pthread_t threads2[NUM_THREADS];
+
+    printf("Create Threads 2\n");
     for (int i = 0; i < NUM_THREADS; i++) {
-        pthread_create(&threads[i], NULL, thread_dequeue, NULL);
+        pthread_create(&threads[i], NULL, thread_dequeue, &thread_args[i]);
     }
 
     // Wait for threads to finish
-    for (int i = 0; i < NUM_THREADS; i++) {
+   printf("Wait 2\n");
+   for (int i = 0; i < NUM_THREADS; i++) {
         pthread_join(threads[i], NULL);
     }
 
