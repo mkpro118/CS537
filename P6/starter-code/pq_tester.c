@@ -21,7 +21,7 @@ typedef struct {
 } args;
 
 
-int retvals[NUM_THREADS * NUM_OPERATIONS];
+int retvals[NUM_THREADS * NUM_OPERATIONS][2];
 int n;
 
 pthread_mutex_t retval_lock;
@@ -166,10 +166,11 @@ void* thread_dequeue(void* arg) {
     for (int i = 0; i < NUM_OPERATIONS; i++) {
         pthread_mutex_lock(&retval_lock);
         int idx = n++;
+        int* x = (int*) pq_dequeue(pq);
         pthread_mutex_unlock(&retval_lock);
 
-        int* x = (int*) pq_dequeue(pq);
-        retvals[idx] = *x;
+        retvals[idx][0] = *x;
+        retvals[idx][1] = ((args*) arg)->val;
     }
     return NULL;
 }
@@ -228,7 +229,14 @@ void test_pq_thread_safety() {
     printf(" Done\n");
 
     for (int i = 0; i < NUM_THREADS * NUM_OPERATIONS - 1; i++) {
-        assert_gt(retvals[i], retvals[i+1], "%d", "%d");
+        if (retvals[i][0] <= retvals[i+1][0]) {
+            printf("i = %d | retvals[i] = %d | retvals[i + 1] = %d\n", i, retvals[i][0], retvals[i+1][0]);
+            for (int i = 0; i <NUM_OPERATIONS; i++) {
+                printf("[%d: %d]", retvals[i][1], retvals[i][0]);
+            }
+			printf("\n");
+        }
+        assert_gt(retvals[i][0], retvals[i+1][0], "%d", "%d");
     }
 
     // Check if the queue is empty
