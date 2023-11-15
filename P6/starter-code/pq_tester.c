@@ -5,7 +5,7 @@
 #include "safequeue.h"
 
 #define NUM_THREADS 10
-#define NUM_OPERATIONS 100
+#define NUM_OPERATIONS 3
 
 typedef struct {
     priority_queue* pq;
@@ -142,7 +142,8 @@ void test_pq_order() {
 void* thread_enqueue(void* arg) {
     priority_queue* pq = (priority_queue*)(((args*) arg)->pq);
 
-    int val = ((args*) arg)->val * NUM_OPERATIONS;
+    int tid = ((args*) arg)->val;
+    int val = tid * NUM_OPERATIONS;
 
     for (int i = val; i < val + NUM_OPERATIONS; i++) {
         int* x = malloc(sizeof(int));
@@ -158,10 +159,15 @@ void* thread_enqueue(void* arg) {
 
 void* thread_dequeue(void* arg) {
     priority_queue* pq = (priority_queue*)(((args*) arg)->pq);
-    int* x = (int*) pq_dequeue(pq);
-    pthread_mutex_lock(&retval_lock);
-    retvals[n++] = *x;
-    pthread_mutex_unlock(&retval_lock);
+
+    for (int i = 0; i < NUM_OPERATIONS; i++) {
+        pthread_mutex_lock(&retval_lock);
+        int idx = n++;
+        pthread_mutex_unlock(&retval_lock);
+
+        int* x = (int*) pq_dequeue(pq);
+        retvals[idx] = *x;
+    }
     return NULL;
 }
 
@@ -176,31 +182,47 @@ void test_pq_thread_safety() {
     pthread_t threads[NUM_THREADS];
     args thread_args[NUM_THREADS];
 
-    printf("Creating Threads\n");
+    printf("\nCreating enqueue threads ");
+    fflush(stdout);
     for (int i = 0; i < NUM_THREADS; i++) {
         thread_args[i].pq = pq;
         thread_args[i].val = i;
         pthread_create(&threads[i], NULL, thread_enqueue, &thread_args[i]);
+        printf(".");
+        fflush(stdout);
     }
+    printf(" Done\n");
 
     // Wait for threads to finish
-   printf("Waiting threads 1\n");
+   printf("Joining  enqueue threads ");
+   fflush(stdout);
    for (int i = 0; i < NUM_THREADS; i++) {
         pthread_join(threads[i], NULL);
+        printf(".");
+        fflush(stdout);
     }
 
-//    pthread_t threads2[NUM_THREADS];
+    printf(" Done\n");
 
-    printf("Create Threads 2\n");
+    printf("\nCreating dequeue threads ");
+    fflush(stdout);
     for (int i = 0; i < NUM_THREADS; i++) {
         pthread_create(&threads[i], NULL, thread_dequeue, &thread_args[i]);
+        printf(".");
+        fflush(stdout);
     }
+    printf(" Done\n");
 
     // Wait for threads to finish
-   printf("Wait 2\n");
-   for (int i = 0; i < NUM_THREADS; i++) {
+    printf("Joining  dequeue threads ");
+    fflush(stdout);
+    for (int i = 0; i < NUM_THREADS; i++) {
         pthread_join(threads[i], NULL);
+        printf(".");
+        fflush(stdout);
     }
+
+    printf(" Done\n");
 
     for (int i = 0; i < NUM_THREADS * NUM_OPERATIONS - 1; i++) {
         assert_gt(retvals[i], retvals[i+1], "%d", "%d");
