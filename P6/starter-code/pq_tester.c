@@ -22,7 +22,7 @@ void test_pq_basic() {
 
     // Prepare a pq_element for testing
     pq_element* elem = malloc(sizeof(pq_element));
-    int val = 1;
+    int val = 100;
     elem->value = (void*) &val;
     elem->priority = 1;
 
@@ -58,8 +58,8 @@ void test_pq_basic() {
     // Test Case 4: Dequeue
     printf("\n\n========================================\n");
     printf("Testing pq_dequeue\n");
-    void* dequeued_elem = pq_dequeue(pq);
-    assert(dequeued_elem == elem->value);
+    int* dequeued_elem = (int*) pq_dequeue(pq);
+    assert(*dequeued_elem == *elem->value);
     printf("dequeued_elem == elem->value: PASSED\n");
     assert(pq->size == 9);
     printf("pq->size == 9: PASSED\n");
@@ -68,9 +68,10 @@ void test_pq_basic() {
 
     // Test Case 5: Dequeue when Empty
     printf("Testing pq_dequeue when empty\n");
-    while (!(pq->size == 0)) {
+    while (pq->size != 0) {
         pq_dequeue(pq);
     }
+
     dequeued_elem = pq_dequeue(pq);
     assert(dequeued_elem == NULL);
     printf("dequeued_elem == NULL: PASSED\n");
@@ -158,6 +159,7 @@ void test_pq_thread_safety() {
 }
 
 int main() {
+    printf("\n\nStarting tests...\n\n");
     test_pq_basic();
     printf("\n=======================\n");
     printf("All basic tests passed!\n");
