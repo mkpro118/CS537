@@ -1,4 +1,4 @@
-##ifndef __SAFEQUEUE_H__
+#ifndef __SAFEQUEUE_H__
 #define __SAFEQUEUE_H__
 
 typedef unsigned int uint;
@@ -31,7 +31,7 @@ typedef struct {
 /* Abstract Priority Queue Implementation */
 priority_queue* pq_init(unsigned int);
 void pq_destroy();
-void pq_enqueue(priority_queue*, pq_element*);
+int pq_enqueue(priority_queue*, pq_element*);
 void* pq_dequeue(priority_queue*);
 
 /* Required Interface */
