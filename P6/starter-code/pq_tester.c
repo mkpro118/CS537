@@ -46,7 +46,7 @@ void test_pq_basic() {
     elem->priority = 100;
 
     // Test Case 2: Enqueue
-    printf(LINE)
+    printf(LINE);
     printf("Testing pq_enqueue\n");
     int enqueue_result = pq_enqueue(pq, elem);
     assert_eq(enqueue_result, 0, "%d", "%d");
@@ -55,7 +55,7 @@ void test_pq_basic() {
     printf("pq->size == 1: PASSED\n");
 
     // Test Case 3: Enqueue when Full
-    printf(LINE)
+    printf(LINE);
     printf("Testing pq_enqueue after full\n");
     for (int i = 0; i < 9; i++) {
         pq_element* new_elem = malloc(sizeof(pq_element));
@@ -76,7 +76,7 @@ void test_pq_basic() {
     printf("pq->size == 10: PASSED\n");
 
     // Test Case 4: Dequeue
-    printf(LINE)
+    printf(LINE);
     printf("Testing pq_dequeue\n");
     int* dequeued_elem = (int*) pq_dequeue(pq);
     assert_eq(*dequeued_elem, *((int*)(elem->value)), "%d", "%d");
@@ -84,7 +84,7 @@ void test_pq_basic() {
     assert_eq(pq->size, 9, "%d", "%d");
     printf("pq->size == 9: PASSED\n");
 
-    printf(LINE)
+    printf(LINE);
 
     // Test Case 5: Dequeue when Empty
     printf("Testing pq_dequeue when empty\n");
@@ -104,7 +104,7 @@ void test_pq_basic() {
 }
 
 void test_pq_order() {
-    printf(LINE)
+    printf(LINE);
     printf("Testing pq_dequeue order\n");
     // Initialization
     priority_queue* pq = pq_init(10);
