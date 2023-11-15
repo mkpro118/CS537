@@ -4,6 +4,10 @@
 
 #include "safequeue.h"
 
+////////////////////////////////////////////////////////////////////////////////
+///                  Abstract Priority Queue Implementation                  ///
+////////////////////////////////////////////////////////////////////////////////
+
 /**
  * Priority Queue constructor
  * @param  capacity The maximum capacity of the priority queue
@@ -18,6 +22,9 @@ priority_queue* pq_init(uint capacity) {
 
     pq = malloc(sizeof(priority_queue));
 
+    if (!pq)
+        goto end_op;
+
     pq->size = 0;
     pq->capacity = capacity;
 
@@ -25,11 +32,19 @@ priority_queue* pq_init(uint capacity) {
     pq->queue = malloc(sizeof(pq_element*) * capacity);
 
     if (!pq->queue) {
+        free(pq);
+        pq = NULL;
+        goto end_op;
+    }
+
+    if (!pq->queue) {
         perror("malloc failed in pq_init()\n");
         goto end_op;
     }
 
     pthread_mutex_init(&pq->pq_mutex, NULL);
+    pthread_cond_init(&pq->pq_cond_empty, NULL);
+    pthread_cond_init(&pq->pq_cond_fill, NULL);
 
     end_op:
     return pq;
@@ -45,13 +60,20 @@ void pq_destroy(priority_queue* pq) {
     // Free each pq_element in the queue
     for (uint i = 0; i < pq->size; i++) {
         free(pq->queue[i]->value);
+        pq->queue[i]->value = NULL;
         free(pq->queue[i]);
+        pq->queue[i] = NULL;
     }
 
     free(pq->queue);
+    pq->queue = NULL;
+
     pthread_mutex_unlock(&pq->pq_mutex);
 
     pthread_mutex_destroy(&pq->pq_mutex);
+    pthread_cond_destroy(&pq->pq_cond_empty);
+    pthread_cond_destroy(&pq->pq_cond_fill);
+
     free(pq);
     pq = NULL;
 }
@@ -62,9 +84,7 @@ void pq_destroy(priority_queue* pq) {
  * @param  pq The Priority Queue to test
  * @return    1 if full, 0 if not full
  */
-__SI__ uint is_full(priority_queue* pq) {
-    return pq->size == pq->capacity;
-}
+int is_pq_full(priority_queue* pq) { return pq->size == pq->capacity; }
 
 /**
  * Checks if priority queue is empty.
@@ -72,36 +92,12 @@ __SI__ uint is_full(priority_queue* pq) {
  * @param  pq The Priority Queue to test
  * @return    1 if empty, 0 if not empty
  */
-__SI__ uint is_empty(priority_queue* pq) {
-    return !pq->size;
-}
+int is_pq_empty(priority_queue* pq) { return !pq->size; }
 
-/**
- * Get the index of the max-heap parent node given a child index
- * @param  idx The index of the child
- * @return     Index of the parent
- */
-__SI__ uint parent_idx(uint idx) {
-    return !idx ? idx : (idx - 1) >> 1;
-}
-
-/**
- * Get the index of the max-heap left child node given a parent index
- * @param  idx The index of the parent
- * @return     Index of the left child
- */
-__SI__ uint lchld(uint idx) {
-    return (idx << 1) + 1;
-}
-
-/**
- * Get the index of the max-heap right child node given a parent index
- * @param  idx The index of the parent
- * @return     Index of the right child
- */
-__SI__ uint rchld(uint idx) {
-    return (idx << 1) + 2;
-}
+// Get parent or child indices in the max-heap
+static inline uint parent_idx(uint idx) { return !idx ? idx : (idx - 1) >> 1; }
+static inline uint lchld(uint idx) { return (idx << 1) + 1; }
+static inline uint rchld(uint idx) { return (idx << 1) + 2; }
 
 /**
  * Enqueue an element in the priority queue
@@ -116,7 +112,7 @@ int pq_enqueue(priority_queue* pq, pq_element* pq_elem) {
 
     int retval = -1;
 
-    if (is_full(pq)) {
+    if (is_pq_full(pq)) {
         perror("Cannot add to a full queue\n");
         goto end_op;
     }
@@ -154,7 +150,7 @@ void* pq_dequeue(priority_queue* pq) {
 
     pq_element* elem = NULL;
 
-    if (is_empty(pq)) {
+    if (is_pq_empty(pq)) {
         perror("Cannot dequeue from an empty queue\n");
         goto end_op;
     }
@@ -193,3 +189,54 @@ void* pq_dequeue(priority_queue* pq) {
 
     return elem;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+///              End Abstract Priority Queue Implementation                  ///
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
+///                    Required Interface Implementation                     ///
+////////////////////////////////////////////////////////////////////////////////
+
+priority_queue* create_queue(uint capacity) {
+    return pq_init(capacity);
+}
+
+void add_work(priority_queue* pq, pq_element* elem) {
+    pthread_mutex_lock(&pq->pq_mutex);
+    while (is_pq_full(pq))
+        pthread_cond_wait(&pq->pq_cond_empty, &pq->pq_mutex);
+
+    pq_enqueue(elem);
+
+    pthread_cond_signal(&pq->pq_cond_fill);
+
+    pthread_mutex_unlock(&pq->pq_mutex);
+}
+
+void* get_work(priority_queue* pq) {
+    pthread_mutex_lock(&pq->pq_mutex);
+
+    while (is_pq_empty(pq))
+        pthread_cond_wait(&pq->pq_cond_fill, &pq->pq_mutex);
+
+    void* elem = pq_dequeue(pq);
+
+    pthread_mutex_signal(&pq->pq_cond_empty);
+    pthread_mutex_unlock(&pq->pq_mutex);
+
+    return elem;
+}
+
+void* get_work_nonblocking(priority_queue* pq) {
+    return pq_dequeue(pq);
+}
+
+void destroy_queue(priority_queue* pq) {
+    pq_destroy(pq);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+///                End Required Interface Implementation                     ///
+////////////////////////////////////////////////////////////////////////////////
