@@ -105,7 +105,8 @@ void test_pq_basic() {
 
 void test_pq_order() {
     printf(LINE);
-    printf("Testing pq_dequeue order\n");
+    printf("Testing pq_dequeue order ");
+    fflush(stdout);
     // Initialization
     priority_queue* pq = pq_init(10);
     assert_ne(pq, NULL, "%p", "%p");
@@ -135,6 +136,7 @@ void test_pq_order() {
         fflush(stdout);
         assert_eq(pq->size, i, "%d", "%d");
     }
+    printf(" PASSED\n");
 
     printf("\npq->size == 0: PASSED\n");
 
