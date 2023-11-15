@@ -1,6 +1,8 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <pthread.h>
+
 #include "safequeue.h"
 
 #define NUM_THREADS 10
@@ -37,13 +39,14 @@ void test_pq_basic() {
     printf("Testing pq_enqueue after full\n");
     for (int i = 0; i < 9; i++) {
         pq_element* new_elem = malloc(sizeof(pq_element));
-        new_elem->value = i;
+        new_elem->value = (void*) &i;
         new_elem->priority = i;
         pq_enqueue(pq, new_elem);
     }
 
     pq_element* overflow_elem = malloc(sizeof(pq_element));
-    overflow_elem->value = 10;
+    int overflow_value = 10;
+    overflow_elem->value = (void*) &overflow_elem;
     overflow_elem->priority = 10;
     enqueue_result = pq_enqueue(pq, overflow_elem);
     assert(enqueue_result == -1);
@@ -90,7 +93,7 @@ void test_pq_order() {
     pq_element* elems[10];
     for (int i = 0; i < 10; i++) {
         elems[i] = malloc(sizeof(pq_element));
-        elems[i]->value = i;
+        elems[i]->value = (void*) &i;
         elems[i]->priority = i;
     }
 
@@ -120,7 +123,7 @@ void* thread_func(void* arg) {
     priority_queue* pq = (priority_queue*)arg;
     for (int i = 0; i < NUM_OPERATIONS; i++) {
         pq_element* elem = malloc(sizeof(pq_element));
-        elem->value = i;
+        elem->value = (void*) &i;
         elem->priority = i;
         pq_enqueue(pq, elem);
         void* dequeued_elem = pq_dequeue(pq);
@@ -147,7 +150,7 @@ void test_pq_thread_safety() {
     }
 
     // Check if the queue is empty
-    assert(is_empty(pq));
+    assert(pq->size == 0);
 
     // Destroy
     pq_destroy(pq);
