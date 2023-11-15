@@ -33,11 +33,11 @@ void test_pq_basic() {
     printf("Testing pq_init\n");
     priority_queue* pq = pq_init(10);
     assert_ne(pq, NULL, "%p", "%p");
-    printf("pq != NULL: PASSED\n");
+    printf("pq != NULL:                     | PASSED\n");
     assert_eq(pq->capacity, 10, "%d", "%d");
-    printf("pq->capacity == 10: PASSED\n");
+    printf("pq->capacity == 10:             | PASSED\n");
     assert_eq(pq->size, 0, "%d", "%d");
-    printf("pq->size == 0: PASSED\n");
+    printf("pq->size == 0:                  | PASSED\n");
 
     // Prepare a pq_element for testing
     pq_element* elem = malloc(sizeof(pq_element));
@@ -50,9 +50,9 @@ void test_pq_basic() {
     printf("Testing pq_enqueue\n");
     int enqueue_result = pq_enqueue(pq, elem);
     assert_eq(enqueue_result, 0, "%d", "%d");
-    printf("enqueue_result == 0: PASSED\n");
+    printf("enqueue_result == 0:            | PASSED\n");
     assert_eq(pq->size, 1, "%d", "%d");
-    printf("pq->size == 1: PASSED\n");
+    printf("pq->size == 1:                  | PASSED\n");
 
     // Test Case 3: Enqueue when Full
     printf(LINE);
@@ -71,18 +71,18 @@ void test_pq_basic() {
     overflow_elem->priority = 10;
     enqueue_result = pq_enqueue(pq, overflow_elem);
     assert_eq(enqueue_result, -1, "%d", "%d");
-    printf("enqueue_result == -1: PASSED\n");
+    printf("enqueue_result == -1:           | PASSED\n");
     assert_eq(pq->size, 10, "%d", "%d");
-    printf("pq->size == 10: PASSED\n");
+    printf("pq->size == 10:                 | PASSED\n");
 
     // Test Case 4: Dequeue
     printf(LINE);
     printf("Testing pq_dequeue\n");
     int* dequeued_elem = (int*) pq_dequeue(pq);
     assert_eq(*dequeued_elem, *((int*)(elem->value)), "%d", "%d");
-    printf("*dequeued_elem == *((int*)(elem->value)): PASSED\n");
+    printf("*dequeued_elem == *elem->value: | PASSED\n");
     assert_eq(pq->size, 9, "%d", "%d");
-    printf("pq->size == 9: PASSED\n");
+    printf("pq->size == 9:                  | PASSED\n");
 
     printf(LINE);
 
@@ -95,9 +95,9 @@ void test_pq_basic() {
 
     dequeued_elem = pq_dequeue(pq);
     assert_eq(dequeued_elem, NULL, "%p", "%p");
-    printf("dequeued_elem == NULL: PASSED\n");
+    printf("dequeued_elem == NULL:          | PASSED\n");
     assert_eq(pq->size, 0, "%d", "%d");
-    printf("pq->size == 0: PASSED\n");
+    printf("pq->size == 0:                  | PASSED\n");
 
     // Test Case 6: Destroy
     pq_destroy(pq);
@@ -105,7 +105,7 @@ void test_pq_basic() {
 
 void test_pq_order() {
     printf(LINE);
-    printf("Testing pq_dequeue order ");
+    printf("Testing PQ ordering ");
     fflush(stdout);
     // Initialization
     priority_queue* pq = pq_init(10);
@@ -136,9 +136,9 @@ void test_pq_order() {
         fflush(stdout);
         assert_eq(pq->size, i, "%d", "%d");
     }
-    printf(" PASSED\n");
+    printf("  | PASSED\n");
 
-    printf("\npq->size == 0: PASSED\n");
+    printf("pq->size == 0:                  | PASSED\n");
 
     // Destroy
     pq_destroy(pq);
@@ -180,7 +180,7 @@ void* thread_dequeue(void* arg) {
 
 void test_pq_thread_safety() {
     // Initialization
-    printf("Starting test thread safety\n");
+    printf("Starting thread safety test...\n");
     priority_queue* pq = pq_init(NUM_THREADS * NUM_OPERATIONS);
     assert_ne(pq, NULL, "%p", "%p");
 
@@ -193,7 +193,11 @@ void test_pq_thread_safety() {
     for (int i = 0; i < NUM_THREADS; i++) {
         thread_args[i].pq = pq;
         thread_args[i].val = i;
-        pthread_create(&threads[i], NULL, thread_enqueue, &thread_args[i]);
+        if (pthread_create(&threads[i], NULL, thread_enqueue, &thread_args[i])) {
+            printf("FATAL ERROR: Couldn't create a Thread!\n");
+            pq_destroy(pq);
+            exit(1);
+        }
         printf(".");
         fflush(stdout);
     }
@@ -213,7 +217,11 @@ void test_pq_thread_safety() {
     printf("\nCreating dequeue threads ");
     fflush(stdout);
     for (int i = 0; i < NUM_THREADS; i++) {
-        pthread_create(&threads[i], NULL, thread_dequeue, &thread_args[i]);
+        if (pthread_create(&threads[i], NULL, thread_dequeue, &thread_args[i])) {
+            printf("FATAL ERROR: Couldn't create a Thread!\n");
+            pq_destroy(pq);
+            exit(1);
+        }
         printf(".");
         fflush(stdout);
     }
@@ -241,6 +249,8 @@ void test_pq_thread_safety() {
         assert_gt(retvals[i][0], retvals[i+1][0], "%d", "%d");
     }
 
+    printf("Dequeue Priority order:         | PASSED\n");
+
     // Check if the queue is empty
     assert_eq(pq->size, 0, "%d", "%d");
 
@@ -255,22 +265,22 @@ int main() {
     printf("\n\nStarting tests...\n\n");
     test_pq_basic();
     printf(LINE);
-    printf("All basic tests passed!\n");
+    printf("        All basic tests PASSED!         \n");
     printf(LINE);
 
     test_pq_order();
     printf(LINE);
-    printf("All order tests passed!\n");
+    printf("  All single thread order tests PASSED! \n");
     printf(LINE);
 
     test_pq_thread_safety();
 
     printf(LINE);
-    printf("All thread safety tests passed!\n");
+    printf("     All thread safety tests passed!    \n");
     printf(LINE);
 
     printf(LINE);
-    printf("All tests passed!\n");
+    printf("            All tests passed!           \n");
     printf(LINE);
 
     pthread_mutex_destroy(&retval_lock);
