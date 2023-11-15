@@ -5,7 +5,7 @@
 #include "safequeue.h"
 
 #define NUM_THREADS 10
-#define NUM_OPERATIONS 100
+#define NUM_OPERATIONS 100000
 
 #define assert(cond, a, b, f1, f2)  if (a cond b) {printf("Assertion Failed! " #a " ( " #f1 " ) " #cond " " #b " ( " #f2 " ) [Line: %d]\n", a, b, __LINE__); fflush(stdout); exit(1);}
 
