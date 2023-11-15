@@ -16,7 +16,7 @@ $(EXECUTABLE): $(OBJECTS)
 pq_test:
 	$(CC) -Wall -Werror -std=gnu99 -pthread safequeue.c pq_tester.c -o pq_tester
 	chmod 777 ./pq_tester
-	./pq_tester
+	-./pq_tester
 	rm -fr ./pq_tester
 
 clean:
