@@ -77,8 +77,8 @@ void test_pq_basic() {
 
     // Test Case 4: Dequeue
     printf(LINE);
-    printf("Testing get_work\n");
-    int* dequeued_elem = (int*) get_work(pq);
+    printf("Testing get_work_nonblocking\n");
+    int* dequeued_elem = (int*) get_work_nonblocking(pq);
     assert_eq(*dequeued_elem, *((int*)(elem->value)), "%d", "%d");
     printf("*dequeued_elem == *elem->value: | PASSED\n");
     assert_eq(pq->size, 9, "%d", "%d");
@@ -87,13 +87,13 @@ void test_pq_basic() {
     printf(LINE);
 
     // Test Case 5: Dequeue when Empty
-    printf("Testing get_work when empty\n");
+    printf("Testing get_work_nonblocking when empty\n");
     while (pq->size != 0) {
-        dequeued_elem = get_work(pq);
+        dequeued_elem = get_work_nonblocking(pq);
         assert_ne(dequeued_elem, NULL, "%p", "%p");
     }
 
-    dequeued_elem = get_work(pq);
+    dequeued_elem = get_work_nonblocking(pq);
     assert_eq(dequeued_elem, NULL, "%p", "%p");
     printf("dequeued_elem == NULL:          | PASSED\n");
     assert_eq(pq->size, 0, "%d", "%d");
@@ -130,7 +130,7 @@ void test_pq_order() {
 
     // Dequeue elements and check if they are in decreasing order of priority
     for (int i = 9; i >= 0; i--) {
-        void* dequeued_elem = get_work(pq);
+        void* dequeued_elem = get_work_nonblocking(pq);
         assert_eq(dequeued_elem, elems[i]->value, "%p", "%p");
         printf(".");
         fflush(stdout);
@@ -168,7 +168,7 @@ void* thread_dequeue(void* arg) {
     for (int i = 0; i < NUM_OPERATIONS; i++) {
         pthread_mutex_lock(&retval_lock);
         int idx = n++;
-        int* x = (int*) get_work(pq);
+        int* x = (int*) get_work_nonblocking(pq);
         pthread_mutex_unlock(&retval_lock);
 
         retvals[idx][0] = *x;
