@@ -149,8 +149,6 @@ void* do_work(void* args) {
         if (delay > 0)
             sleep(delay);
 
-        printf("Sleeping for %s | %d\n", pr->request->delay, delay);
-
         serve_request(pr);
     }
 }

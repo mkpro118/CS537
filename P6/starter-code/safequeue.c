@@ -94,7 +94,7 @@ int is_pq_full(priority_queue* pq) { return pq->size == pq->capacity; }
  * @param  pq The Priority Queue to test
  * @return    1 if empty, 0 if not empty
  */
-int is_pq_empty(priority_queue* pq) { return !pq->size; }
+int is_pq_empty(priority_queue* pq) { return pq->size == 0; }
 
 // Get parent or child indices in the max-heap
 static inline uint parent_idx(uint idx) { return !idx ? idx : (idx - 1) >> 1; }
@@ -202,7 +202,7 @@ int add_work(priority_queue* pq, pq_element* elem) {
     int retval = 0;
     pthread_mutex_lock(&pq->pq_mutex);
 
-    while (is_pq_full(pq)) {
+    if (is_pq_full(pq)) {
         // pthread_cond_signal(&pq->pq_cond_empty);
         goto end_op;
     }
