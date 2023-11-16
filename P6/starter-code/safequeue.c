@@ -43,7 +43,6 @@ priority_queue* pq_init(uint capacity) {
     }
 
     pthread_mutex_init(&pq->pq_mutex, NULL);
-    pthread_cond_init(&pq->pq_cond_empty, NULL);
     pthread_cond_init(&pq->pq_cond_fill, NULL);
 
     end_op:
@@ -79,7 +78,6 @@ void pq_destroy(priority_queue* pq) {
     pq->queue = NULL;
 
     end_op:
-    pthread_cond_destroy(&pq->pq_cond_empty);
     pthread_cond_destroy(&pq->pq_cond_fill);
 
     pthread_mutex_unlock(&pq->pq_mutex);
@@ -207,16 +205,13 @@ priority_queue* create_queue(uint capacity) {
 }
 
 int add_work(priority_queue* pq, pq_element* elem) {
-    //printf("Add work\n");
     int retval = 0;
     printf("Waiting for lock in ADD\n");
     pthread_mutex_lock(&pq->pq_mutex);
-    printf("Aquired lock in ADD\n");
+    printf("Acquired lock in ADD\n");
 
-    if (is_pq_full(pq)) {
-        // pthread_cond_signal(&pq->pq_cond_empty);
+    if (is_pq_full(pq))
         goto end_op;
-    }
 
     pq_enqueue(pq, elem);
 
@@ -225,36 +220,34 @@ int add_work(priority_queue* pq, pq_element* elem) {
     end_op:
     pthread_mutex_unlock(&pq->pq_mutex);
     printf("Released lock in ADD\n");
-    //printf("add_work: retval = %d\n", retval);
     return retval;
 }
 
 void* get_work(priority_queue* pq) {
-    //printf("get_work\n");
+    printf("Waiting for lock in GET\n");
     pthread_mutex_lock(&pq->pq_mutex);
+    printf("Acquired lock in GET\n");
 
-    while (is_pq_empty(pq)) {
-        //printf("Blocking Get\n");
+    while (is_pq_empty(pq))
         pthread_cond_wait(&pq->pq_cond_fill, &pq->pq_mutex);
-    }
 
     void* elem = pq_dequeue(pq);
 
-    // pthread_cond_signal(&pq->pq_cond_empty);
     pthread_mutex_unlock(&pq->pq_mutex);
-    //printf("elem: %p.\n", elem);
+    printf("Released lock in GET\n");
     return elem;
 }
 
 void* get_work_nonblocking(priority_queue* pq) {
-    //printf("get_work_nonblocking\n");
+    printf("Waiting for lock in GET (non-blocking)\n");
     pthread_mutex_lock(&pq->pq_mutex);
+    printf("Acquired lock in GET (non-blocking)\n");
 
     void* elem = pq_dequeue(pq);
 
     pthread_mutex_unlock(&pq->pq_mutex);
+    printf("Released lock in GET (non-blocking)\n");
 
-    //printf("elem: %p.\n", elem);
     return elem;
 }
 

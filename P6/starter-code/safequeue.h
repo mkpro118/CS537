@@ -13,7 +13,6 @@ typedef struct {
     unsigned int capacity;
     pq_element** queue;
     pthread_mutex_t pq_mutex;
-    pthread_cond_t pq_cond_empty;
     pthread_cond_t pq_cond_fill;
 } priority_queue;
 
