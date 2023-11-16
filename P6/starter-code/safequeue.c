@@ -55,6 +55,8 @@ priority_queue* pq_init(uint capacity) {
  * @param pq The Priority Queue to destroy
  */
 void pq_destroy(priority_queue* pq) {
+    if (!pq)
+        return;
     pthread_mutex_lock(&pq->pq_mutex);
 
     // Free each pq_element in the queue
@@ -203,16 +205,20 @@ priority_queue* create_queue(uint capacity) {
     return pq_init(capacity);
 }
 
-void add_work(priority_queue* pq, pq_element* elem) {
+int add_work(priority_queue* pq, pq_element* elem) {
+    int retval = 0;
     pthread_mutex_lock(&pq->pq_mutex);
+
     while (is_pq_full(pq))
-        pthread_cond_wait(&pq->pq_cond_empty, &pq->pq_mutex);
+        goto end_op;
 
     pq_enqueue(pq, elem);
 
     pthread_cond_signal(&pq->pq_cond_fill);
 
+    end_op:
     pthread_mutex_unlock(&pq->pq_mutex);
+    return retval;
 }
 
 void* get_work(priority_queue* pq) {
@@ -223,7 +229,7 @@ void* get_work(priority_queue* pq) {
 
     void* elem = pq_dequeue(pq);
 
-    pthread_cond_signal(&pq->pq_cond_empty);
+    // pthread_cond_signal(&pq->pq_cond_empty);
     pthread_mutex_unlock(&pq->pq_mutex);
 
     return elem;

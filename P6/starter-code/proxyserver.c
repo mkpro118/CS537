@@ -23,6 +23,11 @@
  */
 #define RESPONSE_BUFSIZE 10000
 
+static const char* template_resp = "%s %s HTTP/1.1\r\n"
+                                   "Host: localhost:%d\r\n"
+                                   "User-Agent: proxy_server/0.1\r\n"
+                                   "Accept: */*\r\n\r\n";
+
 /*
  * Global configuration variables.
  * Their values are set up in main() using the
@@ -34,6 +39,8 @@ int num_workers;
 char *fileserver_ipaddr;
 int fileserver_port;
 int max_queue_size;
+
+priority_queue* pq;
 
 void send_error_response(int client_fd, status_code_t err_code, char *err_msg) {
     http_start_response(client_fd, err_code);
@@ -49,7 +56,8 @@ void send_error_response(int client_fd, status_code_t err_code, char *err_msg) {
  * forward the client request to the fileserver and
  * forward the fileserver response to the client
  */
-void serve_request(int client_fd) {
+void serve_request(struct proxy_request* pr) {
+    int client_fd = pr->client_fd;
 
     // create a fileserver socket
     int fileserver_fd = socket(PF_INET, SOCK_STREAM, 0);
@@ -78,7 +86,8 @@ void serve_request(int client_fd) {
     char *buffer = (char *)malloc(RESPONSE_BUFSIZE * sizeof(char));
 
     // forward the client request to the fileserver
-    int bytes_read = read(client_fd, buffer, RESPONSE_BUFSIZE);
+    // int bytes_read = read(client_fd, buffer, RESPONSE_BUFSIZE);
+    ssize_t bytes_read = sprintf(buffer, template_resp, pr->request->method, pr->request->path, pr->port);
     int ret = http_send_data(fileserver_fd, buffer, bytes_read);
     if (ret < 0) {
         printf("Failed to send request to the file server\n");
@@ -101,12 +110,39 @@ void serve_request(int client_fd) {
     shutdown(fileserver_fd, SHUT_WR);
     close(fileserver_fd);
 
-    // Free resources and exit
-    free(buffer);
-
     // close the connection to the client
     shutdown(client_fd, SHUT_WR);
     close(client_fd);
+
+    // Free resources and exit
+    free(buffer);
+    free(pr->request->method);
+    free(pr->request->path);
+    free(pr->request->delay);
+    free(pr->request);
+    free(pr);
+}
+
+static uint parse_priority(char* path) {
+    int len = strlen(path);
+
+    int i = 1;
+    while (i < len && path[i] >= 'A' && path[i] <= 'Z')
+        i++;
+
+    char orig = path[i];
+    path[i] = '\0';
+    uint num = (uint) atoi(&path[1]);
+    path[i] = orig;
+
+    return num;
+}
+
+void* do_work(void* args) {
+    while (1) {
+        struct proxy_request* pr = (struct proxy_request*) get_work(pq);
+        serve_request(pr);
+    }
 }
 
 
@@ -177,11 +213,41 @@ void* serve_forever(void* args) {
                inet_ntoa(client_address.sin_addr),
                client_address.sin_port);
 
+        struct http_request* req = http_request_parse(client_fd);
+
+        if (!req) {
+            perror("Failed to parse http_request");
+            continue;
+        }
+
+        struct proxy_request* pr;
+
+        if (strcmp(req->path, GETJOBCMD) == 0) {
+            pr = (struct proxy_request*) get_work_nonblocking(pq);
+            if (!pr) {
+                send_error_response(pr->client_fd, QUEUE_EMPTY, "NO JOBS IN QUEUE!");
+            } else {
+                serve_request(pr);
+            }
+            continue;
+        }
+
+        pr = malloc(sizeof(struct proxy_request));
+        pr->request = req;
+        pr->client_fd = client_fd;
+        pr->port = proxy_port;
+
         pq_element* elem = malloc(sizeof(pq_element));
+        if (!pr || !elem) {
+            perror("malloc failed in serve forever");
+            exit(0);
+        }
 
-        
 
-        serve_request(client_fd);
+        elem->priority = parse_priority(req->path);
+        elem->value = (void*) pr;
+
+        add_work(pq, elem);
     }
 
     shutdown(*server_fd, SHUT_RDWR);
@@ -223,6 +289,7 @@ void signal_callback_handler(int signum) {
         if (close(server_fd) < 0) perror("Failed to close server_fd (ignoring)\n");
     }
     free(listener_ports);
+    destroy_queue(pq);
     exit(0);
 }
 
@@ -264,6 +331,8 @@ int main(int argc, char **argv) {
         }
     }
     print_settings();
+
+    pq = create_queue(max_queue_size);
 
     pthread_t* listener_threads;
     listener_threads = malloc(sizeof(pthread_t) * num_listener);

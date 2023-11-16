@@ -35,7 +35,7 @@ int is_pq_empty(priority_queue*);
 
 /* Required Interface */
 priority_queue* create_queue(uint);
-void add_work(priority_queue*, pq_element*);
+int add_work(priority_queue*, pq_element*);
 void* get_work(priority_queue*);
 void* get_work_nonblocking(priority_queue*);
 

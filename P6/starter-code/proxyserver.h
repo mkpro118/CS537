@@ -41,6 +41,12 @@ struct http_request {
     char *delay;
 };
 
+struct proxy_request {
+    struct http_request* request;
+    uint client_fd;
+    uint port;
+};
+
 /*
  * Functions for sending an HTTP response.
  */
