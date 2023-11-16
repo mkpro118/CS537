@@ -149,7 +149,7 @@ struct http_request *http_request_parse(int fd) {
 
         if (NULL != (delay = strstr(read_buffer, DELAYHEADER))) {
             delay += LEN_DELAYHEADER;
-            char* end_delay - delay;
+            char* end_delay = delay;
             while (*end_delay >= '0' && *end_delay <= '9')
                 end_delay++;
 
@@ -161,7 +161,7 @@ struct http_request *http_request_parse(int fd) {
             default:
                 request->delay = malloc(sizeof(char) * (n + 1));
                 for (int k = 0; k < n; k++)
-                    request->delay[k] = delay[i];
+                    request->delay[k] = delay[k];
 
                 request->delay[n] = '\0';
             }
