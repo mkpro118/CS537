@@ -66,13 +66,13 @@ void serve_request(struct proxy_request* pr) {
     if (!pr)
         return;
 
+    if (!pr->request)
+        return;
+    
     int delay = pr->request->delay ? atoi(pr->request->delay) : 0;
 
-
-    if (delay > 0) {
-        printf("Sleep Delay: %s | %d\n", pr->request->path, delay);
+    if (delay > 0)
         sleep(delay);
-     }
 
     int client_fd = pr->client_fd;
 
@@ -277,7 +277,6 @@ void* serve_forever(void* args) {
         elem->value = (void*) pr;
 
         if(add_work(pq, elem) < 0) {
-            printf("QUEUE IS FULL!\n");
             send_error_response(client_fd, QUEUE_FULL, "QUEUE IS FULL!");
             http_request_destroy(req);
             free(pr);

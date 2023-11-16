@@ -98,7 +98,9 @@ void http_fatal_error(char *message) {
 struct http_request *http_request_parse(int fd) {
     struct http_request *request = malloc(sizeof(struct http_request));
     if (!request) http_fatal_error("Malloc failed");
-
+    request->method = NULL;
+    request->path = NULL;
+    request->delay = NULL;
     char *read_buffer = malloc(LIBHTTP_REQUEST_MAX_SIZE + 1);
     if (!read_buffer) http_fatal_error("Malloc failed");
 
@@ -153,7 +155,9 @@ struct http_request *http_request_parse(int fd) {
             while (*end_delay >= '0' && *end_delay <= '9')
                 end_delay++;
 
+
             int n = (int) (end_delay - delay);
+
             switch (n) {
             case 0:
                 request->delay = NULL;
@@ -166,7 +170,6 @@ struct http_request *http_request_parse(int fd) {
                 request->delay[n] = '\0';
             }
         }
-        // printf("%s\n", read_buffer);
 
         free(read_buffer);
         return request;
