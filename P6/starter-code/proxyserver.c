@@ -60,6 +60,11 @@ void send_error_response(int client_fd, status_code_t err_code, char *err_msg) {
  * forward the fileserver response to the client
  */
 void serve_request(struct proxy_request* pr) {
+    int delay = pr->request->delay ? atoi(pr->request->delay) : 0;
+
+    if (delay > 0)
+        sleep(delay);
+
     int client_fd = pr->client_fd;
 
     // create a fileserver socket
@@ -144,11 +149,6 @@ static uint parse_priority(char* path) {
 void* do_work(void* args) {
     while (1) {
         struct proxy_request* pr = (struct proxy_request*) get_work(pq);
-        int delay = pr->request->delay ? atoi(pr->request->delay) : 0;
-
-        if (delay > 0)
-            sleep(delay);
-
         serve_request(pr);
     }
 }
@@ -236,6 +236,7 @@ void* serve_forever(void* args) {
                 char buf[40];
                 sprintf(buf, "Elem: %p | NO JOBS IN QUEUE!", pr);
                 send_error_response(client_fd, QUEUE_EMPTY, buf);
+                http_request_destroy(req);
             } else {
                 serve_request(pr);
             }
@@ -259,6 +260,9 @@ void* serve_forever(void* args) {
 
         if(add_work(pq, elem) < 0) {
             send_error_response(client_fd, QUEUE_FULL, "QUEUE IS FULL!");
+            http_request_destroy(req);
+            free(pr);
+            free(elem);
         }
     }
 
@@ -301,7 +305,7 @@ void signal_callback_handler(int signum) {
         if (close(server_fds[i]) < 0) perror("Failed to close server_fd (ignoring)\n");
     }
     free(listener_ports);
-    // destroy_queue(pq);
+    destroy_queue(pq);
     exit(0);
 }
 

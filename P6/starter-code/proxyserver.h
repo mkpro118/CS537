@@ -153,6 +153,13 @@ struct http_request *http_request_parse(int fd) {
     return NULL;
 }
 
+void http_request_destroy(struct http_request* req) {
+    free(req->method);
+    free(req->path);
+    free(req->delay);
+    free(req);
+}
+
 char *http_get_response_message(int status_code) {
     switch (status_code) {
     case 100:
