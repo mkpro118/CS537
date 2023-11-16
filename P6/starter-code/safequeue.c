@@ -110,7 +110,7 @@ static inline uint rchld(uint idx) { return (idx << 1) + 2; }
  * @return         0 on success, -1 on failure
  */
 int pq_enqueue(priority_queue* pq, pq_element* pq_elem) {
-    pthread_mutex_lock(&pq->pq_mutex);
+    // pthread_mutex_lock(&pq->pq_mutex);
 
     int retval = -1;
 
@@ -136,7 +136,7 @@ int pq_enqueue(priority_queue* pq, pq_element* pq_elem) {
     retval = 0;
 
     end_op:
-    pthread_mutex_unlock(&pq->pq_mutex);
+    // pthread_mutex_unlock(&pq->pq_mutex);
 
     return retval;
 }
@@ -148,7 +148,7 @@ int pq_enqueue(priority_queue* pq, pq_element* pq_elem) {
  * @param pq The Priority Queue to enqueue to
  */
 void* pq_dequeue(priority_queue* pq) {
-    pthread_mutex_lock(&pq->pq_mutex);
+    // pthread_mutex_lock(&pq->pq_mutex);
 
     pq_element* elem = NULL;
 
@@ -187,7 +187,7 @@ void* pq_dequeue(priority_queue* pq) {
     }
 
     end_op:
-    pthread_mutex_unlock(&pq->pq_mutex);
+    // pthread_mutex_unlock(&pq->pq_mutex);
 
     return elem;
 }
