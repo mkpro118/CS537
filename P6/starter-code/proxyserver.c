@@ -68,10 +68,11 @@ void serve_request(struct proxy_request* pr) {
 
     int delay = pr->request->delay ? atoi(pr->request->delay) : 0;
 
-    printf("Sleep Delay: %s | %d\n", pr->request->delay, delay);
 
-    if (delay > 0)
+    if (delay > 0) {
+        printf("Sleep Delay: %s | %d\n", pr->request->path, delay);
         sleep(delay);
+     }
 
     int client_fd = pr->client_fd;
 
@@ -220,7 +221,7 @@ void* serve_forever(void* args) {
         exit(errno);
     }
 
-    printf("Listening on port %d...\n", proxy_port);
+    // printf("Listening on port %d...\n", proxy_port);
 
     struct sockaddr_in client_address;
     size_t client_address_length = sizeof(client_address);
@@ -234,9 +235,9 @@ void* serve_forever(void* args) {
             continue;
         }
 
-        printf("Accepted connection from %s on port %d\n",
+        /*printf("Accepted connection from %s on port %d\n",
                inet_ntoa(client_address.sin_addr),
-               client_address.sin_port);
+               client_address.sin_port);*/
 
         struct http_request* req = http_request_parse(client_fd);
 
@@ -253,10 +254,10 @@ void* serve_forever(void* args) {
                 char buf[40];
                 sprintf(buf, "Elem: %p | NO JOBS IN QUEUE!", pr);
                 send_error_response(client_fd, QUEUE_EMPTY, buf);
-                http_request_destroy(req);
             } else {
                 send_error_response(client_fd, OK, pr->request->path);
             }
+            http_request_destroy(req);
             continue;
         }
 
@@ -276,6 +277,7 @@ void* serve_forever(void* args) {
         elem->value = (void*) pr;
 
         if(add_work(pq, elem) < 0) {
+            printf("QUEUE IS FULL!\n");
             send_error_response(client_fd, QUEUE_FULL, "QUEUE IS FULL!");
             http_request_destroy(req);
             free(pr);
@@ -365,7 +367,7 @@ int main(int argc, char **argv) {
             exit_with_usage();
         }
     }
-    print_settings();
+    //print_settings();
 
     pq = create_queue(max_queue_size);
 

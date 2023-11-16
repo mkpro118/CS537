@@ -166,7 +166,7 @@ struct http_request *http_request_parse(int fd) {
                 request->delay[n] = '\0';
             }
         }
-        printf("%s\n", read_buffer);
+        // printf("%s\n", read_buffer);
 
         free(read_buffer);
         return request;
