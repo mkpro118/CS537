@@ -11,6 +11,8 @@ typedef enum scode {
 } status_code_t;
 
 #define GETJOBCMD "/GetJob"
+#define DELAYHEADER "\r\nDelay: "
+#define LEN_DELAYHEADER 9
 
 /*
  * A simple HTTP library.
@@ -142,6 +144,17 @@ struct http_request *http_request_parse(int fd) {
             read_end++;
         if (*read_end != '\n') break;
         read_end++;
+
+        char* delay;
+
+        if (NULL != (delay = strstr(read_buffer, DELAYHEADER))) {
+            delay += LEN_DELAYHEADER;
+            while (*delay >= '0' && *delay <= '9') {
+                delay++;
+            }
+            request->delay = NULL;
+        }
+        printf("%s\n", read_buffer);
 
         free(read_buffer);
         return request;

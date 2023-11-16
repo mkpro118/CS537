@@ -65,6 +65,8 @@ void serve_request(struct proxy_request* pr) {
     if (delay > 0)
         sleep(delay);
 
+    printf("Sleep Delay: %s | %d\n", pr->request->delay, delay);
+
     int client_fd = pr->client_fd;
 
     // create a fileserver socket
@@ -305,7 +307,7 @@ void signal_callback_handler(int signum) {
         if (close(server_fds[i]) < 0) perror("Failed to close server_fd (ignoring)\n");
     }
     free(listener_ports);
-    destroy_queue(pq);
+//    destroy_queue(pq);
     exit(0);
 }
 
