@@ -238,7 +238,7 @@ void* serve_forever(void* args) {
                 send_error_response(client_fd, QUEUE_EMPTY, buf);
                 http_request_destroy(req);
             } else {
-                serve_request(pr);
+                send_error_response(client_fd, OK, pr->request->path);
             }
             continue;
         }
