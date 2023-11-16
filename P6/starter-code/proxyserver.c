@@ -288,8 +288,11 @@ void signal_callback_handler(int signum) {
     for (int i = 0; i < num_listener; i++) {
         if (close(server_fds[i]) < 0) perror("Failed to close server_fd (ignoring)\n");
     }
+    printf("ADJ DSIJ\n");
     free(listener_ports);
-    destroy_queue(pq);
+    printf("ADJ asdsadasdasJ\n");
+//    destroy_queue(pq);
+    printf("ADJ DSsadsadasdasdJ\n");
     exit(0);
 }
 
