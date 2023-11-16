@@ -146,7 +146,7 @@ void* do_work(void* args) {
         if (delay > 0)
             sleep(delay);
 
-        printf("Sleeping for %d\n", delay);
+        printf("Sleeping for %s | %d\n", pr->request->delay, delay);
 
         serve_request(pr);
     }
@@ -295,11 +295,8 @@ void signal_callback_handler(int signum) {
     for (int i = 0; i < num_listener; i++) {
         if (close(server_fds[i]) < 0) perror("Failed to close server_fd (ignoring)\n");
     }
-    printf("ADJ DSIJ\n");
     free(listener_ports);
-    printf("ADJ asdsadasdasJ\n");
     // destroy_queue(pq);
-    printf("ADJ DSsadsadasdasdJ\n");
     exit(0);
 }
 
