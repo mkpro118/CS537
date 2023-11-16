@@ -30,8 +30,8 @@ pthread_mutex_t retval_lock;
 void test_pq_basic() {
     // Test Case 1: Initialization
     printf("\n" LINE);
-    printf("Testing pq_init\n");
-    priority_queue* pq = pq_init(10);
+    printf("Testing create_queue\n");
+    priority_queue* pq = create_queue(10);
     assert_ne(pq, NULL, "%p", "%p");
     printf("pq != NULL:                     | PASSED\n");
     assert_eq(pq->capacity, 10, "%d", "%d");
@@ -47,8 +47,8 @@ void test_pq_basic() {
 
     // Test Case 2: Enqueue
     printf(LINE);
-    printf("Testing pq_enqueue\n");
-    int enqueue_result = pq_enqueue(pq, elem);
+    printf("Testing add_work\n");
+    int enqueue_result = add_work(pq, elem);
     assert_eq(enqueue_result, 0, "%d", "%d");
     printf("enqueue_result == 0:            | PASSED\n");
     assert_eq(pq->size, 1, "%d", "%d");
@@ -56,12 +56,12 @@ void test_pq_basic() {
 
     // Test Case 3: Enqueue when Full
     printf(LINE);
-    printf("Testing pq_enqueue after full\n");
+    printf("Testing add_work after full\n");
     for (int i = 0; i < 9; i++) {
         pq_element* new_elem = malloc(sizeof(pq_element));
         new_elem->value = (void*) &i;
         new_elem->priority = i;
-        enqueue_result = pq_enqueue(pq, new_elem);
+        enqueue_result = add_work(pq, new_elem);
         assert_eq(enqueue_result, 0, "%d", "%d");
     }
 
@@ -69,7 +69,7 @@ void test_pq_basic() {
     int overflow_value = 10;
     overflow_elem->value = (void*) &overflow_value;
     overflow_elem->priority = 10;
-    enqueue_result = pq_enqueue(pq, overflow_elem);
+    enqueue_result = add_work(pq, overflow_elem);
     assert_eq(enqueue_result, -1, "%d", "%d");
     printf("enqueue_result == -1:           | PASSED\n");
     assert_eq(pq->size, 10, "%d", "%d");
@@ -77,8 +77,8 @@ void test_pq_basic() {
 
     // Test Case 4: Dequeue
     printf(LINE);
-    printf("Testing pq_dequeue\n");
-    int* dequeued_elem = (int*) pq_dequeue(pq);
+    printf("Testing get_work\n");
+    int* dequeued_elem = (int*) get_work(pq);
     assert_eq(*dequeued_elem, *((int*)(elem->value)), "%d", "%d");
     printf("*dequeued_elem == *elem->value: | PASSED\n");
     assert_eq(pq->size, 9, "%d", "%d");
@@ -87,13 +87,13 @@ void test_pq_basic() {
     printf(LINE);
 
     // Test Case 5: Dequeue when Empty
-    printf("Testing pq_dequeue when empty\n");
+    printf("Testing get_work when empty\n");
     while (pq->size != 0) {
-        dequeued_elem = pq_dequeue(pq);
+        dequeued_elem = get_work(pq);
         assert_ne(dequeued_elem, NULL, "%p", "%p");
     }
 
-    dequeued_elem = pq_dequeue(pq);
+    dequeued_elem = get_work(pq);
     assert_eq(dequeued_elem, NULL, "%p", "%p");
     printf("dequeued_elem == NULL:          | PASSED\n");
     assert_eq(pq->size, 0, "%d", "%d");
@@ -108,7 +108,7 @@ void test_pq_order() {
     printf("Testing PQ ordering ");
     fflush(stdout);
     // Initialization
-    priority_queue* pq = pq_init(10);
+    priority_queue* pq = create_queue(10);
     assert_ne(pq, NULL, "%p", "%p");
     assert_eq(pq->capacity, 10, "%d", "%d");
     assert_eq(pq->size, 0, "%d", "%d");
@@ -123,14 +123,14 @@ void test_pq_order() {
 
     // Enqueue elements with increasing priority
     for (int i = 0; i < 10; i++) {
-        int enqueue_result = pq_enqueue(pq, elems[i]);
+        int enqueue_result = add_work(pq, elems[i]);
         assert_eq(enqueue_result, 0, "%d", "%d");
         assert_eq(pq->size, i + 1, "%d", "%d");
     }
 
     // Dequeue elements and check if they are in decreasing order of priority
     for (int i = 9; i >= 0; i--) {
-        void* dequeued_elem = pq_dequeue(pq);
+        void* dequeued_elem = get_work(pq);
         assert_eq(dequeued_elem, elems[i]->value, "%p", "%p");
         printf(".");
         fflush(stdout);
@@ -157,7 +157,7 @@ void* thread_enqueue(void* arg) {
         elem->value = (void*) x;
         elem->priority = *x;
 
-        assert_eq(pq_enqueue(pq, elem), 0, "%d", "%d");
+        assert_eq(add_work(pq, elem), 0, "%d", "%d");
     }
     return NULL;
 }
@@ -168,7 +168,7 @@ void* thread_dequeue(void* arg) {
     for (int i = 0; i < NUM_OPERATIONS; i++) {
         pthread_mutex_lock(&retval_lock);
         int idx = n++;
-        int* x = (int*) pq_dequeue(pq);
+        int* x = (int*) get_work(pq);
         pthread_mutex_unlock(&retval_lock);
 
         retvals[idx][0] = *x;
@@ -181,7 +181,7 @@ void* thread_dequeue(void* arg) {
 void test_pq_thread_safety() {
     // Initialization
     printf("Starting thread safety test...\n");
-    priority_queue* pq = pq_init(NUM_THREADS * NUM_OPERATIONS);
+    priority_queue* pq = create_queue(NUM_THREADS * NUM_OPERATIONS);
     assert_ne(pq, NULL, "%p", "%p");
 
     // Create threads
