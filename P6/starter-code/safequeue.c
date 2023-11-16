@@ -201,10 +201,9 @@ int add_work(priority_queue* pq, pq_element* elem) {
     printf("Add work\n");
     int retval = 0;
     pthread_mutex_lock(&pq->pq_mutex);
-    printf("Past the lock");
 
     while (is_pq_full(pq)) {
-        pthread_cond_signal(&pq->pq_cond_empty);
+        // pthread_cond_signal(&pq->pq_cond_empty);
         goto end_op;
     }
 
@@ -223,20 +222,28 @@ void* get_work(priority_queue* pq) {
     pthread_mutex_lock(&pq->pq_mutex);
 
     while (is_pq_empty(pq)) {
-        printf("Blocking Get");
+        printf("Blocking Get\n");
         pthread_cond_wait(&pq->pq_cond_fill, &pq->pq_mutex);
     }
 
     void* elem = pq_dequeue(pq);
 
-    pthread_cond_signal(&pq->pq_cond_empty);
+    // pthread_cond_signal(&pq->pq_cond_empty);
     pthread_mutex_unlock(&pq->pq_mutex);
     printf("elem: %p.\n", elem);
     return elem;
 }
 
 void* get_work_nonblocking(priority_queue* pq) {
-    return pq_dequeue(pq);
+    printf("get_work_nonblocking\n");
+    pthread_mutex_lock(&pq->pq_mutex);
+
+    void* elem = pq_dequeue(pq);
+
+    pthread_mutex_unlock(&pq->pq_mutex);
+
+    printf("elem: %p.\n", elem);
+    return elem;
 }
 
 int is_queue_full(priority_queue* pq) { return is_pq_full(pq); }

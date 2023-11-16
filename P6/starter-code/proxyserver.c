@@ -141,10 +141,12 @@ static uint parse_priority(char* path) {
 void* do_work(void* args) {
     while (1) {
         struct proxy_request* pr = (struct proxy_request*) get_work(pq);
-        int delay = pr->request->delay ? delay = atoi(pr->request->delay) : 0;
+        int delay = pr->request->delay ? atoi(pr->request->delay) : 0;
 
         if (delay > 0)
             sleep(delay);
+
+        printf("Sleeping for %d\n", delay);
 
         serve_request(pr);
     }
@@ -296,7 +298,7 @@ void signal_callback_handler(int signum) {
     printf("ADJ DSIJ\n");
     free(listener_ports);
     printf("ADJ asdsadasdasJ\n");
-//    destroy_queue(pq);
+    // destroy_queue(pq);
     printf("ADJ DSsadsadasdasdJ\n");
     exit(0);
 }

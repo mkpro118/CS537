@@ -110,7 +110,7 @@ struct http_request *http_request_parse(int fd) {
         /* Read in the HTTP method: "[A-Z]*" */
         read_start = read_end = read_buffer;
         while (*read_end >= 'A' && *read_end <= 'Z') {
-            printf("%c", *read_end);
+            // printf("%c", *read_end);
             read_end++;
         }
         read_size = read_end - read_start;
@@ -118,7 +118,7 @@ struct http_request *http_request_parse(int fd) {
         request->method = malloc(read_size + 1);
         memcpy(request->method, read_start, read_size);
         request->method[read_size] = '\0';
-        printf("parsed method %s\n", request->method);
+        // printf("parsed method %s\n", request->method);
 
         /* Read in a space character. */
         read_start = read_end;
@@ -134,7 +134,7 @@ struct http_request *http_request_parse(int fd) {
         request->path = malloc(read_size + 1);
         memcpy(request->path, read_start, read_size);
         request->path[read_size] = '\0';
-        printf("parsed path %s\n", request->path);
+        // printf("parsed path %s\n", request->path);
 
         /* Read in HTTP version and rest of request line: ".*" */
         read_start = read_end;
