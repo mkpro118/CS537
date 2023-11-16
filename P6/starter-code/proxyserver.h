@@ -148,11 +148,23 @@ struct http_request *http_request_parse(int fd) {
         char* delay;
 
         if (NULL != (delay = strstr(read_buffer, DELAYHEADER))) {
-            char* end_delay = delay + LEN_DELAYHEADER;
-            while (*delay >= '0' && *delay <= '9') {
-                delay++;
+            delay += LEN_DELAYHEADER;
+            char* end_delay - delay;
+            while (*end_delay >= '0' && *end_delay <= '9')
+                end_delay++;
+
+            int n = (int) (end_delay - delay);
+            switch (n) {
+            case 0:
+                request->delay = NULL;
+                break;
+            default:
+                request->delay = malloc(sizeof(char) * (n + 1));
+                for (int k = 0; k < n; k++)
+                    request->delay[k] = delay[i];
+
+                request->delay[n] = '\0';
             }
-            request->delay = NULL;
         }
         printf("%s\n", read_buffer);
 
@@ -167,10 +179,18 @@ struct http_request *http_request_parse(int fd) {
 }
 
 void http_request_destroy(struct http_request* req) {
-    free(req->method);
-    free(req->path);
-    free(req->delay);
+    if (!req)
+        return;
+
+    if (req->method)
+        free(req->method);
+    if (req->path)
+        free(req->path);
+    if (req->delay)
+        free(req->delay);
+
     free(req);
+    req = NULL;
 }
 
 char *http_get_response_message(int status_code) {

@@ -59,10 +59,18 @@ void pq_destroy(priority_queue* pq) {
         return;
     pthread_mutex_lock(&pq->pq_mutex);
 
+    if (!pq->queue)
+        goto end_op;
+
     // Free each pq_element in the queue
     for (uint i = 0; i < pq->size; i++) {
-        free(pq->queue[i]->value);
+        if (!pq->queue[i])
+            continue;
+
+        if (pq->queue[i]->value)
+            free(pq->queue[i]->value);
         pq->queue[i]->value = NULL;
+
         free(pq->queue[i]);
         pq->queue[i] = NULL;
     }
@@ -70,11 +78,12 @@ void pq_destroy(priority_queue* pq) {
     free(pq->queue);
     pq->queue = NULL;
 
-    pthread_mutex_unlock(&pq->pq_mutex);
-
-    pthread_mutex_destroy(&pq->pq_mutex);
+    end_op:
     pthread_cond_destroy(&pq->pq_cond_empty);
     pthread_cond_destroy(&pq->pq_cond_fill);
+
+    pthread_mutex_unlock(&pq->pq_mutex);
+    pthread_mutex_destroy(&pq->pq_mutex);
 
     free(pq);
     pq = NULL;

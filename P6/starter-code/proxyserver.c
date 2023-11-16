@@ -41,6 +41,9 @@ int fileserver_port;
 int max_queue_size;
 
 priority_queue* pq;
+pthread_t* listener_threads;
+pthread_t* worker_threads;
+
 
 void send_error_response(int client_fd, status_code_t err_code, char *err_msg) {
     http_start_response(client_fd, err_code);
@@ -60,12 +63,15 @@ void send_error_response(int client_fd, status_code_t err_code, char *err_msg) {
  * forward the fileserver response to the client
  */
 void serve_request(struct proxy_request* pr) {
+    if (!pr)
+        return;
+
     int delay = pr->request->delay ? atoi(pr->request->delay) : 0;
+
+    printf("Sleep Delay: %s | %d\n", pr->request->delay, delay);
 
     if (delay > 0)
         sleep(delay);
-
-    printf("Sleep Delay: %s | %d\n", pr->request->delay, delay);
 
     int client_fd = pr->client_fd;
 
@@ -95,6 +101,11 @@ void serve_request(struct proxy_request* pr) {
     // successfully connected to the file server
     char *buffer = (char *)malloc(RESPONSE_BUFSIZE * sizeof(char));
 
+    if (!buffer) {
+        perror("malloc failed in serve_request\n");
+        goto end_op;
+    }
+
     // forward the client request to the fileserver
     // int bytes_read = read(client_fd, buffer, RESPONSE_BUFSIZE);
     ssize_t bytes_read = sprintf(buffer, template_resp, pr->request->method, pr->request->path, pr->port);
@@ -116,6 +127,7 @@ void serve_request(struct proxy_request* pr) {
         }
     }
 
+    end_op:
     // close the connection to the fileserver
     shutdown(fileserver_fd, SHUT_WR);
     close(fileserver_fd);
@@ -125,20 +137,23 @@ void serve_request(struct proxy_request* pr) {
     close(client_fd);
 
     // Free resources and exit
-    free(buffer);
-    free(pr->request->method);
-    free(pr->request->path);
-    free(pr->request->delay);
-    free(pr->request);
-    free(pr);
+    if (buffer)
+        free(buffer);
+    buffer = NULL;
+
+    http_request_destroy(pr->request);
+
+    if (pr)
+        free(pr);
+
+    pr = NULL;
 }
 
 static uint parse_priority(char* path) {
     int len = strlen(path);
 
-    int i = 1;
-    while (i < len && path[i] >= 'A' && path[i] <= 'Z')
-        i++;
+    int i = 0;
+    while (++i < len && path[i] >= '0' && path[i] <= '9');
 
     char orig = path[i];
     path[i] = '\0';
@@ -307,7 +322,9 @@ void signal_callback_handler(int signum) {
         if (close(server_fds[i]) < 0) perror("Failed to close server_fd (ignoring)\n");
     }
     free(listener_ports);
-//    destroy_queue(pq);
+    free(listener_threads);
+    free(worker_threads);
+    destroy_queue(pq);
     exit(0);
 }
 
@@ -352,7 +369,6 @@ int main(int argc, char **argv) {
 
     pq = create_queue(max_queue_size);
 
-    pthread_t* listener_threads;
     listener_threads = malloc(sizeof(pthread_t) * num_listener);
 
     if (!listener_threads) {
@@ -377,7 +393,6 @@ int main(int argc, char **argv) {
         }
     }
 
-    pthread_t* worker_threads;
     worker_threads = malloc(sizeof(pthread_t) * num_workers);
 
     if (!worker_threads) {
