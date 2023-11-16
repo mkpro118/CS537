@@ -148,7 +148,7 @@ struct http_request *http_request_parse(int fd) {
         char* delay;
 
         if (NULL != (delay = strstr(read_buffer, DELAYHEADER))) {
-            delay += LEN_DELAYHEADER;
+            char* end_delay = delay + LEN_DELAYHEADER;
             while (*delay >= '0' && *delay <= '9') {
                 delay++;
             }
