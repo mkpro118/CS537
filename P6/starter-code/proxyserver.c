@@ -49,6 +49,9 @@ void send_error_response(int client_fd, status_code_t err_code, char *err_msg) {
     char *buf = malloc(strlen(err_msg) + 2);
     sprintf(buf, "%s\n", err_msg);
     http_send_string(client_fd, buf);
+    shutdown(client_fd, SHUT_WR);
+    close(client_fd);
+    free(buf);
     return;
 }
 
@@ -232,7 +235,7 @@ void* serve_forever(void* args) {
         if (strcmp(req->path, GETJOBCMD) == 0) {
             pr = (struct proxy_request*) get_work_nonblocking(pq);
             if (!pr) {
-                send_error_response(pr->client_fd, QUEUE_EMPTY, "NO JOBS IN QUEUE!");
+                send_error_response(client_fd, QUEUE_EMPTY, "NO JOBS IN QUEUE!");
             } else {
                 serve_request(pr);
             }
@@ -254,7 +257,9 @@ void* serve_forever(void* args) {
         elem->priority = parse_priority(req->path);
         elem->value = (void*) pr;
 
-        add_work(pq, elem);
+        if(add_work(pq, elem) < 0) {
+            send_error_response(client_fd, QUEUE_FULL, "QUEUE IS FULL!");
+        }
     }
 
     shutdown(*server_fd, SHUT_RDWR);

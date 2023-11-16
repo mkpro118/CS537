@@ -113,7 +113,7 @@ int pq_enqueue(priority_queue* pq, pq_element* pq_elem) {
     int retval = -1;
 
     if (is_pq_full(pq)) {
-        perror("Cannot add to a full queue\n");
+        printf("Cannot add to a full queue\n");
         goto end_op;
     }
 
@@ -147,7 +147,7 @@ void* pq_dequeue(priority_queue* pq) {
     pq_element* elem = NULL;
 
     if (is_pq_empty(pq)) {
-        perror("Cannot dequeue from an empty queue\n");
+        printf("Cannot dequeue from an empty queue\n");
         goto end_op;
     }
 
