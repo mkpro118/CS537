@@ -353,7 +353,7 @@ int main(int argc, char **argv) {
         thread_idx[i] = i;
 
     for (int i = 0; i < num_listener; i++) {
-        if (pthread_create(&listener_threads[i], NULL, serve_forever, (void*) &listener_threads[i])) {
+        if (pthread_create(&listener_threads[i], NULL, serve_forever, (void*) &thread_idx[i])) {
             perror("FAILED TO CREATE LISTENER THREADS\n");
             exit(0);
         }
