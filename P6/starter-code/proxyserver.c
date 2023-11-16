@@ -286,7 +286,7 @@ void print_settings() {
 void signal_callback_handler(int signum) {
     printf("Caught signal %d: %s\n", signum, strsignal(signum));
     for (int i = 0; i < num_listener; i++) {
-        if (close(server_fd) < 0) perror("Failed to close server_fd (ignoring)\n");
+        if (close(server_fds[i]) < 0) perror("Failed to close server_fd (ignoring)\n");
     }
     free(listener_ports);
     destroy_queue(pq);
@@ -353,7 +353,7 @@ int main(int argc, char **argv) {
         thread_idx[i] = i;
 
     for (int i = 0; i < num_listener; i++) {
-        if (pthread_create(&listener_threads[i], NULL, serve_forever, (void*) &threads[i])) {
+        if (pthread_create(&listener_threads[i], NULL, serve_forever, (void*) &listener_threads[i])) {
             perror("FAILED TO CREATE LISTENER THREADS\n");
             exit(0);
         }
@@ -375,11 +375,11 @@ int main(int argc, char **argv) {
     }
 
     for (int i = 0; i < num_listener; i++) {
-        pthread_join(&listener_threads[i], NULL);
+        pthread_join(listener_threads[i], NULL);
     }
 
     for (int i = 0; i < num_workers; i++) {
-        pthread_join(&worker_threads[i], NULL);
+        pthread_join(worker_threads[i], NULL);
     }
 
     return EXIT_SUCCESS;
