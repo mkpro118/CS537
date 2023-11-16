@@ -13,6 +13,12 @@ $(EXECUTABLE): $(OBJECTS)
 .c.o:
 	$(CC) $(CFLAGS) $< -o $@
 
+testers:
+	~cs537-1/tests/P6/runtests
+
+local_testers:
+	../tests/runtests
+
 pq_test:
 	$(CC) -Wall -Werror -std=gnu99 -pthread safequeue.c pq_tester.c -o pq_tester
 	chmod 777 ./pq_tester
