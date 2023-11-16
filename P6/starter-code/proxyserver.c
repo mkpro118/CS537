@@ -235,7 +235,9 @@ void* serve_forever(void* args) {
         if (strcmp(req->path, GETJOBCMD) == 0) {
             pr = (struct proxy_request*) get_work_nonblocking(pq);
             if (!pr) {
-                send_error_response(client_fd, QUEUE_EMPTY, "NO JOBS IN QUEUE!");
+                char buf[40];
+                sprintf(buf, "Elem: %p | NO JOBS IN QUEUE!", pr);
+                send_error_response(client_fd, QUEUE_EMPTY, buf);
             } else {
                 serve_request(pr);
             }
