@@ -43,6 +43,7 @@ int max_queue_size;
 priority_queue* pq;
 pthread_t* listener_threads;
 pthread_t* worker_threads;
+int* thread_idx;
 
 
 void send_error_response(int client_fd, status_code_t err_code, char *err_msg) {
@@ -323,8 +324,10 @@ void signal_callback_handler(int signum) {
         if (close(server_fds[i]) < 0) perror("Failed to close server_fd (ignoring)\n");
     }
     free(listener_ports);
+    free(server_fds);
     free(listener_threads);
     free(worker_threads);
+    free(thread_idx);
     destroy_queue(pq);
     exit(0);
 }
@@ -377,7 +380,7 @@ int main(int argc, char **argv) {
         exit(0);
     }
 
-    int* thread_idx = malloc(sizeof(int) * num_listener);
+    thread_idx = malloc(sizeof(int) * num_listener);
 
     if (!thread_idx) {
         perror("MALLOC FAILED!\n");
