@@ -214,10 +214,6 @@ void http_request_destroy(struct http_request* req) {
         req->path = NULL;  // No dangling pointers
     }
 
-    // Free heap allocated delay int
-    if (req->delay)
-        free(req->delay);
-
     // Free heap allocated http request struct
     free(req);
     req = NULL;  // No dangling pointers

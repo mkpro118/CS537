@@ -288,7 +288,7 @@ void* serve_forever(void* args) {
                 char buf[40];
                 sprintf(buf, "Elem: %p | NO JOBS IN QUEUE!", pr);
                 send_error_response(client_fd, QUEUE_EMPTY, buf);
-            } else // Otherwise return the path {
+            } else { // Otherwise return the path
                 send_error_response(client_fd, OK, pr->request->path);
                 http_request_destroy(pr->request);
                 free(pr);
