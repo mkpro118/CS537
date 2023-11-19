@@ -40,10 +40,16 @@ char *fileserver_ipaddr;
 int fileserver_port;
 int max_queue_size;
 
+/**
+ * Global priority queue and thread variables
+ */
 priority_queue* pq;
 pthread_t* listener_threads;
 pthread_t* worker_threads;
 int* thread_idx;
+int* server_fds;
+
+// extern char exit_flag;
 
 
 void send_error_response(int client_fd, status_code_t err_code, char *err_msg) {
@@ -55,7 +61,8 @@ void send_error_response(int client_fd, status_code_t err_code, char *err_msg) {
     http_send_string(client_fd, buf);
     shutdown(client_fd, SHUT_WR);
     close(client_fd);
-    free(buf);
+    free(buf);  // ORIGNAL CODE DIDN'T FREE
+    buf = NULL;  // No dangling pointers
     return;
 }
 
@@ -64,16 +71,11 @@ void send_error_response(int client_fd, status_code_t err_code, char *err_msg) {
  * forward the fileserver response to the client
  */
 void serve_request(struct proxy_request* pr) {
-    if (!pr)
+    if (!pr || !pr->request)
         return;
 
-    if (!pr->request)
-        return;
-    
-    int delay = pr->request->delay ? atoi(pr->request->delay) : 0;
-
-    if (delay > 0)
-        sleep(delay);
+    if (pr->request->delay) // Sleep if delay is specified
+        sleep(pr->request->delay);
 
     int client_fd = pr->client_fd;
 
@@ -141,46 +143,71 @@ void serve_request(struct proxy_request* pr) {
     // Free resources and exit
     if (buffer)
         free(buffer);
-    buffer = NULL;
+    buffer = NULL;  // No dangling pointers
 
     http_request_destroy(pr->request);
 
     if (pr)
         free(pr);
-
-    pr = NULL;
+    pr = NULL;  // No dangling pointers
 }
 
+/**
+ * Parse the priority of a request given the path
+ * @param  path The path of the requested resource
+ * @return      The priority of the resource
+ */
 static uint parse_priority(char* path) {
+    // We parse the priority using some properties of the path
+    // The pattern of the path is
+    //      "/<num>/<file>"
+    // The <num>
+    // To parse the <num>, we read numeric characters starting from
+    // index 1, (i.e. after the first forward slash),
+    // till there are no more numeric chars,
+    // (i.e. till we hit the next forward slash)
+
     int len = strlen(path);
 
     int i = 0;
     while (++i < len && path[i] >= '0' && path[i] <= '9');
 
+    // Null terminate the string to read using atoi
     char orig = path[i];
     path[i] = '\0';
+
+    // Read the number
     uint num = (uint) atoi(&path[1]);
+
+    // Revert the null termination
     path[i] = orig;
 
     return num;
 }
 
-void* do_work(void* args) {
-    while (1) {
+/**
+ * Routine for a worker thread. Serves requests forever
+ * @param args Unused
+ */
+void* do_work(void*) {
+    while (1) { // Loop forever
+        // get_work blocks till there is a request in the queue
         struct proxy_request* pr = (struct proxy_request*) get_work(pq);
+
+        // Serve the request
         serve_request(pr);
     }
 }
 
-
-int* server_fds;
 /*
  * opens a TCP stream socket on all interfaces with port number PORTNO. Saves
  * the fd number of the server socket in *socket_number. For each accepted
  * connection, calls request_handler with the accepted fd number.
+ *
+ * @param args Takes the index into the listener_ports and server_fds arrays
  */
 void* serve_forever(void* args) {
-
+    // The index into the global arrays
     int idx = *((int*) args);
 
     int* server_fd = &server_fds[idx];
@@ -236,12 +263,14 @@ void* serve_forever(void* args) {
             continue;
         }
 
-        /*printf("Accepted connection from %s on port %d\n",
+        /* printf("Accepted connection from %s on port %d\n",
                inet_ntoa(client_address.sin_addr),
-               client_address.sin_port);*/
+               client_address.sin_port); */
 
+        // Parse the http request headers
         struct http_request* req = http_request_parse(client_fd);
 
+        // If parsing failed, do not server
         if (!req) {
             perror("Failed to parse http_request");
             continue;
@@ -249,15 +278,23 @@ void* serve_forever(void* args) {
 
         struct proxy_request* pr;
 
+        // Check if the request was a GetJob request
         if (strcmp(req->path, GETJOBCMD) == 0) {
+            // Get a job from the queue if there is one, without blocking
             pr = (struct proxy_request*) get_work_nonblocking(pq);
+
+            // If no request, return an error response
             if (!pr) {
                 char buf[40];
                 sprintf(buf, "Elem: %p | NO JOBS IN QUEUE!", pr);
                 send_error_response(client_fd, QUEUE_EMPTY, buf);
-            } else {
+            } else // Otherwise return the path {
                 send_error_response(client_fd, OK, pr->request->path);
+                http_request_destroy(pr->request);
+                free(pr);
+                pr = NULL;  // No dangling pointers
             }
+
             http_request_destroy(req);
             continue;
         }
@@ -281,7 +318,9 @@ void* serve_forever(void* args) {
             send_error_response(client_fd, QUEUE_FULL, "QUEUE IS FULL!");
             http_request_destroy(req);
             free(pr);
+            pr = NULL;  // No dangling pointers
             free(elem);
+            elem = NULL;  // No dangling pointers
         }
     }
 
@@ -304,6 +343,8 @@ void default_settings() {
     fileserver_port = 3333;
 
     max_queue_size = 100;
+
+    // should_exit = 0;
 }
 
 void print_settings() {

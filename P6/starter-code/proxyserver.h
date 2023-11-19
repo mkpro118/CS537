@@ -11,6 +11,8 @@ typedef enum scode {
 } status_code_t;
 
 #define GETJOBCMD "/GetJob"
+
+// Header pattern for delay
 #define DELAYHEADER "\r\nDelay: "
 #define LEN_DELAYHEADER 9
 
@@ -33,20 +35,18 @@ typedef enum scode {
  *     close(fd);
  */
 
-
-/*
- * Functions for parsing an HTTP request.
- */
+// Represent a http request
 struct http_request {
-    char *method;
-    char *path;
-    char *delay;
+    char* method; // The request method
+    char* path;   // The request path
+    uint delay;   // The request delay (seconds)
 };
 
+// Represent a proxy request
 struct proxy_request {
-    struct http_request* request;
-    uint client_fd;
-    uint port;
+    struct http_request* request; // Pointer to the original http request
+    uint client_fd;               // The original client's file descriptor
+    uint port;                    // The proxy port this request was recieved on
 };
 
 /*
@@ -95,12 +95,15 @@ void http_fatal_error(char *message) {
 
 #define LIBHTTP_REQUEST_MAX_SIZE 8192
 
+/*
+ * Functions for parsing an HTTP request.
+ */
 struct http_request *http_request_parse(int fd) {
     struct http_request *request = malloc(sizeof(struct http_request));
     if (!request) http_fatal_error("Malloc failed");
     request->method = NULL;
     request->path = NULL;
-    request->delay = NULL;
+    request->delay = 0;
     char *read_buffer = malloc(LIBHTTP_REQUEST_MAX_SIZE + 1);
     if (!read_buffer) http_fatal_error("Malloc failed");
 
@@ -147,53 +150,77 @@ struct http_request *http_request_parse(int fd) {
         if (*read_end != '\n') break;
         read_end++;
 
+        ////////////////////////// MODIFICATION START //////////////////////////
+        /* Read in the delay */
         char* delay;
 
+        // If request headers contain a delay
         if (NULL != (delay = strstr(read_buffer, DELAYHEADER))) {
             delay += LEN_DELAYHEADER;
             char* end_delay = delay;
+
+            // Read numeric characters
             while (*end_delay >= '0' && *end_delay <= '9')
                 end_delay++;
 
-
+            // Number of characters read
             int n = (int) (end_delay - delay);
 
             switch (n) {
-            case 0:
-                request->delay = NULL;
+            case 0: // If no characters were read, 0 delay
+                request->delay = 0;
                 break;
-            default:
-                request->delay = malloc(sizeof(char) * (n + 1));
-                for (int k = 0; k < n; k++)
-                    request->delay[k] = delay[k];
+            default: // Otherwise convert chars read to int
+                // Null terminate the string, to read the numeric chars
+                delay[n] = '\0';
 
-                request->delay[n] = '\0';
+                // Convert to int
+                request->delay = atoi(delay);
+                break;
             }
         }
+        /////////////////////////// MODIFICATION END ///////////////////////////
 
         free(read_buffer);
+        read_buffer = NULL;  // No dangling pointers
         return request;
     } while (0);
 
     /* An error occurred. */
     free(request);
+    request = NULL;  // No dangling pointers
     free(read_buffer);
+    read_buffer = NULL;  // No dangling pointers
     return NULL;
 }
 
+/**
+ * Free resources and destroy http request
+ * @param req Pointer to the http request to be destroyed
+ */
 void http_request_destroy(struct http_request* req) {
     if (!req)
         return;
 
-    if (req->method)
+    // Free heap allocated request string
+    if (req->method) {
         free(req->method);
-    if (req->path)
+        req->method = NULL;  // No dangling pointers
+    }
+
+    // Free heap allocated path string
+    if (req->path) {
         free(req->path);
+        req->path = NULL;  // No dangling pointers
+    }
+
+    // Free heap allocated delay int
     if (req->delay)
         free(req->delay);
 
+    // Free heap allocated http request struct
     free(req);
-    req = NULL;
+    req = NULL;  // No dangling pointers
 }
 
 char *http_get_response_message(int status_code) {
