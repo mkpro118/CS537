@@ -14,8 +14,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "proxyserver.h"
 #include "safequeue.h"
+#include "proxyserver.h"
 
 
 /*
@@ -48,8 +48,6 @@ pthread_t* listener_threads;
 pthread_t* worker_threads;
 int* thread_idx;
 int* server_fds;
-
-// extern char exit_flag;
 
 
 void send_error_response(int client_fd, status_code_t err_code, char *err_msg) {
@@ -190,13 +188,15 @@ static uint parse_priority(char* path) {
  * @param args Unused
  */
 void* do_work(void*) {
-    while (1) { // Loop forever
+    while (!EXIT_FLAG) { // Loop forever
         // get_work blocks till there is a request in the queue
         struct proxy_request* pr = (struct proxy_request*) get_work(pq);
 
         // Serve the request
-        serve_request(pr);
+        if (pr)
+            serve_request(pr);
     }
+    return NULL;
 }
 
 /*
@@ -254,7 +254,7 @@ void* serve_forever(void* args) {
     struct sockaddr_in client_address;
     size_t client_address_length = sizeof(client_address);
     int client_fd;
-    while (1) {
+    while (!EXIT_FLAG) {
         client_fd = accept(*server_fd,
                            (struct sockaddr *)&client_address,
                            (socklen_t *)&client_address_length);
@@ -343,8 +343,6 @@ void default_settings() {
     fileserver_port = 3333;
 
     max_queue_size = 100;
-
-    // should_exit = 0;
 }
 
 void print_settings() {
@@ -361,16 +359,8 @@ void print_settings() {
 
 void signal_callback_handler(int signum) {
     printf("Caught signal %d: %s\n", signum, strsignal(signum));
-    for (int i = 0; i < num_listener; i++) {
-        if (close(server_fds[i]) < 0) perror("Failed to close server_fd (ignoring)\n");
-    }
-    free(listener_ports);
-    free(server_fds);
-    free(listener_threads);
-    free(worker_threads);
-    free(thread_idx);
-    destroy_queue(pq);
-    exit(0);
+    EXIT_FLAG = 1;
+    pthread_cond_broadcast(&pq->pq_cond_fill);
 }
 
 char *USAGE =
@@ -459,6 +449,37 @@ int main(int argc, char **argv) {
     for (int i = 0; i < num_workers; i++) {
         pthread_join(worker_threads[i], NULL);
     }
+
+    // SIGINT occured, so threads exited
+    // Cleanup
+    for (int i = 0; i < num_listener; i++) {
+        if (close(server_fds[i]) < 0) {
+            perror("Failed to close server_fd (ignoring)\n");
+        }
+    }
+
+    // Shouldn't have any running threads here
+    // so pq->pq_mutex lock wouldn't be held
+    for (int i = 0; i < pq->size; i++) {
+         if (!pq->queue[i]) {
+             continue;
+         }
+
+         struct proxy_request* pr = (struct proxy_request*) pq->queue[i]->value;
+         if (!pr) {
+             continue;
+         }
+
+         shutdown(pr->client_fd, SHUT_WR);
+         close(pr->client_fd);
+    }
+
+    free(listener_ports);
+    free(server_fds);
+    free(listener_threads);
+    free(worker_threads);
+    free(thread_idx);
+    destroy_queue(pq);
 
     return EXIT_SUCCESS;
 }

@@ -47,6 +47,7 @@ int is_queue_full(priority_queue*);
 int is_queue_empty(priority_queue*);
 
 // Additional for clean up
+extern char EXIT_FLAG;
 void destroy_queue(priority_queue*);
 
 #endif // __SAFEQUEUE_H__

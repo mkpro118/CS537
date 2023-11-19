@@ -200,6 +200,8 @@ void* pq_dequeue(priority_queue* pq) {
 ///                    Required Interface Implementation                     ///
 ////////////////////////////////////////////////////////////////////////////////
 
+char EXIT_FLAG = 0;
+
 priority_queue* create_queue(uint capacity) {
     return pq_init(capacity);
 }
@@ -225,8 +227,13 @@ int add_work(priority_queue* pq, pq_element* elem) {
 void* get_work(priority_queue* pq) {
     pthread_mutex_lock(&pq->pq_mutex);
 
-    while (is_pq_empty(pq))
+    while (is_pq_empty(pq)) {
+        if (EXIT_FLAG) {
+            pthread_mutex_unlock(&pq->pq_mutex);
+            return NULL;
+        }
         pthread_cond_wait(&pq->pq_cond_fill, &pq->pq_mutex);
+    }
 
     void* elem = pq_dequeue(pq);
 
