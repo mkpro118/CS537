@@ -228,18 +228,18 @@ int add_work(priority_queue* pq, pq_element* elem) {
 }
 
 void* get_work(priority_queue* pq) {
+    void* elem = NULL;
     pthread_mutex_lock(&pq->pq_mutex);
 
     while (is_pq_empty(pq)) {
-        if (EXIT_FLAG) {
-            pthread_mutex_unlock(&pq->pq_mutex);
-            return NULL;
-        }
         pthread_cond_wait(&pq->pq_cond_fill, &pq->pq_mutex);
+        if (EXIT_FLAG)
+            goto end_op;
     }
 
-    void* elem = pq_dequeue(pq);
+    elem = pq_dequeue(pq);
 
+    end_op:
     pthread_mutex_unlock(&pq->pq_mutex);
     return elem;
 }
