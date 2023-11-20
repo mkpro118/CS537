@@ -33,11 +33,7 @@ priority_queue* pq_init(uint capacity) {
 
     if (!pq->queue) {
         free(pq);
-        pq = NULL;
-        goto end_op;
-    }
-
-    if (!pq->queue) {
+        pq = NULL;  // No dangling pointers
         perror("malloc failed in pq_init()\n");
         goto end_op;
     }
