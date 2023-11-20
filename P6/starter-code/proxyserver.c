@@ -254,6 +254,7 @@ void* serve_forever(void* args) {
     struct sockaddr_in client_address;
     size_t client_address_length = sizeof(client_address);
     int client_fd;
+    /////////////////////////// MODIFICATIONS START ////////////////////////////
     while (!EXIT_FLAG) {
         client_fd = accept(*server_fd,
                            (struct sockaddr *)&client_address,
@@ -295,27 +296,36 @@ void* serve_forever(void* args) {
                 pr = NULL;  // No dangling pointers
             }
 
+            // Cleanup and continue;
             http_request_destroy(req);
             continue;
         }
 
+        // If not a GetJob request
+        // Create and intitialize a proxy request
         pr = malloc(sizeof(struct proxy_request));
         pr->request = req;
         pr->client_fd = client_fd;
         pr->port = proxy_port;
 
+        // Create a pq_element to be added to the queue
         pq_element* elem = malloc(sizeof(pq_element));
         if (!pr || !elem) {
             perror("malloc failed in serve forever");
             exit(0);
         }
 
-
+        // Set pq_element values and priority
         elem->priority = parse_priority(req->path);
         elem->value = (void*) pr;
 
+        // If add_work is successful, move on to the next request
+        // Otherwise
         if(add_work(pq, elem) < 0) {
+            // Send a QUEUE_FULL Error response
             send_error_response(client_fd, QUEUE_FULL, "QUEUE IS FULL!");
+
+            // Cleanup
             http_request_destroy(req);
             free(pr);
             pr = NULL;  // No dangling pointers
@@ -324,6 +334,7 @@ void* serve_forever(void* args) {
         }
     }
 
+    //////////////////////////// MODIFICATIONS END /////////////////////////////
     shutdown(*server_fd, SHUT_RDWR);
     close(*server_fd);
     return NULL;
@@ -402,6 +413,9 @@ int main(int argc, char **argv) {
     }
     //print_settings();
 
+    /////////////////////////// MODIFICATIONS START ////////////////////////////
+
+    // Intialize a priority queue with the given or default max_queue_size
     pq = create_queue(max_queue_size);
 
     listener_threads = malloc(sizeof(pthread_t) * num_listener);
@@ -411,6 +425,9 @@ int main(int argc, char **argv) {
         exit(0);
     }
 
+    // This heap allocated array holds values to index into the server_fds
+    // and listener_ports arrays. Addresses of the elements in this array are
+    // passed as arguments to pthread_create, to be passed to the start routine
     thread_idx = malloc(sizeof(int) * num_listener);
 
     if (!thread_idx) {
@@ -418,9 +435,11 @@ int main(int argc, char **argv) {
         exit(0);
     }
 
+    // Simply initiliaze values to be the index into the array
     for (int i = 0; i < num_listener; i++)
         thread_idx[i] = i;
 
+    // Create listener threads, these run the `serve_forever` function
     for (int i = 0; i < num_listener; i++) {
         if (pthread_create(&listener_threads[i], NULL, serve_forever, (void*) &thread_idx[i])) {
             perror("FAILED TO CREATE LISTENER THREADS\n");
@@ -435,22 +454,25 @@ int main(int argc, char **argv) {
         exit(0);
     }
 
+    // Create worker threads, these run the `do_work` function
     for (int i = 0; i < num_workers; i++) {
         if (pthread_create(&worker_threads[i], NULL, do_work, NULL)) {
-            perror("FAILED TO CREATE LISTENER THREADS\n");
+            perror("FAILED TO CREATE WORKER THREADS\n");
             exit(0);
         }
     }
 
+    // Wait for listener threads to exit on a SIGINT
     for (int i = 0; i < num_listener; i++) {
         pthread_join(listener_threads[i], NULL);
     }
 
+    // Wait for worker threads to exit on a SIGINT
     for (int i = 0; i < num_workers; i++) {
         pthread_join(worker_threads[i], NULL);
     }
 
-    // SIGINT occured, so threads exited
+    // Reach here when SIGINT occured, so threads have all exited
     // Cleanup
     for (int i = 0; i < num_listener; i++) {
         if (close(server_fds[i]) < 0) {
@@ -461,25 +483,26 @@ int main(int argc, char **argv) {
     // Shouldn't have any running threads here
     // so pq->pq_mutex lock wouldn't be held
     for (int i = 0; i < pq->size; i++) {
-         if (!pq->queue[i]) {
+         if (!pq->queue[i])
              continue;
-         }
 
          struct proxy_request* pr = (struct proxy_request*) pq->queue[i]->value;
-         if (!pr) {
+         if (!pr)
              continue;
-         }
 
          shutdown(pr->client_fd, SHUT_WR);
          close(pr->client_fd);
     }
 
+    // Release all resources
     free(listener_ports);
     free(server_fds);
     free(listener_threads);
     free(worker_threads);
     free(thread_idx);
     destroy_queue(pq);
+
+    //////////////////////////// MODIFICATIONS END /////////////////////////////
 
     return EXIT_SUCCESS;
 }
