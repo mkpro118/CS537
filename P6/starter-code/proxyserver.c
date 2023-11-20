@@ -374,6 +374,10 @@ void signal_callback_handler(int signum) {
     pthread_cond_broadcast(&pq->pq_cond_fill);
 }
 
+void http_request_cleanup(void* args) {
+    http_request_destroy((struct http_request*) args);
+}
+
 char *USAGE =
     "Usage: ./proxyserver [-l 1 8000] [-n 1] [-i 127.0.0.1 -p 3333] [-q 100]\n";
 
@@ -500,7 +504,10 @@ int main(int argc, char **argv) {
     free(listener_threads);
     free(worker_threads);
     free(thread_idx);
-    destroy_queue(pq);
+    
+    
+
+    destroy_queue(pq, http_request_cleanup);
 
     //////////////////////////// MODIFICATIONS END /////////////////////////////
 

@@ -53,7 +53,7 @@ priority_queue* pq_init(uint capacity) {
  * Priority Queue destructor
  * @param pq The Priority Queue to destroy
  */
-void pq_destroy(priority_queue* pq) {
+void pq_destroy(priority_queue* pq, void (*cleanup)(void*)) {
     if (!pq)
         return;
     pthread_mutex_lock(&pq->pq_mutex);
@@ -66,8 +66,11 @@ void pq_destroy(priority_queue* pq) {
         if (!pq->queue[i])
             continue;
 
-        if (pq->queue[i]->value)
+        if (pq->queue[i]->value) {
+            if (cleanup)
+                cleanup(pq->queue[i]->value);
             free(pq->queue[i]->value);
+        }
         pq->queue[i]->value = NULL;
 
         free(pq->queue[i]);
@@ -256,8 +259,8 @@ int is_queue_full(priority_queue* pq) { return is_pq_full(pq); }
 int is_queue_empty(priority_queue* pq) { return is_pq_empty(pq); }
 
 
-void destroy_queue(priority_queue* pq) {
-    pq_destroy(pq);
+void destroy_queue(priority_queue* pq, void (*cleanup)(void*)) {
+    pq_destroy(pq, cleanup);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

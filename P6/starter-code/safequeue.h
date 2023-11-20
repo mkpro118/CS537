@@ -30,7 +30,7 @@ typedef struct {
 
 // Abstract Priority Queue Implementation
 priority_queue* pq_init(unsigned int);
-void pq_destroy();
+void pq_destroy(priority_queue*, void (*)(void*));
 int pq_enqueue(priority_queue*, pq_element*);
 void* pq_dequeue(priority_queue*);
 int is_pq_full(priority_queue*);
@@ -48,6 +48,6 @@ int is_queue_empty(priority_queue*);
 
 // Additional for clean up
 extern char EXIT_FLAG;
-void destroy_queue(priority_queue*);
+void destroy_queue(priority_queue*, void(*)(void*));
 
 #endif // __SAFEQUEUE_H__
