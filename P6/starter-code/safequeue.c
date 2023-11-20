@@ -258,7 +258,6 @@ int is_queue_full(priority_queue* pq) { return is_pq_full(pq); }
 
 int is_queue_empty(priority_queue* pq) { return is_pq_empty(pq); }
 
-
 void destroy_queue(priority_queue* pq, void (*cleanup)(void*)) {
     pq_destroy(pq, cleanup);
 }
