@@ -5,7 +5,13 @@
 
 #include "wfs.h"
 
-
+/**
+ * Clears the given file of any data, writes out the superblock
+ * and initializes the root directory
+ * 
+ * Status: Write Superblock is done
+ *         TODO: Initialize root directory
+ */
 int main(int argc, const char * argv[]) {
     if (argc != 2) {
         printf("Usage: mkfs.wfs <img_file>\n");
