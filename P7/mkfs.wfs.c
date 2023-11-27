@@ -9,6 +9,11 @@
  * Clears the given file of any data, writes out the superblock
  * and initializes the root directory
  * 
+ * Takes in one argument, which is the file to use as logbook
+ * 
+ * Usage:
+ *    $: mkfs.wfs <filename>
+ * 
  * Status: Write Superblock is done
  *         TODO: Initialize root directory
  */
