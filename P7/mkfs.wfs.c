@@ -9,7 +9,7 @@ void print_usage() {
     printf("Usage: mkfs.wfs <img_file>\n");
 }
 
-int main(int argc, char const *argv[]) {
+int main(int argc, const char * argv[]) {
     if (argc != 2) {
         print_usage();
         goto success;
