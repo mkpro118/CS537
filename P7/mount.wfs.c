@@ -1,7 +1,12 @@
-#include <fuse.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <time.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#define FUSE_USE_VERSION 30
+#include <fuse.h>
 
 static int wfs_getattr(const char* path, struct stat* stbuf) {
     return 0;
