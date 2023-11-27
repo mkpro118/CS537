@@ -36,4 +36,9 @@ struct wfs_log_entry {
     char data[];
 };
 
+void wfs_sb_init(struct wfs_sb* sb) {
+    sb->magic = WFS_MAGIC;
+    sb->head = (uint32_t) sizeof(struct wfs_sb);
+}
+
 #endif
