@@ -55,36 +55,47 @@
 
 
 // ABOUT INODES
-// 1. wfs_inode.inode_number    | inode identifier
-//      For every operation, we need to increment inode number
-//      NEED a static counter, perhaps in a struct initializer function?
-//      Or.. do we need to infer from the disk image, in order to persist state
-//      between different runs of the FS?
-//      Actually we may really need to read from the disk image to know. smh
-//      It is actually super annoying that we can't modify structs this time
+//  1. wfs_inode.inode_number    | inode identifier
+//       For every operation, we need to increment inode number
+//       NEED a static counter, perhaps in a struct initializer function?
+//       Or.. do we need to infer from the disk image, in order to persist state
+//       between different runs of the FS?
+//       Actually we may really need to read from the disk image to know. smh
+//       It is actually super annoying that we can't modify structs this time
 //
-// 2. wfs_inode.deleted         | 1 if deleted, 0 otherwise
-//      pretty straightforward, everytime we update, set the prev to 1
+//  2. wfs_inode.deleted         | 1 if deleted, 0 otherwise
+//       pretty straightforward, everytime we update, set the prev to 1
 //
-// 3. wfs_inode.mode            | type. S_IFDIR or S_IFREG
-//      again, pretty straightforward, just indicates if
-//      it refers to files or directories (#include <sys/stat.h>)
+//  3. wfs_inode.mode            | type. S_IFDIR or S_IFREG
+//       again, pretty straightforward, just indicates if
+//       it refers to files or directories (#include <sys/stat.h>)
 //
-// 4. wfs_inode.uid             | user id
-//      Use getuid() to get the user id, set the value here (#include <unistd.h>)
+//  4. wfs_inode.uid             | user id
+//       Use getuid() to get the user id, set the value here (#include <unistd.h>)
 //
-// 5. wfs_inode.gid             | group id
-//      Use getgid() to get the group id, set the value here (#include <unistd.h>)
+//  5. wfs_inode.gid             | group id
+//       Use getgid() to get the group id, set the value here (#include <unistd.h>)
 //
-// 6. wfs_inode.size            | size in bytes
-//      size here is actually size of the data entry for the log entry.
-//      We have to use this to read bytes in the disk image file
+//  6. wfs_inode.flags           | flags ???
+//       I have no idea what this is, maybe permissions?
 //
-// 7. wfs_inode.atime           | last access time
-//      Use time() to set the atime every read op (#include <time.h>)
+//  7. wfs_inode.size            | size in bytes
+//       size here is actually size of the data entry for the log entry.
+//       We have to use this to read bytes in the disk image file
 //
-// 8. wfs_inode.mtime           | last modify time
-//      Use time() to set the mtime every write op (#include <time.h>)
+//  8. wfs_inode.atime           | last FILE access time
+//       Use time() to set the atime every read op (#include <time.h>)
+//
+//  9. wfs_inode.mtime           | last FILE modify time
+//       Use time() to set the mtime every write op (#include <time.h>)
+//
+// 10. wfs_inode.ctime           | last INODE change time
+//       Use time() to set the ctime every time something in the inode changes
+//       (#include <time.h>)
+//
+// 11. wfs_inode.links           | number of hard links to this file
+//       literally always set to 1
+//       wfs_inode.links = 1;
 
 
 // MK's Proposed idea for working with the "disk image file"
@@ -120,6 +131,14 @@
 //      the problem with embedding it in the file is the storage takes up space which could
 //      have been used for other log entries [O(n) auxillary storage.
 //      Classic time vs storage tradeoff!
+
+// I now understand what the 0xdeadbeef is too
+// basically the WFS_MAGIC is an identifier that let's the kernel
+// know what type of filesystem this is.
+// like ext4 would have a magic number associated with it, and it
+// is the very first byte associated with the FS
+// The kernel cross references this with at mount time to ensure
+// you are mounting the correct FS, as specified by the mount command
 
 // Function to read data from a file,
 // THIS IS ONLY A STARTER VERSION
