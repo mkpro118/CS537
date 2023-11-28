@@ -3,7 +3,10 @@
 #include <string.h>
 #include <errno.h>
 
+#define WFS_SETUP
 #include "wfs.h"
+
+#define WFS_N_ITEMS 1
 
 /**
  * Clears the given file of any data, writes out the superblock
@@ -23,27 +26,39 @@ int main(int argc, const char * argv[]) {
         goto success;
     }
 
-    const char* filename = argv[1];
+    // filename = argv[1]
 
-    FILE* img_file = fopen(filename, "w"); 
+    // Write in binary mode
+    FILE* img_file = fopen(argv[1], "wb");
 
     if (!img_file) {
-        fprintf(stderr, "Failed to open file \"%s\"!\n", filename);
+        fprintf(stderr, "Failed to open file \"%s\"!\n", argv[1]);
         goto fail;
     }
 
+    // Write the Superblock to file
     struct wfs_sb sb;
     wfs_sb_init(&sb);
 
     size_t sb_size = sizeof(struct wfs_sb);
-    size_t bytes_written;
 
-    if ((bytes_written = fwrite(&sb, sb_size, 1, img_file)) != 1) {
-        fprintf(stderr, "Failed to write to file \"%s\" (%% = %ld / %d)\n", filename, bytes_written, 1);
+    if (fwrite(&sb, sb_size, WFS_N_ITEMS, img_file) != WFS_N_ITEMS) {
+        fprintf(stderr, "Failed to write to file \"%s\"\n", argv[1]);
         goto fail;
     }
 
-    fprintf(stderr, "Successfully initialized file \"%s\" for WFS\n", filename);
+    // Write Log Entry 0, for root to the file
+    struct wfs_log_entry entry;
+    wfs_inode_init(&entry.inode);
+
+    size_t entry_size = sizeof(struct wfs_log_entry);
+
+    if (fwrite(&entry, entry_size, WFS_N_ITEMS, img_file) != WFS_N_ITEMS) {
+        fprintf(stderr, "Failed to write to file \"%s\"\n", argv[1]);
+        goto fail;
+    }
+
+    fprintf(stderr, "Successfully initialized file \"%s\" for WFS\n", argv[1]);
 
     success:
     return 0;
