@@ -10,8 +10,10 @@
 #include <fuse.h>
 
 
+#define ITOPSC  0 /* ITable operation succeeded */
 #define EITWNB -1 /* Error ITable Was Not Built */
 #define EITWR  -2 /*   Error ITable Was Reset   */
+#define EITWNR -3 /* Error ITable Was Not Reset */
 
 static FILE* img_file = NULL;
 
@@ -46,29 +48,45 @@ static void fll_i_table(FILE* img_file, unsigned int inode_number, off_t offset)
 
 static int icrease_i_table_capacity(unsigned int capacity) {
     int* temp;
-    switch (itable.table) {
-    case NULL:
+    switch (itable.capacity) {
+    case 0:
+        if (itable.table) {
+            free(itable.table);
+        }
+        itable.table = NULL;
         itable.capacity = capacity;
         temp = malloc(sizeof(int) * itable.capacity);
-        if (!itable.table) {
+        if (!temp) {
             perror("FATAL ERROR: Failed to increase capacity (Malloc failed)!\n");
-            perror("ABORTING Increase itable Capacity operation! Reset itable capacity and size to 0. ");
+            perror("ABORTING Increase itable Capacity operation! Reset itable capacity and size to 0.");
+
+            itable.size = 0;
+            itable.capacity = 0;
+
             perror("Future operations should try to re-read the disk image to re-build the itable.\n");
             return EITWNB;
         }
         break;
     default:
         itable.capacity += capacity;
-        itable.table = realloc(sizeof(int) * itable.capacity);
-        if (!itable.table) {
+        temp = realloc(itable.table, sizeof(int) * itable.capacity);
+        if (!temp) {
             perror("FATAL ERROR: Failed to increase capacity (Realloc failed)!\n");
-            perror("ABORTING Increase Itable Capacity operation! Restoring itable capacity and size.");
-            perror("Orignal data should be intact.\n");
-            return EITWR;
+            perror("ABORTING Increase Itable Capacity operation!\n");
+
+            if (itable.table) {
+                perror("Restoring itable capacity and size.");
+                itable.capacity -= capacity;
+                perror("Orignal data should be intact.\n");
+                return EITWR;
+            } else {
+                perror("Failed to restore old data");
+                return EITWNR;
+            }
         }
         break;
     }
-    return 0;
+    return ITOPSC;
 }
 
 static int read_image_file(file) {
@@ -96,7 +114,7 @@ static int wfs_write(const char* path, const char *buf, size_t size, off_t offse
 }
 
 static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info* fi) {
-    filler(buf, ".", NULL, 0); // Current directory
+    filler(buf,  ".", NULL, 0); // Current  directory
     filler(buf, "..", NULL, 0); // Previous directory
     return 0;
 }
