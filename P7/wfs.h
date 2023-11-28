@@ -73,7 +73,7 @@ void wfs_sb_init(struct wfs_sb* sb) {
 
 void wfs_inode_init(struct wfs_inode* inode, enum InodeModes mode) {
     static unsigned int inode_number = WFS_INITIAL_INODE_NUMBER;
-    *inode = {
+    *inode = (struct wfs_inode) {
         .inode_number = inode_number++,
         .deleted      = WFS_INODE_INTACT,
         .mode         = mode,
