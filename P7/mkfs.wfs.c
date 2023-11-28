@@ -49,7 +49,7 @@ int main(int argc, const char * argv[]) {
 
     // Write Log Entry 0, for root to the file
     struct wfs_log_entry entry;
-    wfs_inode_init(&entry.inode);
+    wfs_inode_init(&entry.inode, DIRECTORY_MODE);
 
     size_t entry_size = sizeof(struct wfs_log_entry);
 
