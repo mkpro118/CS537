@@ -22,7 +22,7 @@
  */
 int main(int argc, const char * argv[]) {
     if (argc != 2) {
-        printf("Usage: mkfs.wfs <img_file>\n");
+        printf("Usage: mkfs.wfs disk_path\n");
         goto success;
     }
 
