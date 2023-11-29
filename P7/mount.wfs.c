@@ -172,7 +172,12 @@ static int init_itable(FILE* file) {
         }
         success:
         printf("itable.capacity = %i | inode_number = %i\n", itable.capacity, inode_number);
-        itable.table[inode_number] = ftell(file) - sizeof(struct wfs_inode);
+        if (!entry->inode.deleted) {
+            itable.table[inode_number] = ftell(file) - sizeof(struct wfs_inode);
+        } else {
+            itable.table[inode_number] = 0;
+            printf("Skipping inode because it is deleted");
+        }
 
         fseek(file, data_size, SEEK_CUR);
         seek = ftell(file);
