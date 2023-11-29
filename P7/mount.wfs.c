@@ -38,6 +38,7 @@ struct fuse_operations {
 #define EITWNR -3 /* Error I-Table Was Not Reset */
 
 static FILE* restrict disk_file = NULL;
+static struct wfs_sb sb = {0};
 
 /* Something like a cache for faster lookups from the disk image */
 static struct {
@@ -176,7 +177,6 @@ static int init_itable() {
 
 static void validate_wfs() {
     fseek(disk_file, 0, SEEK_SET);
-    struct wfs_sb sb;
 
     if(fread(&sb, sizeof(struct wfs_sb), 1, disk_file) != 1) {
         perror("fread failed!\n");
