@@ -5,13 +5,12 @@
 #include <time.h>
 #include <sys/stat.h>
 #include <unistd.h>
-
-#define FUSE_USE_VERSION 30
-#include <fuse.h>
-
 #include "wfs.h"
 
-#ifndef FUSE_USE_VERSION
+#ifdef __unix__
+#define FUSE_USE_VERSION 30
+#include <fuse.h>
+#else
 struct fuse_file_info {};
 enum fuse_readdir_flags {
         FUSE_READDIR_PLUS = (1 << 0)
@@ -38,11 +37,11 @@ struct fuse_operations {
 #define EITWR  -2 /*   Error I-Table Was Reset   */
 #define EITWNR -3 /* Error I-Table Was Not Reset */
 
-static FILE* img_file = NULL;
+static FILE* restrict disk_file = NULL;
 
 /* Something like a cache for faster lookups from the disk image */
 static struct {
-    unsigned int* table;
+    unsigned int* restrict table;
     unsigned int  capacity;
 } itable = {
     .table    = NULL,
@@ -56,12 +55,12 @@ static const unsigned int ITABLE_CAPACITY_INCREMENT = 10;
  *
  * Adds or updates itable entries for the given inode
  *
- * @param img_file     [description]
+ * @param disk_file     [description]
  * @param inode_number [description]
  * @param offset       [description]
  */
 /*
-static void fill_itable(FILE* img_file, unsigned int inode_number, off_t offset) {
+static void fill_itable(FILE* disk_file, unsigned int inode_number, off_t offset) {
     // If inode table is not yet present, we [re]started the FS
     // We detect whether or not inode table is present using the size
     // value in itable. If size = 0, then we have no information yet
@@ -116,21 +115,10 @@ static int set_itable_capacity(unsigned int capacity) {
     return ITOPSC;
 }
 
-static int init_itable(FILE* file) {
-    fseek(file, 0, SEEK_SET);
-    struct wfs_sb sb;
+static int init_itable() {
+    fseek(disk_file, sizeof(struct wfs_sb), SEEK_SET);
 
-    if(fread(&sb, sizeof(struct wfs_sb), 1, file) != 1) {
-        perror("fread failed!\n");
-    }
-
-    if (sb.magic != WFS_MAGIC) {
-        perror("FATAL ERROR: File is not a WFS FileSystem disk image.\n");
-        //`exit(1);
-        return 1;
-    }
-
-    int seek = ftell(file);
+    int seek = ftell(disk_file);
 
     while (seek < sb.head) {
         struct wfs_log_entry* entry = malloc(sizeof(struct wfs_log_entry));
@@ -140,7 +128,7 @@ static int init_itable(FILE* file) {
         }
 
 
-        if (fread(entry, sizeof(struct wfs_inode), 1, file) != 1) {
+        if (fread(entry, sizeof(struct wfs_inode), 1, disk_file) != 1) {
             perror("fread Failed!\n");
             return -1;
         }
@@ -173,17 +161,32 @@ static int init_itable(FILE* file) {
         success:
         printf("itable.capacity = %i | inode_number = %i\n", itable.capacity, inode_number);
         if (!entry->inode.deleted) {
-            itable.table[inode_number] = ftell(file) - sizeof(struct wfs_inode);
+            itable.table[inode_number] = ftell(disk_file) - sizeof(struct wfs_inode);
         } else {
             itable.table[inode_number] = 0;
             printf("Skipping inode because it is deleted");
         }
 
-        fseek(file, data_size, SEEK_CUR);
-        seek = ftell(file);
+        fseek(disk_file, data_size, SEEK_CUR);
+        seek = ftell(disk_file);
     }
 
     return 0;
+}
+
+static void validate_wfs() {
+    fseek(disk_file, 0, SEEK_SET);
+    struct wfs_sb sb;
+
+    if(fread(&sb, sizeof(struct wfs_sb), 1, disk_file) != 1) {
+        perror("fread failed!\n");
+        exit(1);
+    }
+
+    if (sb.magic != WFS_MAGIC) {
+        perror("FATAL ERROR: File is not a WFS FileSystem disk image.\n");
+        exit(1);
+    }
 }
 
 static int wfs_getattr(const char* path, struct stat* stbuf) {
@@ -231,17 +234,19 @@ int main(int argc, const char *argv[]) {
         printf("Usage: $ mount.wfs [FUSE options] disk_path mount_point\n");
         return 0;
     }
-    printf("FILE TO READ = %s\n", argv[argc - 2]);
-    img_file = fopen(argv[argc - 2], "a+");
 
-    if (!img_file) {
+    printf("disk_path = %s\n", argv[argc - 2]);
+    disk_file = fopen(argv[argc - 2], "a+");
+
+    if (!disk_file) {
         perror("FRICK FILE WASN'T OPENED!!!!\n");
     }
 
+    validate_wfs();
     set_itable_capacity(1);
 
     printf("Building I-Table...\n");
-    int i = init_itable(img_file);
+    int i = init_itable(disk_file);
     printf("Built I-Table | Status: %d\n", i);
 
     /* For testing */
