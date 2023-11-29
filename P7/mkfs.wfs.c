@@ -59,6 +59,7 @@ int main(int argc, const char * argv[]) {
     }
 
     fprintf(stderr, "Successfully initialized file \"%s\" for WFS\n", argv[1]);
+    fclose(img_file);
 
     success:
     return 0;
