@@ -68,7 +68,7 @@ enum InodeModes {
 
 void wfs_sb_init(struct wfs_sb* sb) {
     sb->magic = WFS_MAGIC;
-    sb->head = (uint32_t) sizeof(struct wfs_sb);
+    sb->head = (uint32_t) sizeof(struct wfs_sb) + sizeof(struct wfs_log_entry);
 }
 
 void wfs_inode_init(struct wfs_inode* inode, enum InodeModes mode) {
