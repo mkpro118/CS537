@@ -9,6 +9,8 @@
 // #define FUSE_USE_VERSION 30
 // #include <fuse.h>
 
+#include "wfs.h"
+
 #ifndef FUSE_USE_VERSION
 struct fuse_file_info {};
 enum fuse_readdir_flags {
@@ -26,6 +28,7 @@ struct fuse_operations {
     int (*read)(const char* path, char *buf, size_t size, off_t offset, struct fuse_file_info* fi);
     int (*write)(const char* path, const char *buf, size_t size, off_t offset, struct fuse_file_info* fi);
     int (*readdir)(const char* path, void* buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info* fi);
+    int (*unlink)(const char* path);
 };
 #endif
 
@@ -67,53 +70,102 @@ static void fill_itable(FILE* img_file, unsigned int inode_number, off_t offset)
 
 /**
  * Increase the capacity of the I-Table
- * @param  capacity [description]
- * @return          [description]
+ *
+ * @param capacity The new capacity of the I-Table
+ *
+ * @return Returns 0 on success, or on failure returns
+ *           - EITWNB  I-Table Was Not Built
+ *           - EITWR   I-Table Was Reset
+ *           - EITWNR  I-Table Was Not Reset
  */
-static int icrease_itable_capacity(unsigned int capacity) {
-    int* temp;
+static int set_itable_capacity(unsigned int capacity) {
+    unsigned int* temp;
     switch (itable.capacity) {
     case 0:
-        if (itable.table) {
+        if (itable.table)
             free(itable.table);
-        }
+
         itable.table = NULL;
         itable.capacity = capacity;
+
         temp = malloc(sizeof(int) * itable.capacity);
+
         if (!temp) {
-            perror("FATAL ERROR: Failed to increase capacity (Malloc failed)!\n");
-            perror("ABORTING Increase itable Capacity operation! Reset itable capacity and size to 0.");
-
             itable.capacity = 0;
-
-            perror("Future operations should try to re-read the disk image to re-build the itable.\n");
             return EITWNB;
         }
         break;
     default:
-        itable.capacity += capacity;
-        temp = realloc(itable.table, sizeof(int) * itable.capacity);
-        if (!temp) {
-            perror("FATAL ERROR: Failed to increase capacity (Realloc failed)!\n");
-            perror("ABORTING Increase Itable Capacity operation!\n");
+        temp = realloc(itable.table, sizeof(unsigned int) * capacity);
 
-            if (itable.table) {
-                perror("Restoring itable capacity and size.");
-                itable.capacity -= capacity;
-                perror("Orignal data should be intact.\n");
+        if (!temp) {
+            if (itable.table)
                 return EITWR;
-            } else {
-                perror("Failed to restore old data");
+            else
                 return EITWNR;
-            }
         }
-        break;
+
+        itable.capacity = capacity;
+        itable.table = temp;
     }
     return ITOPSC;
 }
 
-static int read_image_file(FILE* file) {
+static int init_itable(FILE* file) {
     fseek(file, 0, SEEK_SET);
+
+    struct wfs_sb sb;
+
+    if(fread(&sb, sizeof(struct wfs_sb), 1, file) != 1) {
+        perror("fread failed!\n");
+    }
+
+    if (sb.magic != WFS_MAGIC) {
+        perror("FATAL ERROR: File is not a WFS FileSystem disk image.\n");
+        exit(1);
+    }
+
+    int seek = ftell(file);
+
+    while (seek < sb.head) {
+        struct wfs_log_entry* entry = malloc(sizeof(struct wfs_log_entry));
+        if (!entry) {
+            perror("MALLOC FAILED!\n");
+            return -1;
+        }
+
+        if (fread(entry, sizeof(struct wfs_inode), 1, file) != 1) {
+            perror("fread Failed!\n");
+            return -1;
+        }
+
+        int data_size = entry->inode.size;
+        int inode_number = entry->inode.inode_number;
+
+        if (inode_number >= itable.capacity) {
+            int err = set_itable_capacity(inode_number + ITABLE_CAPACITY_INCREMENT);
+
+            switch (err) {
+            case EITWNB:
+                perror("FATAL ERROR: Failed to increase capacity (Malloc failed)!\n");
+                perror("ABORTING Increase itable Capacity operation! Reset itable capacity and size to 0.\n");
+                perror("Future operations should try to re-read the disk image to re-build the itable.\n");
+                break;
+            case EITWR:
+                perror("Orignal data should be intact.\n");
+                break;
+            case EITWNR:
+                perror("Failed to restore old data.\n");
+                break;
+            }
+            exit(1);
+        }
+
+        itable.table[inode_number] = ftell(file) - sizeof(struct wfs_inode);
+
+        fseek(file, data_size, SEEK_CUR);
+        seek = ftell(file);
+    }
 
     return 0;
 }
@@ -148,7 +200,6 @@ static int wfs_unlink(const char* path) {
     return 0;
 }
 
-
 static struct fuse_operations ops = {
     .getattr = wfs_getattr,
     .mknod   = wfs_mknod,
@@ -167,11 +218,20 @@ int main(int argc, const char *argv[]) {
 
     img_file = fopen(argv[argc - 2], "ab+");
 
+    init_itable(img_file);
+
+    /* For testing */
+    for (unsigned int i = 0; i < itable.capacity; i++) {
+        printf("%d | ", itable.table[i]);
+    }
+
+    printf("\n");
+
     int fuse_argc = argc - 1;
 
-    img_file = argv[argc - 2];
     argv[argc - 2] = argv[fuse_argc];
     argv[fuse_argc] = NULL;
 
-    return fuse_main(fuse_argc, argv, &ops, NULL);
+    return 0;
+    // return fuse_main(fuse_argc, argv, &ops, NULL);
 }
