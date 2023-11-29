@@ -6,8 +6,6 @@
 #define WFS_SETUP
 #include "wfs.h"
 
-#define WFS_N_ITEMS 1
-
 /**
  * Clears the given file of any data, writes out the superblock
  * and initializes the root directory
@@ -42,7 +40,7 @@ int main(int argc, const char * argv[]) {
 
     size_t sb_size = sizeof(struct wfs_sb);
 
-    if (fwrite(&sb, sb_size, WFS_N_ITEMS, img_file) != WFS_N_ITEMS) {
+    if (fwrite(&sb, sb_size, 1, img_file) != 1) {
         fprintf(stderr, "Failed to write to file \"%s\"\n", argv[1]);
         goto fail;
     }
@@ -53,7 +51,7 @@ int main(int argc, const char * argv[]) {
 
     size_t entry_size = sizeof(struct wfs_log_entry);
 
-    if (fwrite(&entry, entry_size, WFS_N_ITEMS, img_file) != WFS_N_ITEMS) {
+    if (fwrite(&entry, entry_size, 1, img_file) != 1) {
         fprintf(stderr, "Failed to write to file \"%s\"\n", argv[1]);
         goto fail;
     }
