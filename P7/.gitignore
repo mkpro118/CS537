@@ -56,7 +56,10 @@ dkms.conf
 *.log
 
 # WFS Executables in this directory
-disk
 mkfs.wfs
 mount.wfs
 fsck.wfs
+
+# Disk Images
+disk
+prebuilt_disk
