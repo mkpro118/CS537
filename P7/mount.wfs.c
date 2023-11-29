@@ -6,8 +6,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-// #define FUSE_USE_VERSION 30
-// #include <fuse.h>
+#define FUSE_USE_VERSION 30
+#include <fuse.h>
 
 #include "wfs.h"
 
@@ -20,7 +20,7 @@ enum fuse_readdir_flags {
 enum fuse_fill_dir_flags {
         FUSE_FILL_DIR_PLUS = (1 << 1)
 };
-typedef int(* fuse_fill_dir_t) (void *buf, const char *name, const struct stat *stbuf, off_t off, enum fuse_fill_dir_flags flags);
+typedef int(* fuse_fill_dir_t) (void *buf, const char *name, const struct stat *stbuf, off_t off);
 struct fuse_operations {
     int (*getattr)(const char* path, struct stat* stbuf);
     int (*mknod)(const char* path, mode_t mode, dev_t rdev);
@@ -60,13 +60,14 @@ static const unsigned int ITABLE_CAPACITY_INCREMENT = 10;
  * @param inode_number [description]
  * @param offset       [description]
  */
+/*
 static void fill_itable(FILE* img_file, unsigned int inode_number, off_t offset) {
     // If inode table is not yet present, we [re]started the FS
     // We detect whether or not inode table is present using the size
     // value in itable. If size = 0, then we have no information yet
     // Since we should have at least one inode for the root directory,
     // minimum value of size would be 1 for the FS.
-}
+}*/
 
 /**
  * Increase the capacity of the I-Table
@@ -79,7 +80,9 @@ static void fill_itable(FILE* img_file, unsigned int inode_number, off_t offset)
  *           - EITWNR  I-Table Was Not Reset
  */
 static int set_itable_capacity(unsigned int capacity) {
+    printf("Setting Itable Capacity to %d\n", capacity);
     unsigned int* temp;
+    printf("Current itable.capacity = %i\n", itable.capacity);
     switch (itable.capacity) {
     case 0:
         if (itable.table)
@@ -106,14 +109,15 @@ static int set_itable_capacity(unsigned int capacity) {
         }
 
         itable.capacity = capacity;
-        itable.table = temp;
     }
+
+    itable.table = temp;
+
     return ITOPSC;
 }
 
 static int init_itable(FILE* file) {
     fseek(file, 0, SEEK_SET);
-
     struct wfs_sb sb;
 
     if(fread(&sb, sizeof(struct wfs_sb), 1, file) != 1) {
@@ -122,7 +126,8 @@ static int init_itable(FILE* file) {
 
     if (sb.magic != WFS_MAGIC) {
         perror("FATAL ERROR: File is not a WFS FileSystem disk image.\n");
-        exit(1);
+        //`exit(1);
+        return 1;
     }
 
     int seek = ftell(file);
@@ -134,10 +139,12 @@ static int init_itable(FILE* file) {
             return -1;
         }
 
+
         if (fread(entry, sizeof(struct wfs_inode), 1, file) != 1) {
             perror("fread Failed!\n");
             return -1;
         }
+
 
         int data_size = entry->inode.size;
         int inode_number = entry->inode.inode_number;
@@ -146,6 +153,9 @@ static int init_itable(FILE* file) {
             int err = set_itable_capacity(inode_number + ITABLE_CAPACITY_INCREMENT);
 
             switch (err) {
+            case ITOPSC:
+                goto success;
+                break;
             case EITWNB:
                 perror("FATAL ERROR: Failed to increase capacity (Malloc failed)!\n");
                 perror("ABORTING Increase itable Capacity operation! Reset itable capacity and size to 0.\n");
@@ -158,9 +168,10 @@ static int init_itable(FILE* file) {
                 perror("Failed to restore old data.\n");
                 break;
             }
-            exit(1);
+            return 1;
         }
-
+        success:
+        printf("itable.capacity = %i | inode_number = %i\n", itable.capacity, inode_number);
         itable.table[inode_number] = ftell(file) - sizeof(struct wfs_inode);
 
         fseek(file, data_size, SEEK_CUR);
@@ -191,8 +202,8 @@ static int wfs_write(const char* path, const char *buf, size_t size, off_t offse
 }
 
 static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info* fi) {
-    filler(buf,  ".", NULL, 0, 0); // Current  directory
-    filler(buf, "..", NULL, 0, 0); // Previous directory
+    filler(buf,  ".", NULL, 0); // Current  directory
+    filler(buf, "..", NULL, 0); // Previous directory
     return 0;
 }
 
@@ -215,10 +226,18 @@ int main(int argc, const char *argv[]) {
         printf("Usage: $ mount.wfs [FUSE options] disk_path mount_point\n");
         return 0;
     }
+    printf("FILE TO READ = %s\n", argv[argc - 2]);
+    img_file = fopen(argv[argc - 2], "a+");
 
-    img_file = fopen(argv[argc - 2], "ab+");
+    if (!img_file) {
+        perror("FRICK FILE WASN'T OPENED!!!!\n");
+    }
 
-    init_itable(img_file);
+    set_itable_capacity(1);
+
+    printf("Building I-Table...\n");
+    int i = init_itable(img_file);
+    printf("Built I-Table | Status: %d\n", i);
 
     /* For testing */
     for (unsigned int i = 0; i < itable.capacity; i++) {
@@ -232,6 +251,8 @@ int main(int argc, const char *argv[]) {
     argv[argc - 2] = argv[fuse_argc];
     argv[fuse_argc] = NULL;
 
+    printf("%p\n", (void*)&ops);
+	
     return 0;
     // return fuse_main(fuse_argc, argv, &ops, NULL);
 }
