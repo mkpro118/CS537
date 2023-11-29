@@ -18,7 +18,7 @@
  * Status: Write Superblock is done
  *         TODO: Initialize root directory
  */
-int main(int argc, const char * argv[]) {
+int main(int argc, const char* restrict argv[]) {
     if (argc != 2) {
         printf("Usage: mkfs.wfs disk_path\n");
         goto success;

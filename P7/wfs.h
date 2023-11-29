@@ -66,12 +66,12 @@ enum InodeModes {
     DIRECTORY_MODE = S_IFDIR,
 };
 
-void wfs_sb_init(struct wfs_sb* sb) {
+void wfs_sb_init(struct wfs_sb* restrict sb) {
     sb->magic = WFS_MAGIC;
     sb->head = (uint32_t) sizeof(struct wfs_sb) + sizeof(struct wfs_log_entry);
 }
 
-void wfs_inode_init(struct wfs_inode* inode, enum InodeModes mode) {
+void wfs_inode_init(struct wfs_inode* restrict inode, enum InodeModes mode) {
     static unsigned int inode_number = WFS_INITIAL_INODE_NUMBER;
     *inode = (struct wfs_inode) {
         .inode_number = inode_number++,
