@@ -69,16 +69,17 @@ int fuse_main(int argc, char* argv[], struct fuse_operations* ops, void* opts);
 /////////////////////////// FUNCTION PROTOTYPES START //////////////////////////
 
 static void _check();
-static int build_itable();
 static void fill_itable(uint inode_number, long offset);
 static inline void invalidate_itable();
 static int set_itable_capacity(uint capacity);
+static int build_itable();
 static inline void invalidate_path_history();
 static int set_path_history_capacity(uint capacity);
 static int find_file_in_dir(struct wfs_log_entry* entry, char* filename, uint* out);
 static int parse_path(const char* restrict path, uint* restrict out);
 static struct wfs_log_entry* get_log_entry(uint inode_number);
 static void read_from_disk(off_t offset, struct wfs_log_entry** entry_buf);
+
 //////////////////////////// FUNCTION PROTOTYPES END ///////////////////////////
 
 
@@ -345,6 +346,11 @@ static int build_itable() {
 
 //////////////////// FILE SYSTEM MANAGEMENT FUNCTIONS START ////////////////////
 
+/**
+ * If path history is NULL, does nothing.
+ * If path history is an array of uints, sets all except index 0 to (uint) -1
+ * (uint) -1 is the code that specified invalid entry
+ */
 static inline void invalidate_path_history() {
     if (!ps_sb.path_history.history) {
         ps_sb.path_history.capacity = 0;
@@ -630,6 +636,9 @@ static void read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
 
 ///////////////////// DISK FILE MANAGEMENT FUNCTIONS START /////////////////////
 
+/**
+ * Sets up file locks to work with multiple processes
+ */
 void setup_flocks() {
     _check();
     ps_sb.sb_lock.l_pid = getpid();
