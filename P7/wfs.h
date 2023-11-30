@@ -1,3 +1,5 @@
+#include <stdlib.h>
+#include <stdio.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <unistd.h>
@@ -111,6 +113,34 @@ void wfs_inode_init(struct wfs_inode* restrict inode, enum InodeModes mode) {
         .ctime        = WFS_CURR_TIME,
         .links        = WFS_N_HARD_LINKS,
     };
+}
+
+int _check_dir_inode(struct wfs_inode* inode) {
+    switch (inode->mode) {
+    case DIRECTORY_MODE:
+        return 0;
+    default:
+        WFS_ERROR(
+            "Given inode does not represent a directory\n"
+            "{.inode_number = %d, .mode = %d, .ctime = %d}",
+            inode->inode_number, inode->mode, inode->ctime
+        );
+    }
+    return 1;
+}
+
+int _check_reg_inode(struct wfs_inode* inode) {
+    switch (inode->mode) {
+    case FILE_MODE:
+        return 0;
+    default:
+        WFS_ERROR(
+            "Given inode does not represent a file\n"
+            "{.inode_number = %d, .mode = %d, .ctime = %d}",
+            inode->inode_number, inode->mode, inode->ctime
+        );
+    }
+    return 1;
 }
 
 #endif
