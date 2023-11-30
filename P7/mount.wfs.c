@@ -3,8 +3,8 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
-#include <sys/stat.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 #include "wfs.h"
 
@@ -254,7 +254,7 @@ static int build_itable() {
         int data_size = entry->inode.size;
         int inode_number = entry->inode.inode_number;
 
-        ps_sb.n_inodes = inode_number > ps_sb.n_inodes ? inode_number : ps_sb.n_inodes;
+        ps_sb.n_inodes = inode_number >= ps_sb.n_inodes ? inode_number + 1 : ps_sb.n_inodes;
 
         if (inode_number >= ps_sb.itable.capacity) {
             int err = set_itable_capacity(inode_number + ITABLE_CAPACITY_INCREMENT);
@@ -264,12 +264,14 @@ static int build_itable() {
                 WFS_ERROR("Failed to increase capacity (Malloc failed)!\n");
                 WFS_ERROR("ABORTING Increase itable Capacity operation! Reset itable capacity and size to 0.\n");
                 WFS_ERROR("Future operations should try to re-read the disk image to re-build the ps_sb.itable.\n");
+                invalidate_itable();
                 return EITWNB;
             case EITWR:
                 WFS_ERROR("Orignal data should be intact.\n");
                 return EITWR;
             case EITWNR:
                 WFS_ERROR("Failed to restore old data.\n");
+                invalidate_itable();
                 return EITWNR;
             }
         }
