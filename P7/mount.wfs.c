@@ -334,7 +334,7 @@ static int build_itable() {
         free(entry);
     }
 
-    if (*ps_sb.itable.table < WFS_BASE_ENTRY_OFFSET) {
+    if (*ps_sb.itable.table < WFS_INIT_ROOT_OFFSET) {
         WFS_ERROR("Didn't find root inode. Build Failed!\n");
         return ITOPFL;
     }
@@ -569,7 +569,7 @@ static struct wfs_log_entry* get_log_entry(uint inode_number) {
     }
 
     if (inode_number > ps_sb.n_inodes) {
-        WFS_ERROR("Inode number exceeds total number of inodes %u > %u",
+        WFS_ERROR("Inode number exceeds total number of inodes %u > %u\n",
                   inode_number, ps_sb.n_inodes);
         return NULL;
     }
@@ -756,8 +756,8 @@ int main(int argc, char *argv[]) {
     invalidate_itable();
     invalidate_path_history();
 
-    setup_flocks();
     validate_disk_file();
+    setup_flocks();
 
     WFS_INFO("Building I-Table...\n");
 

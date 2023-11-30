@@ -86,6 +86,7 @@ struct wfs_log_entry {
     char data[];
 };
 
+#define WFS_INIT_ROOT_OFFSET  (sizeof(struct wfs_sb))
 #define WFS_BASE_ENTRY_OFFSET (sizeof(struct wfs_sb) + sizeof(struct wfs_log_entry))
 
 enum InodeModes {
