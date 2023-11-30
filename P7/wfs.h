@@ -51,9 +51,9 @@
 #define PRINT_LOG_ENTRY(x) do {\
     PRINT_INODE((&(x)->inode));\
 \
-    if ((x)->inode.mode == FILE_MODE) {\
-        printf("%s\n", (x)->data);\
-    }\
+    if (S_ISREG(((x)->inode.mode))) printf("Contents: %s\n", (x)->data);\
+    else if (S_ISDIR(((x)->inode.mode))) printf("=> Directory\n");\
+    else printf("UNSUPPORTED TYPE\n");\
 } while(0)
 
 #else
