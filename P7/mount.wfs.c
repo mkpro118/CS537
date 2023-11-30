@@ -351,11 +351,12 @@ int main(int argc, char *argv[]) {
         printf("Usage: $ mount.wfs [FUSE options] disk_path mount_point\n");
         return 0;
     }
-	ps_sb.disk_filename = strdup(argv[argc - 2]);
-	if(!ps_sb.disk_filename){
+
+    ps_sb.disk_filename = strdup(argv[argc - 2]);
+    if(!ps_sb.disk_filename){
         WFS_ERROR("strdup failed :(");
         exit(ITOPFL);
-	}
+    }
     WFS_INFO("disk_path = %s\n", argv[argc - 2]);
     ps_sb.disk_file = fopen(ps_sb.disk_filename, "a+");
 
