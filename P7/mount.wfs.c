@@ -51,7 +51,7 @@ struct fuse_operations {
 
 static void _check();
 static int build_itable();
-//static void fill_itable(unsigned int inode_number, off_t offset);
+static void fill_itable(unsigned int inode_number, off_t offset);
 static inline void invalidate_itable();
 static int set_itable_capacity(unsigned int capacity);
 
@@ -60,11 +60,12 @@ static int set_itable_capacity(unsigned int capacity);
 
 //////////////////////////// BOOKKEEPING VARIABLES /////////////////////////////
 
+#define ITABLE_CAPACITY_INCREMENT 10
+
 /**
  * In memory pseudo-superblock. (ps_sb = PSeudo SuperBlock)
- * Holds some bookkeeping information about WFS
+ * Holds some information about the WFS in memory
  * This should be validated using the _check() function before any operation
- *
  */
 static struct {
     unsigned char is_valid;
@@ -98,6 +99,10 @@ static struct {
 
 
 ////////////////////// I-TABLE MANAGEMENT FUNCTIONS START //////////////////////
+
+/**
+ * Performs checks to verify in-memory data structures are intact
+ */
 static void _check() {
     if (!ps_sb.is_valid) {
         WFS_ERROR("Cannot perform operation because given disk_file is not a valid wfs disk_file");
@@ -135,7 +140,6 @@ static void _check() {
     }
 }
 
-#define ITABLE_CAPACITY_INCREMENT 10
 
 /**
  * Adds or updates itable entries for the given inode
@@ -144,6 +148,7 @@ static void _check() {
  * @param inode_number [description]
  * @param offset       [description]
  *
+ * @returns
  */
 static void fill_itable(unsigned int inode_number, off_t offset) {
     _check();
@@ -154,6 +159,10 @@ static void fill_itable(unsigned int inode_number, off_t offset) {
     ps_sb.itable.table[inode_number] = offset;
 }
 
+
+/**
+ * Invalidates the I-Table
+ */
 static inline void invalidate_itable() {
     if (ps_sb.itable.table)
         free(ps_sb.itable.table);
@@ -162,12 +171,13 @@ static inline void invalidate_itable() {
     ps_sb.itable.capacity = 0;
 }
 
+
 /**
  * Increase the capacity of the I-Table
  *
  * @param capacity The new capacity of the I-Table
  *
- * @return Returns 0 on success, or on failure returns
+ * @return Returns ITOPSC on success, or on failure returns
  *           - EITWNB  I-Table Was Not Built
  *           - EITWR   I-Table Was Reset
  *           - EITWNR  I-Table Was Not Reset
@@ -211,6 +221,14 @@ static int set_itable_capacity(unsigned int capacity) {
     return ITOPSC;
 }
 
+/**
+ * Reads the disk image file to build the I-Table
+ *
+ * @return ITOPSC on success, on failure returns
+ *           - EITWNB  I-Table Was Not Built
+ *           - EITWR   I-Table Was Reset
+ *           - EITWNR  I-Table Was Not Reset
+ */
 static int build_itable() {
     ps_sb.n_inodes = 0;
     ps_sb.n_log_entries = 0;
@@ -231,9 +249,12 @@ static int build_itable() {
             return -1;
         }
 
+        ps_sb.n_log_entries++;
 
         int data_size = entry->inode.size;
         int inode_number = entry->inode.inode_number;
+
+        ps_sb.n_inodes = inode_number > ps_sb.n_inodes ? inode_number : ps_sb.n_inodes;
 
         if (inode_number >= ps_sb.itable.capacity) {
             int err = set_itable_capacity(inode_number + ITABLE_CAPACITY_INCREMENT);
@@ -338,13 +359,22 @@ int main(int argc, char *argv[]) {
         exit(ITOPFL);
     }
 
-    validate_disk_file();
     invalidate_itable();
-    set_itable_capacity(1);
+
+    validate_disk_file();
 
     WFS_INFO("Building I-Table...\n");
-    int i = build_itable(ps_sb.disk_file);
-    WFS_INFO("Built I-Table | Status: %d\n", i);
+
+    int err;
+    if((err = build_itable(ps_sb.disk_file)) != ITOPSC) {
+        WFS_ERROR("Failed to build I-Table | Error Code: %d\n", i);
+
+    }
+
+    WFS_INFO("Built I-Table successfully!\n");
+    WFS_INFO("Parsed %d log entries, with %d inodes\n", ps_sb.n_log_entries, ps_sb.n_inodes);
+
+    #if WFS_DBUG == 1
 
     /* For testing */
     for (unsigned int i = 0; i < ps_sb.itable.capacity; i++) {
@@ -353,16 +383,14 @@ int main(int argc, char *argv[]) {
 
     WFS_DEBUG("\n");
 
+    return 0;
+    #else
     int fuse_argc = argc - 1;
 
     argv[argc - 2] = argv[fuse_argc];
     argv[fuse_argc] = NULL;
 
     WFS_DEBUG("%p\n", (void*)&ops);
-	
-    #if WFS_DBUG == 1
-    return 0;
-    #else
     return fuse_main(fuse_argc, argv, &ops, NULL);
     #endif
 }
