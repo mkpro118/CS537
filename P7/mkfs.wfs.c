@@ -14,9 +14,6 @@
  * 
  * Usage:
  *    $: mkfs.wfs <filename>
- * 
- * Status: Write Superblock is done
- *         TODO: Initialize root directory
  */
 int main(int argc, const char* restrict argv[]) {
     if (argc != 2) {
