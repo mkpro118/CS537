@@ -138,22 +138,21 @@ static void _check() {
 #define ITABLE_CAPACITY_INCREMENT 10
 
 /**
- * @todo : Implement
- *
  * Adds or updates itable entries for the given inode
  *
  * @param disk_file     [description]
  * @param inode_number [description]
  * @param offset       [description]
+ *
  */
-/*
 static void fill_itable(unsigned int inode_number, off_t offset) {
-    // If inode table is not yet present, we [re]started the FS
-    // We detect whether or not inode table is present using the size
-    // value in ps_sb.itable. If size = 0, then we have no information yet
-    // Since we should have at least one inode for the root directory,
-    // minimum value of size would be 1 for the FS.
-}*/
+    _check();
+
+    if (ps_sb.itable.capacity <= inode_number)
+        set_itable_capacity(inode_number + ITABLE_CAPACITY_INCREMENT);
+
+    ps_sb.itable.table[inode_number] = offset;
+}
 
 static inline void invalidate_itable() {
     if (ps_sb.itable.table)
