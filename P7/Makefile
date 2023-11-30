@@ -23,7 +23,7 @@ fsck.wfs:
 
 .PHONY: clean
 clean:
-	rm -rf $(DEBUG_NAME)
+	rm -rf $(NAME)
 
 .PHONY: debug
 debug:
