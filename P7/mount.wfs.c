@@ -5,7 +5,10 @@
 #include <time.h>
 #include <sys/stat.h>
 #include <unistd.h>
+
 #include "wfs.h"
+
+//////////////// MK COPING WITH THE LINTER, NEVERMIND THIS BLOCK ///////////////
 
 #ifdef __unix__
 #define FUSE_USE_VERSION 30
@@ -30,26 +33,93 @@ struct fuse_operations {
     int (*unlink)(const char* path);
 };
 #endif
+////////////////////////////// COPING BLOCK ENDS ///////////////////////////////
 
 
-#define ITOPSC  0 /* I-Table operation succeeded */
-#define EITWNB -1 /* Error I-Table Was Not Built */
-#define EITWR  -2 /*   Error I-Table Was Reset   */
-#define EITWNR -3 /* Error I-Table Was Not Reset */
+////////////////////////////////// ERROR CODES /////////////////////////////////
 
-static FILE* restrict disk_file = NULL;
-static struct wfs_sb sb = {0};
+#define ITOPSC  0 // I-Table operation succeeded        | Success Code
+#define ITOPFL -1 // I-Table operation failed (generic) | Failure Code
+#define EITWNB -2 // I-Table Was Not Built              |  Error  Code
+#define EITWR  -3 // I-Table Was Reset                  |  Error  Code
+#define EITWNR -4 // I-Table Was Not Reset              |  Error  Code
 
-/* Something like a cache for faster lookups from the disk image */
+////////////////////////////////// ERROR CODES /////////////////////////////////
+
+
+/////////////////////////// FUNCTION PROTOTYPES START //////////////////////////
+
+static void _check();
+static int build_itable();
+//static void fill_itable(unsigned int inode_number, off_t offset);
+static inline void invalidate_itable();
+static int set_itable_capacity(unsigned int capacity);
+
+//////////////////////////// FUNCTION PROTOTYPES END ///////////////////////////
+
+
+//////////////////////////// BOOKKEEPING VARIABLES /////////////////////////////
+
+/**
+ * In memory pseudo-superblock. (ps_sb = PSeudo SuperBlock)
+ * Holds some bookkeeping information about WFS
+ * This should be validated using the _check() function before any operation
+ *
+ */
 static struct {
-    unsigned int* restrict table;
-    unsigned int  capacity;
-} itable = {
-    .table    = NULL,
-    .capacity = 0,
+    unsigned char is_valid;
+    unsigned int n_inodes;
+    unsigned int n_log_entries;
+    char* restrict disk_filename;
+    FILE* restrict disk_file = NULL; // This is set in validate_disk_file().
+    struct {
+        unsigned int* restrict table; // This struct is like a cache for
+        unsigned int  capacity;       // faster lookups from the disk image.
+    } itable;                         // This is set in build_itable().
+
+    struct wfs_sb sb; // This is set in validate_disk_file().
+} ps_sb = {
+    .is_valid = 0,
+    .n_inodes = 0,
+    .n_log_entries = 0,
+    .disk_filename = NULL,
+    .disk_file = NULL,
+    .itable = {
+        .table    = NULL,
+        .capacity = 0,
+    };
+    .sb = {
+        .magic = 0,
+        .head = 0,
+    },
 };
 
-static const unsigned int ITABLE_CAPACITY_INCREMENT = 10;
+////////////////////////// BOOKKEEPING VARIABLES END ///////////////////////////
+
+
+////////////////////// I-TABLE MANAGEMENT FUNCTIONS START //////////////////////
+static void _check() {
+    if (!ps_sb.is_valid) {
+        WFS_ERROR("Cannot perform operation because given disk_file is not a valid wfs disk_file");
+        exit(1);
+    }
+
+    if (ps_sb.sb.magic != WFS_MAGIC) {
+        WFS_ERROR("FATAL ERROR: File is not a WFS FileSystem disk image.\n");
+        exit(1);
+    }
+
+    if (ps_sb.sb.head < WFS_BASE_LOG_ENTRY_OFFSET) {
+        WFS_ERROR("FATAL ERROR: Invalid Superblock!\n");
+        exit(1);
+    }
+
+    if (ps_sb.n_inodes > ps_sb.itable.capacity) {
+        set_itable_capacity(ps_sb.n_inodes);
+    }
+}
+
+#define ITABLE_CAPACITY_INCREMENT 10
 
 /**
  * @todo : Implement
@@ -61,13 +131,21 @@ static const unsigned int ITABLE_CAPACITY_INCREMENT = 10;
  * @param offset       [description]
  */
 /*
-static void fill_itable(FILE* disk_file, unsigned int inode_number, off_t offset) {
+static void fill_itable(unsigned int inode_number, off_t offset) {
     // If inode table is not yet present, we [re]started the FS
     // We detect whether or not inode table is present using the size
-    // value in itable. If size = 0, then we have no information yet
+    // value in ps_sb.itable. If size = 0, then we have no information yet
     // Since we should have at least one inode for the root directory,
     // minimum value of size would be 1 for the FS.
 }*/
+
+static inline void invalidate_itable() {
+    if (ps_sb.itable.table)
+        free(ps_sb.itable.table);
+
+    ps_sb.itable.table = NULL;
+    ps_sb.itable.capacity = 0;
+}
 
 /**
  * Increase the capacity of the I-Table
@@ -80,57 +158,63 @@ static void fill_itable(FILE* disk_file, unsigned int inode_number, off_t offset
  *           - EITWNR  I-Table Was Not Reset
  */
 static int set_itable_capacity(unsigned int capacity) {
-    printf("Setting Itable Capacity to %d\n", capacity);
+    _check();
+
+    WFS_DEBUG("Setting Itable Capacity to %d\n", capacity);
     unsigned int* temp;
-    printf("Current itable.capacity = %i\n", itable.capacity);
-    switch (itable.capacity) {
+    WFS_DEBUG("Current ps_sb.itable.capacity = %i\n", ps_sb.itable.capacity);
+    switch (ps_sb.itable.capacity) {
     case 0:
-        if (itable.table)
-            free(itable.table);
+        if (ps_sb.itable.table)
+            free(ps_sb.itable.table);
 
-        itable.table = NULL;
-        itable.capacity = capacity;
+        ps_sb.itable.table = NULL;
+        ps_sb.itable.capacity = capacity;
 
-        temp = malloc(sizeof(int) * itable.capacity);
+        temp = malloc(sizeof(int) * ps_sb.itable.capacity);
 
         if (!temp) {
-            itable.capacity = 0;
+            ps_sb.itable.capacity = 0;
             return EITWNB;
         }
         break;
     default:
-        temp = realloc(itable.table, sizeof(unsigned int) * capacity);
+        temp = realloc(ps_sb.itable.table, sizeof(unsigned int) * capacity);
 
         if (!temp) {
-            if (itable.table)
+            if (ps_sb.itable.table)
                 return EITWR;
             else
                 return EITWNR;
         }
 
-        itable.capacity = capacity;
+        ps_sb.itable.capacity = capacity;
     }
 
-    itable.table = temp;
+    ps_sb.itable.table = temp;
 
     return ITOPSC;
 }
 
-static int init_itable() {
+static int build_itable() {
+    ps_sb.n_inodes = 0;
+    ps_sb.n_log_entries = 0;
     fseek(disk_file, sizeof(struct wfs_sb), SEEK_SET);
 
     int seek = ftell(disk_file);
 
-    while (seek < sb.head) {
+    while (seek < ps_sb.sb.head) {
         struct wfs_log_entry* entry = malloc(sizeof(struct wfs_log_entry));
         if (!entry) {
-            perror("MALLOC FAILED!\n");
+            WFS_ERROR("MALLOC FAILED!\n");
             return -1;
         }
 
-
+        struct wfs_log_entry* temp_entry = realloc(entry, sizeof(struct wfs_log_entry) + (sizeof(char) * entry->inode.size));
+// fread(&entry->data, sizeof(char), entry->inode.size, disk_file)
         if (fread(entry, sizeof(struct wfs_inode), 1, disk_file) != 1) {
-            perror("fread Failed!\n");
+            WFS_ERROR("fread Failed!\n");
+            free(entry);
             return -1;
         }
 
@@ -138,55 +222,53 @@ static int init_itable() {
         int data_size = entry->inode.size;
         int inode_number = entry->inode.inode_number;
 
-        if (inode_number >= itable.capacity) {
+        if (inode_number >= ps_sb.itable.capacity) {
             int err = set_itable_capacity(inode_number + ITABLE_CAPACITY_INCREMENT);
 
             switch (err) {
-            case ITOPSC:
-                goto success;
-                break;
             case EITWNB:
-                perror("FATAL ERROR: Failed to increase capacity (Malloc failed)!\n");
-                perror("ABORTING Increase itable Capacity operation! Reset itable capacity and size to 0.\n");
-                perror("Future operations should try to re-read the disk image to re-build the itable.\n");
-                break;
+                WFS_ERROR("FATAL ERROR: Failed to increase capacity (Malloc failed)!\n");
+                WFS_ERROR("ABORTING Increase itable Capacity operation! Reset itable capacity and size to 0.\n");
+                WFS_ERROR("Future operations should try to re-read the disk image to re-build the ps_sb.itable.\n");
+                return EITWNB;
             case EITWR:
-                perror("Orignal data should be intact.\n");
-                break;
+                WFS_ERROR("Orignal data should be intact.\n");
+                return EITWR;
             case EITWNR:
-                perror("Failed to restore old data.\n");
-                break;
+                WFS_ERROR("Failed to restore old data.\n");
+                return EITWNR;
             }
-            return 1;
         }
-        success:
-        printf("itable.capacity = %i | inode_number = %i\n", itable.capacity, inode_number);
+
+        WFS_DEBUG("ps_sb.itable.capacity = %i | inode_number = %i\n", ps_sb.itable.capacity, inode_number);
         if (!entry->inode.deleted) {
-            itable.table[inode_number] = ftell(disk_file) - sizeof(struct wfs_inode);
+            ps_sb.itable.table[inode_number] = ftell(disk_file) - sizeof(struct wfs_inode);
         } else {
-            itable.table[inode_number] = 0;
-            printf("Skipping inode because it is deleted");
+            ps_sb.itable.table[inode_number] = 0;
+            WFS_DEBUG("Skipping inode because it is deleted");
         }
 
         fseek(disk_file, data_size, SEEK_CUR);
         seek = ftell(disk_file);
+        free(entry);
     }
 
     return 0;
 }
 
-static void validate_wfs() {
+/////////////////////// I-TABLE MANAGEMENT FUNCTIONS END ///////////////////////
+
+static void validate_disk_file() {
+    ps_sb.is_valid = 0;
     fseek(disk_file, 0, SEEK_SET);
 
-    if(fread(&sb, sizeof(struct wfs_sb), 1, disk_file) != 1) {
-        perror("fread failed!\n");
+    if(fread(&ps_sb.sb, sizeof(struct wfs_sb), 1, disk_file) != 1) {
+        WFS_ERROR("fread failed!\n");
         exit(1);
     }
 
-    if (sb.magic != WFS_MAGIC) {
-        perror("FATAL ERROR: File is not a WFS FileSystem disk image.\n");
-        exit(1);
-    }
+    ps_sb.is_valid = 1;
+    _check();
 }
 
 static int wfs_getattr(const char* path, struct stat* stbuf) {
@@ -235,34 +317,39 @@ int main(int argc, const char *argv[]) {
         return 0;
     }
 
-    printf("disk_path = %s\n", argv[argc - 2]);
+    WFS_INFO("disk_path = %s\n", argv[argc - 2]);
     disk_file = fopen(argv[argc - 2], "a+");
 
     if (!disk_file) {
-        perror("FRICK FILE WASN'T OPENED!!!!\n");
+        WFS_ERROR("Couldn't open file \"%s\"\n", argv[argc - 2]);
+        exit(1);
     }
 
-    validate_wfs();
+    validate_disk_file();
+    invalidate_itable();
     set_itable_capacity(1);
 
-    printf("Building I-Table...\n");
-    int i = init_itable(disk_file);
-    printf("Built I-Table | Status: %d\n", i);
+    WFS_INFO("Building I-Table...\n");
+    int i = build_itable(disk_file);
+    WFS_INFO("Built I-Table | Status: %d\n", i);
 
     /* For testing */
-    for (unsigned int i = 0; i < itable.capacity; i++) {
-        printf("%d | ", itable.table[i]);
+    for (unsigned int i = 0; i < ps_sb.itable.capacity; i++) {
+        WFS_DEBUG("%d | ", ps_sb.itable.table[i]);
     }
 
-    printf("\n");
+    WFS_DEBUG("\n");
 
     int fuse_argc = argc - 1;
 
     argv[argc - 2] = argv[fuse_argc];
     argv[fuse_argc] = NULL;
 
-    printf("%p\n", (void*)&ops);
+    WFS_DEBUG("%p\n", (void*)&ops);
 	
+    #if WFS_DEBUG == 1
     return 0;
-    // return fuse_main(fuse_argc, argv, &ops, NULL);
+    #else
+    return fuse_main(fuse_argc, argv, &ops, NULL);
+    #endif
 }

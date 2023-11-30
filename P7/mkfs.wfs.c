@@ -30,7 +30,7 @@ int main(int argc, const char* restrict argv[]) {
     FILE* img_file = fopen(argv[1], "wb");
 
     if (!img_file) {
-        fprintf(stderr, "Failed to open file \"%s\"!\n", argv[1]);
+        WFS_ERROR("Failed to open file \"%s\"!\n", argv[1]);
         goto fail;
     }
 
@@ -41,7 +41,7 @@ int main(int argc, const char* restrict argv[]) {
     size_t sb_size = sizeof(struct wfs_sb);
 
     if (fwrite(&sb, sb_size, 1, img_file) != 1) {
-        fprintf(stderr, "Failed to write to file \"%s\"\n", argv[1]);
+        WFS_ERROR("Failed to write to file \"%s\"\n", argv[1]);
         goto fail;
     }
 
@@ -52,17 +52,17 @@ int main(int argc, const char* restrict argv[]) {
     size_t entry_size = sizeof(struct wfs_log_entry);
 
     if (fwrite(&entry, entry_size, 1, img_file) != 1) {
-        fprintf(stderr, "Failed to write to file \"%s\"\n", argv[1]);
+        WFS_ERROR("Failed to write to file \"%s\"\n", argv[1]);
         goto fail;
     }
 
-    fprintf(stderr, "Successfully initialized file \"%s\" for WFS\n", argv[1]);
+    WFS_ERROR("Successfully initialized file \"%s\" for WFS\n", argv[1]);
     fclose(img_file);
 
     success:
     return 0;
 
     fail:
-    perror("FATAL ERROR: Couldn't intialize WFS.\n");
+    WFS_ERROR("Couldn't intialize WFS.\n");
     return 1;
 }
