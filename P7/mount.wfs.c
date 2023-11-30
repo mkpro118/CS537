@@ -87,7 +87,7 @@ static struct {
     .itable = {
         .table    = NULL,
         .capacity = 0,
-    };
+    },
     .sb = {
         .magic = 0,
         .head = 0,
@@ -105,13 +105,17 @@ static void _check() {
     }
 
     if (ps_sb.sb.magic != WFS_MAGIC) {
-        WFS_ERROR("FATAL ERROR: File is not a WFS FileSystem disk image.\n");
+        WFS_ERROR("File is not a WFS FileSystem disk image.\n");
         exit(1);
     }
 
-    if (ps_sb.sb.head < WFS_BASE_LOG_ENTRY_OFFSET) {
-        WFS_ERROR("FATAL ERROR: Invalid Superblock!\n");
+    if (ps_sb.sb.head < WFS_BASE_ENTRY_OFFSET) {
+        WFS_ERROR("Invalid Superblock!\n");
         exit(1);
+    }
+
+    if (!ps_sb.disk_filename) {
+        WFS_ERROR("");
     }
 
     if (ps_sb.n_inodes > ps_sb.itable.capacity) {
@@ -199,9 +203,9 @@ static int set_itable_capacity(unsigned int capacity) {
 static int build_itable() {
     ps_sb.n_inodes = 0;
     ps_sb.n_log_entries = 0;
-    fseek(disk_file, sizeof(struct wfs_sb), SEEK_SET);
+    fseek(ps_sb.disk_file, sizeof(struct wfs_sb), SEEK_SET);
 
-    int seek = ftell(disk_file);
+    int seek = ftell(ps_sb.disk_file);
 
     while (seek < ps_sb.sb.head) {
         struct wfs_log_entry* entry = malloc(sizeof(struct wfs_log_entry));
@@ -210,9 +214,7 @@ static int build_itable() {
             return -1;
         }
 
-        struct wfs_log_entry* temp_entry = realloc(entry, sizeof(struct wfs_log_entry) + (sizeof(char) * entry->inode.size));
-// fread(&entry->data, sizeof(char), entry->inode.size, disk_file)
-        if (fread(entry, sizeof(struct wfs_inode), 1, disk_file) != 1) {
+        if (fread(entry, sizeof(struct wfs_inode), 1, ps_sb.disk_file) != 1) {
             WFS_ERROR("fread Failed!\n");
             free(entry);
             return -1;
@@ -227,7 +229,7 @@ static int build_itable() {
 
             switch (err) {
             case EITWNB:
-                WFS_ERROR("FATAL ERROR: Failed to increase capacity (Malloc failed)!\n");
+                WFS_ERROR("Failed to increase capacity (Malloc failed)!\n");
                 WFS_ERROR("ABORTING Increase itable Capacity operation! Reset itable capacity and size to 0.\n");
                 WFS_ERROR("Future operations should try to re-read the disk image to re-build the ps_sb.itable.\n");
                 return EITWNB;
@@ -242,14 +244,14 @@ static int build_itable() {
 
         WFS_DEBUG("ps_sb.itable.capacity = %i | inode_number = %i\n", ps_sb.itable.capacity, inode_number);
         if (!entry->inode.deleted) {
-            ps_sb.itable.table[inode_number] = ftell(disk_file) - sizeof(struct wfs_inode);
+            ps_sb.itable.table[inode_number] = ftell(ps_sb.disk_file) - sizeof(struct wfs_inode);
         } else {
             ps_sb.itable.table[inode_number] = 0;
             WFS_DEBUG("Skipping inode because it is deleted");
         }
 
-        fseek(disk_file, data_size, SEEK_CUR);
-        seek = ftell(disk_file);
+        fseek(ps_sb.disk_file, data_size, SEEK_CUR);
+        seek = ftell(ps_sb.disk_file);
         free(entry);
     }
 
@@ -260,9 +262,9 @@ static int build_itable() {
 
 static void validate_disk_file() {
     ps_sb.is_valid = 0;
-    fseek(disk_file, 0, SEEK_SET);
+    fseek(ps_sb.disk_file, 0, SEEK_SET);
 
-    if(fread(&ps_sb.sb, sizeof(struct wfs_sb), 1, disk_file) != 1) {
+    if(fread(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
         WFS_ERROR("fread failed!\n");
         exit(1);
     }
@@ -318,9 +320,9 @@ int main(int argc, char *argv[]) {
     }
 
     WFS_INFO("disk_path = %s\n", argv[argc - 2]);
-    disk_file = fopen(argv[argc - 2], "a+");
+    ps_sb.disk_file = fopen(argv[argc - 2], "a+");
 
-    if (!disk_file) {
+    if (!ps_sb.disk_file) {
         WFS_ERROR("Couldn't open file \"%s\"\n", argv[argc - 2]);
         exit(1);
     }
@@ -330,7 +332,7 @@ int main(int argc, char *argv[]) {
     set_itable_capacity(1);
 
     WFS_INFO("Building I-Table...\n");
-    int i = build_itable(disk_file);
+    int i = build_itable(ps_sb.disk_file);
     WFS_INFO("Built I-Table | Status: %d\n", i);
 
     /* For testing */
