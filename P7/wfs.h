@@ -140,31 +140,43 @@ void wfs_inode_init(struct wfs_inode* restrict inode, enum InodeModes mode) {
     };
 }
 
+/**
+ * Checks if the inode is for a directory
+ *
+ * @param  inode  Pointer to the inode to check
+ *
+ * @return  0 if inode represents a directory, 1 otherwise
+ */
 int _check_dir_inode(struct wfs_inode* inode) {
-    switch (inode->mode) {
-    case DIRECTORY_MODE:
+    if (S_ISDIR(inode->mode))
         return 0;
-    default:
-        WFS_ERROR(
-            "Given inode does not represent a directory\n"
-            "{.inode_number = %d, .mode = %d, .ctime = %d}",
-            inode->inode_number, inode->mode, inode->ctime
-        );
-    }
+
+    WFS_ERROR(
+        "Given inode does not represent a directory\n"
+        "{.inode_number = %d, .mode = %d, .ctime = %d}",
+        inode->inode_number, inode->mode, inode->ctime
+    );
+
     return 1;
 }
 
+/**
+ * Checks if the inode is for a regular file
+ *
+ * @param  inode  Pointer to the inode to check
+ *
+ * @return  0 if inode represents a file, 1 otherwise
+ */
 int _check_reg_inode(struct wfs_inode* inode) {
-    switch (inode->mode) {
-    case FILE_MODE:
+    if (S_ISREG(inode->mode))
         return 0;
-    default:
-        WFS_ERROR(
-            "Given inode does not represent a file\n"
-            "{.inode_number = %d, .mode = %d, .ctime = %d}",
-            inode->inode_number, inode->mode, inode->ctime
-        );
-    }
+
+    WFS_ERROR(
+        "Given inode does not represent a file\n"
+        "{.inode_number = %d, .mode = %d, .ctime = %d}",
+        inode->inode_number, inode->mode, inode->ctime
+    );
+
     return 1;
 }
 
