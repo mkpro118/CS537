@@ -23,7 +23,7 @@
 
 #define WFS_N_HARD_LINKS 1
 
-#if WFS_DEBUG == 1
+#if WFS_DBUG == 1
 
 #define WFS_DEBUG(x) do {\
     fprintf(stdout, ":DEBUG: %d", __LINE__);\
