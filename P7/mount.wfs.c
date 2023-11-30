@@ -775,7 +775,7 @@ int main(int argc, char *argv[]) {
 
     /* For testing */
     for (uint i = 0; i < ps_sb.n_inodes; i++) {
-        struct wfs_log_entry* entry = get_log_entry(ps_sb.itable.table[i]);
+        struct wfs_log_entry* entry = get_log_entry(i);
         if (entry) {
             PRINT_LOG_ENTRY(entry);
         }
