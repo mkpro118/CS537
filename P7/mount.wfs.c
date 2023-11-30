@@ -120,7 +120,7 @@ static void _check() {
 
     if (!ps_sb.disk_file) {
         WFS_ERROR("No FILE handle for the %s was found", ps_sb.disk_filename);
-        WFS_ERROR("Retrying once to re-build.\n", psd);
+        WFS_ERROR("Retrying once to re-build.\n");
 
         ps_sb.disk_file = fopen(ps_sb.disk_filename, "ab+");
 
