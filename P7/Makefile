@@ -1,8 +1,10 @@
-NAME = mount.wfs mkfs.wfs fsck.wfs
+#NAME = mount.wfs mkfs.wfs fsck.wfs
+NAME = debug
 
 CC = gcc
 CFLAGS = -Wall -Werror -pedantic -std=gnu18
 FUSE_CFLAGS = `pkg-config fuse --cflags --libs`
+DEBUG_CFLAGS = -DWFS_DEBUG=1
 
 .PHONY: all
 all: $(NAME)
@@ -22,3 +24,9 @@ fsck.wfs:
 .PHONY: clean
 clean:
 	rm -rf $(NAME)
+
+.PHONY: debug
+debug:
+	$(CC) $(CFLAGS) $(DEBUG_CFLAGS) mount.wfs.c $(FUSE_CFLAGS) -o mount.wfs
+	$(CC) $(CFLAGS) $(DEBUG_CFLAGS) -o mkfs.wfs mkfs.wfs.c
+	$(CC) $(CFLAGS) $(DEBUG_CFLAGS) -o fsck.wfs fsck.wfs.c
