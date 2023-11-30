@@ -54,7 +54,7 @@ static int build_itable();
 static void fill_itable(unsigned int inode_number, off_t offset);
 static inline void invalidate_itable();
 static int set_itable_capacity(unsigned int capacity);
-static struct wfs_log_entry * get_log_entry(const char * path);
+static struct wfs_log_entry* get_log_entry(const char* path);
 //////////////////////////// FUNCTION PROTOTYPES END ///////////////////////////
 
 
@@ -295,6 +295,14 @@ static int build_itable() {
 
 /////////////////////// I-TABLE MANAGEMENT FUNCTIONS END ///////////////////////
 
+///////////////////// DISK FILE MANAGEMENT FUNCTIONS START /////////////////////
+
+/**
+ * Parses the superblock of the given disk file to ensure the file is a valid
+ * WFS disk image
+ *
+ * Exits with a failure code if the given file is invalid
+ */
 static void validate_disk_file() {
     ps_sb.is_valid = 0;
     fseek(ps_sb.disk_file, 0, SEEK_SET);
@@ -307,6 +315,22 @@ static void validate_disk_file() {
     ps_sb.is_valid = 1;
     _check();
 }
+
+/**
+ * STATUS: TODO
+ *
+ * Parses the given path to find the log entry corresponding to the given path
+ *
+ * @param  path Path to the file or directory
+ *
+ * @return Pointer to a log entry read from the disk
+ *         corresponding to the given path
+ */
+static struct wfs_log_entry* get_log_entry(const char* path) {
+    return NULL;
+}
+
+////////////////////// DISK FILE MANAGEMENT FUNCTIONS END //////////////////////
 
 static int wfs_getattr(const char* path, struct stat* stbuf) {
     _check();
