@@ -14,6 +14,7 @@
 #define FUSE_USE_VERSION 30
 #include <fuse.h>
 #else
+char* strtok_r(char*, char*, char**);
 struct fuse_file_info {};
 enum fuse_readdir_flags {
         FUSE_READDIR_PLUS = (1 << 0)
@@ -32,6 +33,9 @@ struct fuse_operations {
     int (*readdir)(const char* path, void* buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info* fi);
     int (*unlink)(const char* path);
 };
+
+int fuse_main(int argc, char* argv[], struct fuse_operations* ops, void* opts);
+
 #endif
 ////////////////////////////// COPING BLOCK ENDS ///////////////////////////////
 
@@ -44,6 +48,9 @@ struct fuse_operations {
 #define EITWR  -3 // I-Table Was Reset                  |  Error  Code
 #define EITWNR -4 // I-Table Was Not Reset              |  Error  Code
 
+
+#define FSOPSC 0  // File System operation succeeded    | Success Code
+#define FSOPFL 1  // File System operation failed       | Failure Code
 ////////////////////////////////// ERROR CODES /////////////////////////////////
 
 
@@ -51,16 +58,20 @@ struct fuse_operations {
 
 static void _check();
 static int build_itable();
-static void fill_itable(unsigned int inode_number, off_t offset);
+static void fill_itable(unsigned int inode_number, long offset);
 static inline void invalidate_itable();
 static int set_itable_capacity(unsigned int capacity);
-static struct wfs_log_entry* get_log_entry(const char* path);
+static inline void invalidate_path_history();
+static int parse_path(const char* restrict path, unsigned int* restrict out);
+static struct wfs_log_entry* get_log_entry(unsigned int inode_number);
 //////////////////////////// FUNCTION PROTOTYPES END ///////////////////////////
 
 
 //////////////////////////// BOOKKEEPING VARIABLES /////////////////////////////
 
 #define ITABLE_CAPACITY_INCREMENT 10
+#define PATH_HISTORY_CAPACITY_INCREMENT 5
+#define MAX_PATH_LENGTH 128
 
 /**
  * In memory pseudo-superblock. (ps_sb = PSeudo SuperBlock)
@@ -72,12 +83,15 @@ static struct {
     unsigned int n_inodes;
     unsigned int n_log_entries;
     char* restrict disk_filename;
-    FILE* restrict disk_file; // This is set in validate_disk_file().
+    FILE* restrict disk_file;
     struct {
-        unsigned int* restrict table; // This struct is like a cache for
-        unsigned int  capacity;       // faster lookups from the disk image.
-    } itable;                         // This is set in build_itable().
-
+        long* restrict table;   // This struct is like a cache for
+        unsigned int  capacity; // faster lookups from the disk image.
+    } itable;                   // This is set in build_itable().
+    struct {
+        unsigned int* history;  // This records the path taken, to traverse
+        unsigned int capacity;  // backwards for relative paths.
+    } path_history;             // Used only by parse_path
     struct wfs_sb sb; // This is set in validate_disk_file().
 } ps_sb = {
     .is_valid = 0,
@@ -87,6 +101,10 @@ static struct {
     .disk_file = NULL,
     .itable = {
         .table    = NULL,
+        .capacity = 0,
+    },
+    .path_history = {
+        .history  = NULL,
         .capacity = 0,
     },
     .sb = {
@@ -141,16 +159,11 @@ static void _check() {
 /**
  * Adds or updates itable entries for the given inode
  *
- * @param disk_file     [description]
- * @param inode_number [description]
- * @param offset       [description]
- *
- * @returns
+ * @param inode_number Inode this entry is for
+ * @param offset       The offset of the most recent entry for the given inode
  */
-static void fill_itable(unsigned int inode_number, off_t offset) {
-        WFS_DEBUG("1. \n");
+static void fill_itable(unsigned int inode_number, long offset) {
     _check();
-    
 
     if (ps_sb.itable.capacity <= inode_number)
         set_itable_capacity(inode_number + ITABLE_CAPACITY_INCREMENT);
@@ -185,7 +198,7 @@ static int set_itable_capacity(unsigned int capacity) {
     _check();
 
     WFS_DEBUG("Setting Itable Capacity to %d\n", capacity);
-    unsigned int* temp;
+    off_t* temp;
     WFS_DEBUG("Current ps_sb.itable.capacity = %i\n", ps_sb.itable.capacity);
     switch (ps_sb.itable.capacity) {
     case 0:
@@ -195,7 +208,7 @@ static int set_itable_capacity(unsigned int capacity) {
         ps_sb.itable.table = NULL;
         ps_sb.itable.capacity = capacity;
 
-        temp = malloc(sizeof(int) * ps_sb.itable.capacity);
+        temp = malloc(sizeof(off_t) * ps_sb.itable.capacity);
 
         if (!temp) {
             ps_sb.itable.capacity = 0;
@@ -203,7 +216,7 @@ static int set_itable_capacity(unsigned int capacity) {
         }
         break;
     default:
-        temp = realloc(ps_sb.itable.table, sizeof(unsigned int) * capacity);
+        temp = realloc(ps_sb.itable.table, sizeof(off_t) * capacity);
 
         if (!temp) {
             if (ps_sb.itable.table)
@@ -234,9 +247,9 @@ static int build_itable() {
 
     fseek(ps_sb.disk_file, sizeof(struct wfs_sb), SEEK_SET);
 
-    int seek = ftell(ps_sb.disk_file);
+    long seek;
 
-    while (seek < ps_sb.sb.head) {
+    while ((seek = ftell(ps_sb.disk_file)) < ps_sb.sb.head) {
         struct wfs_log_entry* entry = malloc(sizeof(struct wfs_log_entry));
         if (!entry) {
             WFS_ERROR("MALLOC FAILED!\n");
@@ -276,17 +289,9 @@ static int build_itable() {
             }
         }
 
-        WFS_DEBUG("ps_sb.itable.capacity = %i | inode_number = %i\n", ps_sb.itable.capacity, inode_number);
-        if (!entry->inode.deleted) {
-            off_t offset = ftell(ps_sb.disk_file) - sizeof(struct wfs_inode);
-            fill_itable(inode_number, offset);
-        } else {
-            ps_sb.itable.table[inode_number] = 0;
-            WFS_DEBUG("Skipping inode because it is deleted");
-        }
+        fill_itable(inode_number, entry->inode.deleted ? 0l : seek);
 
         fseek(ps_sb.disk_file, data_size, SEEK_CUR);
-        seek = ftell(ps_sb.disk_file);
         free(entry);
     }
 
@@ -294,6 +299,139 @@ static int build_itable() {
 }
 
 /////////////////////// I-TABLE MANAGEMENT FUNCTIONS END ///////////////////////
+
+
+//////////////////// FILE SYSTEM MANAGEMENT FUNCTIONS START ////////////////////
+
+static inline void invalidate_path_history() {
+    int capacity;
+    if (!ps_sb.path_history.history) {
+        capacity = PATH_HISTORY_CAPACITY_INCREMENT;
+        ps_sb.path_history.history = malloc(sizeof(unsigned int) * capacity);
+        if (!ps_sb.path_history.history) {
+            WFS_ERROR("Malloc Failed!\n");
+            exit(FSOPFL);
+        }
+    } else {
+        capacity = ps_sb.path_history.capacity;
+    }
+
+    memset(ps_sb.path_history.history, (unsigned int) -1, capacity);
+    *ps_sb.path_history.history = 0; // Set the root to be inode 0
+    ps_sb.path_history.capacity = capacity;
+}
+
+/**
+ * Increase the capacity of the I-Table
+ *
+ * @param capacity The new capacity of the I-Table
+ *
+ * @return Returns FSOPSC on success, FSOPFL on failure returns
+ */
+static int set_path_history_capacity(unsigned int capacity) {
+    _check();
+
+    unsigned int* temp;
+    switch (ps_sb.path_history.capacity) {
+    case 0:
+        invalidate_path_history();
+        return ITOPSC;
+    default:
+        temp = realloc(ps_sb.path_history.history, sizeof(unsigned int) * capacity);
+
+        if (!temp) {
+            WFS_ERROR("Realloc failed!\n");
+            return FSOPFL;
+        }
+
+        ps_sb.path_history.capacity = capacity;
+    }
+
+    ps_sb.path_history.history = temp;
+
+    return ITOPSC;
+}
+
+/**
+ * Given a path, this function will parse it to find the inode number
+ * corresponding to the file or directory point to by this
+ * @param  path The path to the file (shouldn't be > 128 characters)
+ * @param  out  The address of the out variable
+ *
+ * @return FSOPSC on success, FSOPFL on failure
+ */
+static int parse_path(const char* path, unsigned int* out) {
+    invalidate_path_history();
+    char* _path = NULL;
+
+    // All paths should start with a "/"
+    if (*path != '/')
+        goto fail;
+
+    // If the filepath is literally the root directory, return inode 0
+    if (strcmp("/", path) == 0) {
+        *out = 0;
+        goto success;
+    }
+
+    // Strip any leading forward slashes
+    const char* p = path;
+    while (*p++ == '/');
+
+    _path = strdup(p);
+    ssize_t len = strlen(_path);
+
+    // Strip any trailing forward slashes
+    while (_path[len - 1] == '/')
+        _path[--len] = '\0';
+
+    char* base_filename = strrchr(_path, '/');
+
+    // Special Case, File is in the root directory.
+    if (!base_filename) {
+        base_filename = _path;
+        struct wfs_log_entry* entry = get_log_entry(0);
+
+        // Handle Dentry
+
+    }
+
+
+    char* token;
+    char* context;
+
+    int ph_idx = 1;
+    while ((token = strtok_r(_path, "/", &context)) != NULL) {
+        if (strcmp(".", token) == 0) {
+            continue;
+        } else if (strcmp("..", token) == 0) {
+            ph_idx -= ph_idx != 1;
+        }
+        struct wfs_log_entry* entry = get_log_entry(ps_sb.path_history.history[ph_idx - 1]);
+
+        if
+    }
+
+
+    success:
+    free(_path);
+    return FSOPSC;
+
+    fail:
+    if (_path)
+        free(_path);
+
+    WFS_ERROR("Path %s is not a valid path!\n", path);
+    return FSOPFL;
+}
+
+
+static struct wfs_log_entry* get_log_entry(unsigned int inode_number) {
+    return NULL;
+}
+
+//////////////////// FILE SYSTEM MANAGEMENT FUNCTIONS START ////////////////////
+
 
 ///////////////////// DISK FILE MANAGEMENT FUNCTIONS START /////////////////////
 
@@ -316,25 +454,20 @@ static void validate_disk_file() {
     _check();
 }
 
-/**
- * STATUS: TODO
- *
- * Parses the given path to find the log entry corresponding to the given path
- *
- * @param  path Path to the file or directory
- *
- * @return Pointer to a log entry read from the disk
- *         corresponding to the given path
- */
-static struct wfs_log_entry* get_log_entry(const char* path) {
-    return NULL;
-}
-
 ////////////////////// DISK FILE MANAGEMENT FUNCTIONS END //////////////////////
+
+
+///////////////////////// FUSE HANDLER FUNCTIONS START /////////////////////////
 
 static int wfs_getattr(const char* path, struct stat* stbuf) {
     _check();
-    struct wfs_log_entry * original = get_log_entry(path);
+    unsigned int inode_number;
+
+    if(parse_path(path, &inode_number) != FSOPSC) {
+        WFS_ERROR("Failed to find inode\n");
+    }
+
+    struct wfs_log_entry* original = get_log_entry(inode_number);
     struct wfs_inode tocopy = original->inode;
     stbuf->st_ino = tocopy.inode_number; 
     stbuf->st_mode = tocopy.mode;
@@ -374,6 +507,9 @@ static int wfs_unlink(const char* path) {
     return 0;
 }
 
+////////////////////////// FUSE HANDLER FUNCTIONS END //////////////////////////
+
+
 static struct fuse_operations ops = {
     .getattr = wfs_getattr,
     .mknod   = wfs_mknod,
@@ -404,6 +540,7 @@ int main(int argc, char *argv[]) {
     }
 
     invalidate_itable();
+    invalidate_path_history();
 
     validate_disk_file();
 
