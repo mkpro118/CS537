@@ -28,7 +28,7 @@
 #if WFS_DBUG == 1
 
 #define WFS_DEBUG(...) do {\
-    fprintf(stdout, ":DEBUG: %d | ", __LINE__);\
+    fprintf(stdout, ":DEBUG (%d):  ", __LINE__);\
     fprintf(stdout, __VA_ARGS__);\
 } while(0)
 
@@ -39,12 +39,12 @@
 #endif
 
 #define WFS_INFO(...) do {\
-    fprintf(stdout, ":INFO: | ");\
+    fprintf(stdout, ":Info:  ");\
     fprintf(stdout, __VA_ARGS__);\
 } while(0)
 
 #define WFS_ERROR(...) do {\
-    fprintf(stderr, ":ERROR: | ");\
+    fprintf(stderr, ":ERROR:  ");\
     fprintf(stderr, __VA_ARGS__);\
 } while(0)
 
