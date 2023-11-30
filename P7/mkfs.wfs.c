@@ -56,7 +56,7 @@ int main(int argc, const char* restrict argv[]) {
         goto fail;
     }
 
-    WFS_ERROR("Successfully initialized file \"%s\" for WFS\n", argv[1]);
+    printf("Successfully initialized file \"%s\" for WFS\n", argv[1]);
     fclose(img_file);
 
     success:
