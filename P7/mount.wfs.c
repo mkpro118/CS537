@@ -361,7 +361,7 @@ int main(int argc, char *argv[]) {
 
     WFS_DEBUG("%p\n", (void*)&ops);
 	
-    #if WFS_DEBUG == 1
+    #if WFS_DBUG == 1
     return 0;
     #else
     return fuse_main(fuse_argc, argv, &ops, NULL);
