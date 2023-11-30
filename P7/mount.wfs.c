@@ -381,7 +381,7 @@ int main(int argc, char *argv[]) {
 
     /* For testing */
     for (unsigned int i = 0; i < ps_sb.itable.capacity; i++) {
-        print("%d | ", ps_sb.itable.table[i]);
+        printf("%d | ", ps_sb.itable.table[i]);
     }
 
     printf("\n");
