@@ -54,7 +54,7 @@ static int build_itable();
 static void fill_itable(unsigned int inode_number, off_t offset);
 static inline void invalidate_itable();
 static int set_itable_capacity(unsigned int capacity);
-
+static struct wfs_log_entry * get_log_entry(const char * path);
 //////////////////////////// FUNCTION PROTOTYPES END ///////////////////////////
 
 
@@ -307,6 +307,18 @@ static void validate_disk_file() {
 }
 
 static int wfs_getattr(const char* path, struct stat* stbuf) {
+    _check();
+    struct wfs_log_entry * original = get_log_entry(path);
+    struct wfs_inode tocopy = original->inode;
+    stbuf->st_ino = tocopy.inode_number; 
+    stbuf->st_mode = tocopy.mode;
+    stbuf->st_nlink = tocopy.links;
+    stbuf->st_uid = tocopy.uid;
+    stbuf->st_gid = tocopy.gid;
+    stbuf->st_size = tocopy.size;
+    stbuf->st_atime = tocopy.atime; 
+    stbuf->st_mtime = tocopy.mtime;
+    stbuf->st_ctime = tocopy.ctime; 
     return 0;
 }
 
