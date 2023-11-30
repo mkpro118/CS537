@@ -101,21 +101,33 @@ static struct {
 static void _check() {
     if (!ps_sb.is_valid) {
         WFS_ERROR("Cannot perform operation because given disk_file is not a valid wfs disk_file");
-        exit(1);
+        exit(ITOPFL);
     }
 
     if (ps_sb.sb.magic != WFS_MAGIC) {
         WFS_ERROR("File is not a WFS FileSystem disk image.\n");
-        exit(1);
+        exit(ITOPFL);
     }
 
     if (ps_sb.sb.head < WFS_BASE_ENTRY_OFFSET) {
         WFS_ERROR("Invalid Superblock!\n");
-        exit(1);
+        exit(ITOPFL);
     }
 
     if (!ps_sb.disk_filename) {
-        WFS_ERROR("");
+        WFS_ERROR("No disk file is specified\n");
+    }
+
+    if (!ps_sb.disk_file) {
+        WFS_ERROR("No FILE handle for the %s was found", ps_sb.disk_filename);
+        WFS_ERROR("Retrying once to re-build.\n", psd);
+
+        ps_sb.disk_file = fopen(ps_sb.disk_filename, "ab+");
+
+        if (!ps_sb.disk_file || (build_itable() != ITOPSC)) {
+            WFS_ERROR("Retry failed! Exiting!\n");
+            exit(ITOPFL);
+        }
     }
 
     if (ps_sb.n_inodes > ps_sb.itable.capacity) {
@@ -255,7 +267,7 @@ static int build_itable() {
         free(entry);
     }
 
-    return 0;
+    return ITOPSC;
 }
 
 /////////////////////// I-TABLE MANAGEMENT FUNCTIONS END ///////////////////////
@@ -266,7 +278,7 @@ static void validate_disk_file() {
 
     if(fread(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
         WFS_ERROR("fread failed!\n");
-        exit(1);
+        exit(ITOPFL);
     }
 
     ps_sb.is_valid = 1;
@@ -324,7 +336,7 @@ int main(int argc, char *argv[]) {
 
     if (!ps_sb.disk_file) {
         WFS_ERROR("Couldn't open file \"%s\"\n", argv[argc - 2]);
-        exit(1);
+        exit(ITOPFL);
     }
 
     validate_disk_file();
