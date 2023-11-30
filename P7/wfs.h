@@ -45,7 +45,7 @@
     printf("  mtime        = %u\n", x->mtime);\
     printf("  ctime        = %u\n", x->ctime);\
     printf("  links        = %u\n", x->links);\
-    printf("}\n");
+    printf("}\n");\
 } while(0)
 
 #define PRINT_LOG_ENTRY(x) do {\
