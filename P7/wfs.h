@@ -23,6 +23,29 @@
 
 #define WFS_N_HARD_LINKS 1
 
+#if WFS_DEBUG == 1
+
+#define WFS_DEBUG(x) do {\
+    fprintf(stdout, ":DEBUG: %d", __LINE__);\
+    fprintf(stdout, x);\
+} while(0)
+
+#else
+
+#define WFS_DEBUG(x) (void)0
+
+#endif
+
+#define WFS_INFO(x) do {\
+    fprintf(stdout, ":INFO: ")\
+    fprintf(stdout, x);\
+} while(0)
+
+#define WFS_ERROR(x) do {\
+    fprintf(stderr, ":ERROR: ")\
+    fprintf(stderr, x);\
+} while(0)
+
 #ifdef _WIN32
 unsigned int getuid() { return 0; }
 unsigned int getgid() { return 0; }
@@ -61,6 +84,8 @@ struct wfs_log_entry {
     char data[];
 };
 
+#define WFS_BASE_ENTRY_OFFSET (sizeof(struct wfs_sb) + sizeof(struct wfs_log_entry))
+
 enum InodeModes {
     FILE_MODE = S_IFREG,
     DIRECTORY_MODE = S_IFDIR,
@@ -68,7 +93,7 @@ enum InodeModes {
 
 void wfs_sb_init(struct wfs_sb* restrict sb) {
     sb->magic = WFS_MAGIC;
-    sb->head = (uint32_t) sizeof(struct wfs_sb) + sizeof(struct wfs_log_entry);
+    sb->head = (uint32_t) WFS_BASE_ENTRY_OFFSET;
 }
 
 void wfs_inode_init(struct wfs_inode* restrict inode, enum InodeModes mode) {
