@@ -104,6 +104,7 @@ static struct {
  * Performs checks to verify in-memory data structures are intact
  */
 static void _check() {
+	WFS_DEBUG("PERFORM CHECKS\n");
     if (!ps_sb.is_valid) {
         WFS_ERROR("Cannot perform operation because given disk_file is not a valid wfs disk_file");
         exit(ITOPFL);
@@ -134,10 +135,6 @@ static void _check() {
             exit(ITOPFL);
         }
     }
-
-    if (ps_sb.n_inodes > ps_sb.itable.capacity) {
-        set_itable_capacity(ps_sb.n_inodes);
-    }
 }
 
 
@@ -151,7 +148,9 @@ static void _check() {
  * @returns
  */
 static void fill_itable(unsigned int inode_number, off_t offset) {
+        WFS_DEBUG("1. \n");
     _check();
+    
 
     if (ps_sb.itable.capacity <= inode_number)
         set_itable_capacity(inode_number + ITABLE_CAPACITY_INCREMENT);
@@ -232,6 +231,7 @@ static int set_itable_capacity(unsigned int capacity) {
 static int build_itable() {
     ps_sb.n_inodes = 0;
     ps_sb.n_log_entries = 0;
+
     fseek(ps_sb.disk_file, sizeof(struct wfs_sb), SEEK_SET);
 
     int seek = ftell(ps_sb.disk_file);
