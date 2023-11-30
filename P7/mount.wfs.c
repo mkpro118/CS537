@@ -153,7 +153,6 @@ static struct {
  * Performs checks to verify in-memory data structures are intact
  */
 static void _check() {
-	WFS_DEBUG("PERFORM CHECKS\n");
     if (!ps_sb.is_valid) {
         WFS_ERROR("Cannot perform operation because given disk_file is not a valid wfs disk_file\n");
         exit(ITOPFL);
