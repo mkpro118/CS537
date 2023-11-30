@@ -276,7 +276,8 @@ static int build_itable() {
 
         WFS_DEBUG("ps_sb.itable.capacity = %i | inode_number = %i\n", ps_sb.itable.capacity, inode_number);
         if (!entry->inode.deleted) {
-            ps_sb.itable.table[inode_number] = ftell(ps_sb.disk_file) - sizeof(struct wfs_inode);
+            off_t offset = ftell(ps_sb.disk_file) - sizeof(struct wfs_inode);
+            fill_itable(inode_number, offset);
         } else {
             ps_sb.itable.table[inode_number] = 0;
             WFS_DEBUG("Skipping inode because it is deleted");
@@ -367,12 +368,14 @@ int main(int argc, char *argv[]) {
 
     int err;
     if((err = build_itable(ps_sb.disk_file)) != ITOPSC) {
-        WFS_ERROR("Failed to build I-Table | Error Code: %d\n", i);
+        WFS_ERROR("Failed to build I-Table | Error Code: %d\n", err);
 
     }
 
     WFS_INFO("Built I-Table successfully!\n");
     WFS_INFO("Parsed %d log entries, with %d inodes\n", ps_sb.n_log_entries, ps_sb.n_inodes);
+
+    WFS_DEBUG("%p\n", (void*)&ops);
 
     #if WFS_DBUG == 1
 
