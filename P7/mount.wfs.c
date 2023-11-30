@@ -381,10 +381,10 @@ int main(int argc, char *argv[]) {
 
     /* For testing */
     for (unsigned int i = 0; i < ps_sb.itable.capacity; i++) {
-        WFS_DEBUG("%d | ", ps_sb.itable.table[i]);
+        print("%d | ", ps_sb.itable.table[i]);
     }
 
-    WFS_DEBUG("\n");
+    printf("\n");
 
     return 0;
     #else
