@@ -25,9 +25,9 @@
 
 #if WFS_DBUG == 1
 
-#define WFS_DEBUG(x) do {\
+#define WFS_DEBUG(...) do {\
     fprintf(stdout, ":DEBUG: %d", __LINE__);\
-    fprintf(stdout, x);\
+    fprintf(stdout, __VA_ARGS__);\
 } while(0)
 
 #else
@@ -36,14 +36,14 @@
 
 #endif
 
-#define WFS_INFO(x) do {\
+#define WFS_INFO(...) do {\
     fprintf(stdout, ":INFO: ");\
-    fprintf(stdout, x);\
+    fprintf(stdout, __VA_ARGS__);\
 } while(0)
 
-#define WFS_ERROR(x) do {\
+#define WFS_ERROR(...) do {\
     fprintf(stderr, ":ERROR: ");\
-    fprintf(stderr, x);\
+    fprintf(stderr, __VA_ARGS__);\
 } while(0)
 
 #ifdef _WIN32
