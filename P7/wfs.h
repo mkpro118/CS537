@@ -37,12 +37,12 @@
 #endif
 
 #define WFS_INFO(x) do {\
-    fprintf(stdout, ":INFO: ")\
+    fprintf(stdout, ":INFO: ");\
     fprintf(stdout, x);\
 } while(0)
 
 #define WFS_ERROR(x) do {\
-    fprintf(stderr, ":ERROR: ")\
+    fprintf(stderr, ":ERROR: ");\
     fprintf(stderr, x);\
 } while(0)
 
