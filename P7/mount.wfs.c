@@ -775,7 +775,9 @@ int main(int argc, char *argv[]) {
 
     /* For testing */
     for (uint i = 0; i < ps_sb.itable.capacity; i++) {
-        printf("%ld | ", ps_sb.itable.table[i]);
+        struct wfs_log_entry* entry = get_log_entry(ps_sb.itable.table[i]);
+
+        PRINT_LOG_ENTRY(entry);
     }
 
     printf("\n");

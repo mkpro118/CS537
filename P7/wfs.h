@@ -32,6 +32,26 @@
     fprintf(stdout, __VA_ARGS__);\
 } while(0)
 
+#define PRINT_INODE(x) do {\
+    printf("\n{\n");\
+    printf("  inode_number = %u\n", x->inode_number);\
+    printf("  deleted      = %u\n", x->deleted);\
+    printf("  mode         = %u\n", x->mode);\
+    printf("  uid          = %u\n", x->uid);\
+    printf("  gid          = %u\n", x->gid);\
+    printf("  flags        = %u\n", x->flags);\
+    printf("  size         = %u\n", x->size);\
+    printf("  atime        = %u\n", x->atime);\
+    printf("  mtime        = %u\n", x->mtime);\
+    printf("  ctime        = %u\n", x->ctime);\
+    printf("  links        = %u\n", x->links);\
+    printf("}\n");
+} while(0)
+
+#define PRINT_LOG_ENTRY(x) do {\
+    PRINT_INODE((&(x)->inode));\
+} while(0)
+
 #else
 
 #define WFS_DEBUG(...) (void)0
