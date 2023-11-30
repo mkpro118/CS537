@@ -311,7 +311,7 @@ static struct fuse_operations ops = {
     .unlink  = wfs_unlink,
 };
 
-int main(int argc, const char *argv[]) {
+int main(int argc, char *argv[]) {
     if (argc < 3) {
         printf("Usage: $ mount.wfs [FUSE options] disk_path mount_point\n");
         return 0;
