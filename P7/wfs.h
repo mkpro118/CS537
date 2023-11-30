@@ -50,6 +50,10 @@
 
 #define PRINT_LOG_ENTRY(x) do {\
     PRINT_INODE((&(x)->inode));\
+\
+    if ((x)->inode.mode == FILE_MODE) {\
+        printf("%s\n", (x)->data);\
+    }\
 } while(0)
 
 #else
