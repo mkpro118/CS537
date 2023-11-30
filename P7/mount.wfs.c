@@ -155,7 +155,7 @@ static struct {
 static void _check() {
 	WFS_DEBUG("PERFORM CHECKS\n");
     if (!ps_sb.is_valid) {
-        WFS_ERROR("Cannot perform operation because given disk_file is not a valid wfs disk_file");
+        WFS_ERROR("Cannot perform operation because given disk_file is not a valid wfs disk_file\n");
         exit(ITOPFL);
     }
 
@@ -174,7 +174,7 @@ static void _check() {
     }
 
     if (!ps_sb.disk_file) {
-        WFS_ERROR("No FILE handle for the %s was found", ps_sb.disk_filename);
+        WFS_ERROR("No FILE handle for the %s was found\n", ps_sb.disk_filename);
         WFS_ERROR("Retrying once to re-build.\n");
 
         ps_sb.disk_file = fopen(ps_sb.disk_filename, "ab+");
@@ -608,7 +608,7 @@ static void read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
     struct wfs_log_entry* temp = realloc(*entry_buf, new_size);
 
     if (!temp) {
-        WFS_ERROR("Realloc failed!");
+        WFS_ERROR("Realloc failed!\n");
         goto fail;
     }
 
@@ -742,7 +742,7 @@ int main(int argc, char *argv[]) {
 
     ps_sb.disk_filename = strdup(argv[argc - 2]);
     if(!ps_sb.disk_filename){
-        WFS_ERROR("strdup failed :(");
+        WFS_ERROR("strdup failed\n");
         exit(ITOPFL);
     }
     WFS_INFO("disk_path = %s\n", argv[argc - 2]);
@@ -776,7 +776,7 @@ int main(int argc, char *argv[]) {
 
     /* For testing */
     for (uint i = 0; i < ps_sb.itable.capacity; i++) {
-        printf("%d | ", ps_sb.itable.table[i]);
+        printf("%ld | ", ps_sb.itable.table[i]);
     }
 
     printf("\n");
