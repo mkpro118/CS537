@@ -4,7 +4,7 @@ NAME = debug
 CC = gcc
 CFLAGS = -Wall -Werror -pedantic -std=gnu18
 FUSE_CFLAGS = `pkg-config fuse --cflags --libs`
-DEBUG_CFLAGS = -DWFS_DEBUG=1
+DEBUG_CFLAGS = -DWFS_DBUG=1
 
 .PHONY: all
 all: $(NAME)
