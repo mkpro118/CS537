@@ -32,7 +32,7 @@
 
 #else
 
-#define WFS_DEBUG(x) (void)0
+#define WFS_DEBUG(...) (void)0
 
 #endif
 
