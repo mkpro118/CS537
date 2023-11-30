@@ -71,7 +71,7 @@ static struct {
     unsigned int n_inodes;
     unsigned int n_log_entries;
     char* restrict disk_filename;
-    FILE* restrict disk_file = NULL; // This is set in validate_disk_file().
+    FILE* restrict disk_file; // This is set in validate_disk_file().
     struct {
         unsigned int* restrict table; // This struct is like a cache for
         unsigned int  capacity;       // faster lookups from the disk image.
