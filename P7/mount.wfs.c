@@ -887,6 +887,16 @@ int main(int argc, char *argv[]) {
         if (entry) {
             PRINT_LOG_ENTRY(entry);
         }
+
+        if (S_ISDIR(entry->inode.mode)) {
+            int n_entries = entry->inode.size / sizeof(struct wfs_dentry);
+
+            struct wfs_dentry* dentry = (struct wfs_dentry*) entry->data;
+
+            for (int i = 0; i < n_entries; i++, dentry++) {
+                printf("INODE: %lu, DIR: %s\n", dentry->inode_number, dentry->name);
+            }
+        }
     }
 
     printf("\n");
