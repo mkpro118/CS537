@@ -673,15 +673,23 @@ static inline void end_op() {
  */
 static void validate_disk_file() {
     ps_sb.is_valid = 0;
-    fseek(ps_sb.disk_file, 0, SEEK_SET);
+    long pos = ftell(ps_sb.disk_file);
+    if (fseek(ps_sb.disk_file, 0, SEEK_SET)) {
+        WFS_ERROR("fseek failed!\n");
+        exit(FSOPFL);
+    }
 
     if(fread(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
         WFS_ERROR("fread failed!\n");
         exit(ITOPFL);
     }
 
+    if (fseek(ps_sb.disk_file, pos, SEEK_SET)) {
+        WFS_ERROR("fseek failed!\n");
+        exit(FSOPFL); 
+    }
+    
     ps_sb.is_valid = 1;
-    _check();
 }
 
 ////////////////////// DISK FILE MANAGEMENT FUNCTIONS END //////////////////////
