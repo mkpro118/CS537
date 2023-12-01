@@ -79,6 +79,10 @@ static int find_file_in_dir(struct wfs_log_entry* entry, char* filename, uint* o
 static int parse_path(const char* restrict path, uint* restrict out);
 static struct wfs_log_entry* get_log_entry(uint inode_number);
 static void read_from_disk(off_t offset, struct wfs_log_entry** entry_buf);
+static void setup_flocks();
+static void begin_op();
+static void end_op();
+static void validate_disk_file();
 
 //////////////////////////// FUNCTION PROTOTYPES END ///////////////////////////
 
@@ -118,18 +122,18 @@ static struct {
     .disk_filename = NULL,
     .disk_file = NULL,
     .sb_lock = {
-        .l_type = F_WRLCK,
+        .l_type   = F_WRLCK,
         .l_whence = SEEK_SET,
-        .l_start = 0,
-        .l_len = sizeof(struct wfs_sb),
-        .l_pid = -1,
+        .l_start  =  0,
+        .l_len    = sizeof(struct wfs_sb),
+        .l_pid    = -1,
     },
     .wfs_lock = {
-        .l_type = F_WRLCK,
+        .l_type   = F_WRLCK,
         .l_whence = SEEK_SET,
-        .l_start = sizeof(struct wfs_sb),
-        .l_len = 0,
-        .l_pid = -1,
+        .l_start  = sizeof(struct wfs_sb),
+        .l_len    =  0,
+        .l_pid    = -1,
     },
     .itable = {
         .table    = NULL,
@@ -154,6 +158,7 @@ static struct {
  * Performs checks to verify in-memory data structures are intact
  */
 static void _check() {
+    validate_disk_file();
     if (!ps_sb.is_valid) {
         WFS_ERROR("Cannot perform operation because given disk_file is not a valid wfs disk_file\n");
         exit(ITOPFL);
@@ -288,13 +293,13 @@ static int build_itable() {
         struct wfs_log_entry* entry = malloc(sizeof(struct wfs_log_entry));
         if (!entry) {
             WFS_ERROR("MALLOC FAILED!\n");
-            return -1;
+            return ITOPFL;
         }
 
         if (fread(entry, sizeof(struct wfs_inode), 1, ps_sb.disk_file) != 1) {
             WFS_ERROR("fread Failed!\n");
             free(entry);
-            return -1;
+            return ITOPFL;
         }
 
         ps_sb.n_log_entries++;
@@ -431,7 +436,7 @@ static int find_file_in_dir(struct wfs_log_entry* entry, char* filename,
 
     int n_entries = entry->inode.size / sizeof(struct wfs_dentry);
 
-    struct wfs_dentry* dentry = (struct wfs_dentry*) entry->data;;
+    struct wfs_dentry* dentry = (struct wfs_dentry*) entry->data;
 
     for (int i = 0; i < n_entries; i++, dentry++) {
         if (strcmp(filename, dentry->name) != 0)
@@ -440,6 +445,8 @@ static int find_file_in_dir(struct wfs_log_entry* entry, char* filename,
         inode_number = dentry->inode_number;
         break;
     }
+
+    *out = inode_number;
 
     if (inode_number >= ps_sb.n_inodes) {
         WFS_ERROR(
@@ -463,7 +470,7 @@ static int find_file_in_dir(struct wfs_log_entry* entry, char* filename,
  */
 static int parse_path(const char* path, uint* out) {
     invalidate_path_history();
-    char* _path = NULL;
+    char* orig = NULL;
 
     // All paths should start with a "/"
     if (*path != '/')
@@ -480,8 +487,8 @@ static int parse_path(const char* path, uint* out) {
     while (*p++ == '/');
     p--;
 
-    _path = strdup(p);
-    char* orig = _path;
+    char* _path = strdup(p);
+    orig = _path;
     ssize_t len = strlen(_path);
 
     // Strip any trailing forward slashes
@@ -496,7 +503,7 @@ static int parse_path(const char* path, uint* out) {
 
     // Special Case, File is in the root directory.
     if (!base_filename) {
-        struct wfs_log_entry* entry = get_log_entry(0);
+        entry = get_log_entry(0);
 
         // Handle Dentry
         if (find_file_in_dir(entry, _path, &inode_number) != FSOPSC)
@@ -522,10 +529,10 @@ static int parse_path(const char* path, uint* out) {
     while ((token = strtok_r(_path, "/", &context)) != NULL) {
         if (strcmp(".", token) == 0)
             continue;
-        else if (strcmp("..", token) == 0)
+        else if (strcmp("..", token) == 0) {
             ph_idx -= ph_idx != 1;
-
-        uint inode_number;
+            continue;
+        }
 
         if (find_file_in_dir(entry, token, &inode_number) != FSOPSC)
             goto fail;
@@ -539,6 +546,7 @@ static int parse_path(const char* path, uint* out) {
         free(entry);
         // Get log_entry corresponding to the inode_number
         entry = get_log_entry(inode_number);
+        _path = context;
     }
 
     success:
@@ -639,12 +647,21 @@ static void read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
 /**
  * Sets up file locks to work with multiple processes
  */
-void setup_flocks() {
+static void setup_flocks() {
     _check();
     ps_sb.sb_lock.l_pid = getpid();
     ps_sb.wfs_lock.l_pid = getpid();
 
     fcntl(fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.sb_lock);
+}
+
+static inline void begin_op() {
+    ps_sb.wfs_lock.l_type = F_WRLCK;
+    fcntl()
+}
+static inline void end_op() {
+    ps_sb.wfs_lock.l_type = F_UNLCK;
+    fcntl()
 }
 
 /**
