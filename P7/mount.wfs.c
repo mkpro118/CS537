@@ -548,7 +548,10 @@ static int parse_path(const char* path, uint* out) {
 
     success:
     *out = ps_sb.path_history.history[--ph_idx];
-    free(orig);
+    if (orig)
+        free(orig);
+    if (entry)
+        free(entry);
     return FSOPSC;
 
     fail:
