@@ -713,7 +713,14 @@ static int wfs_getattr(const char* path, struct stat* stbuf) {
     }
 
     struct wfs_inode* restrict inode = &entry->inode;
+    makestate(&stbuf,&inode);
+    if(entry){
+        free(entry);
+    }
+    return 0;
+}
 
+static void makestate(struct stat * stbuf, struct wfs_inode * inode){
     *stbuf = (struct stat) {
         .st_ino   = inode->inode_number,
         .st_mode  = inode->mode,
@@ -725,11 +732,9 @@ static int wfs_getattr(const char* path, struct stat* stbuf) {
         .st_mtime = inode->mtime,
         .st_ctime = inode->ctime,
     };
-    if(entry){
-        free(entry);
-    }
-    return 0;
 }
+
+
 
 static int wfs_mknod(const char* path, mode_t mode, dev_t rdev) {
     return 0;
@@ -785,6 +790,35 @@ static int wfs_write(const char* path, const char *buf, size_t size, off_t offse
 }
 
 static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info* fi) {
+    _check();
+    uint inode_number;
+    int bytes_transferred;
+
+    if(parse_path(path, &inode_number) != FSOPSC) {
+        WFS_ERROR("Failed to find inode\n");
+        return -ENOENT;
+    }
+
+    struct wfs_log_entry* entry = get_log_entry(inode_number);
+    if (!entry) {
+        WFS_ERROR("Failed to find log_entry for inode %d.\n", inode_number);
+        return -ENOENT;
+    }
+
+    // now we have access to the data we want to keep going copying until end of 
+    char * filedata = entry->data; 
+    int filesize = sizeof(filedata);
+
+    int n_entries = entry->inode.size / sizeof(struct wfs_dentry);
+
+    struct wfs_dentry* dentry = (struct wfs_dentry*) entry->data;
+    for (int i = 0; i < n_entries; i++, dentry++) {
+        // copy over stat pass it in 
+        char * filename = dentry->name;
+        inode_number = dentry->inode_number;
+        break;
+    }
+
     filler(buf,  ".", NULL, 0); // Current  directory
     filler(buf, "..", NULL, 0); // Previous directory
     return 0;
