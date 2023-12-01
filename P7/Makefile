@@ -4,7 +4,7 @@ DEBUG_NAME = debug
 CC = gcc
 CFLAGS = -Wall -Werror -pedantic -std=gnu18
 FUSE_CFLAGS = `pkg-config fuse --cflags --libs`
-DEBUG_CFLAGS = -DWFS_DBUG=1 -g
+DEBUG_CFLAGS = -DWFS_DBUG=1 -g -fsanitize=address
 
 .PHONY: all
 all: $(DEBUG_NAME)
