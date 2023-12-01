@@ -84,7 +84,7 @@ static int find_file_in_dir(struct wfs_log_entry*, char*, uint*);
 static int parse_path(const char* restrict, uint* restrict);
 static struct wfs_log_entry* get_log_entry(uint);
 static void read_from_disk(off_t, struct wfs_log_entry**);
-static void setup_flocks();
+static void setup_flock();
 static void begin_op();
 static void end_op();
 static void validate_disk_file();
@@ -650,12 +650,9 @@ static void read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
 /**
  * Sets up file locks to work with multiple processes
  */
-static void setup_flocks() {
+static void setup_flock() {
     _check();
-    ps_sb.sb_lock.l_pid = getpid();
     ps_sb.wfs_lock.l_pid = getpid();
-
-    fcntl(fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.sb_lock);
 }
 
 static inline void begin_op() {
@@ -900,7 +897,7 @@ int main(int argc, char *argv[]) {
         exit(FSOPFL);
     }
 
-    setup_flocks();
+    setup_flock();
 
     WFS_INFO("Building I-Table...\n");
 
