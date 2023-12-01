@@ -49,8 +49,29 @@
 #define PRINT_LOG_ENTRY(x) do {\
     PRINT_INODE((&(x)->inode));\
 \
-    if (S_ISREG(((x)->inode.mode))) printf("Contents: %s\n", (x)->data);\
-    else if (S_ISDIR(((x)->inode.mode))) printf("=> Directory\n");\
+    if (S_ISREG(((x)->inode.mode))) printf("File Content:\n%s\n", (x)->data);\
+    else if (S_ISDIR(((x)->inode.mode))) {\
+        printf("Directory Contents:\n");\
+\
+        int n_entries = entry->inode.size / sizeof(struct wfs_dentry);\
+\
+        struct wfs_dentry* dentry = (struct wfs_dentry*) entry->data;\
+\
+        for (int i = 0; i < n_entries; i++, dentry++) {\
+            struct wfs_log_entry* temp = get_log_entry(dentry->inode_number);\
+            if (!temp) {\
+                printf("NOOO WE FAILED!\n");\
+                exit(1);\
+            }\
+            if (S_ISDIR((temp->inode.mode))) {\
+                printf("Inode: %lu\tType: Dir\tName: %s\n", dentry->inode_number, dentry->name);\
+            } else if (S_ISREG((temp->inode.mode))) {\
+                printf("Inode: %lu\tType: File\tName: %s\n", dentry->inode_number, dentry->name);\
+            } else {\
+                printf("frick we failed again\n");\
+            }\
+        }\
+    }\
     else printf("UNSUPPORTED TYPE\n");\
 } while(0)
 
