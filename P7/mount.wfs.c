@@ -353,16 +353,13 @@ static int build_itable() {
  * (uint) -1 is the code that specified invalid entry
  */
 static inline void invalidate_path_history() {
-    if (!ps_sb.path_history.history) {
+    if (!ps_sb.path_history.history || ps_sb.path_history.capacity == 0) {
         ps_sb.path_history.capacity = 0;
+        set_path_history_capacity(PATH_HISTORY_CAPACITY_INCREMENT);       
         return;
     }
 
     uint capacity = ps_sb.path_history.capacity;
-    if (capacity == 0) {
-        free(ps_sb.path_history.history);
-        return;
-    }
 
     memset(ps_sb.path_history.history, (uint) -1, sizeof(uint) * capacity);
     *ps_sb.path_history.history = 0; // Set the root to be inode 0
@@ -390,7 +387,7 @@ static int set_path_history_capacity(uint capacity) {
             WFS_ERROR("Malloc Failed!\n");
             return FSOPFL;
         }
-        memset(ps_sb.path_history.history, (uint) -1, sizeof(uint) * capacity);
+        memset(temp, (uint) -1, sizeof(uint) * capacity);
         break;
     default:
         temp = realloc(ps_sb.path_history.history, sizeof(uint) * capacity);
@@ -468,7 +465,7 @@ static int parse_path(const char* path, uint* out) {
     invalidate_path_history();
     char* orig = NULL;
     uint inode_number;
-    struct wfs_log_entry* entry;
+    struct wfs_log_entry* entry = NULL;
     int ph_idx = 1;
 
     // All paths should start with a "/"
@@ -658,14 +655,14 @@ static void setup_flock() {
     ps_sb.wfs_lock.l_pid = getpid();
 }
 
-static inline void begin_op() {
+static inline void begin_op() {/*
     ps_sb.wfs_lock.l_type = F_WRLCK;
     int ret;
     do {
         ret = fcntl(fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.wfs_lock);
     } while (ret == -1);
-}
-static inline void end_op() {
+*/}
+static inline void end_op() {/*
     int ret;
     do {
         ps_sb.wfs_lock.l_type = F_UNLCK;
@@ -675,7 +672,7 @@ static inline void end_op() {
     if (ret == -1) {
         WFS_ERROR("FLock Unlock failed! (err: %s)", strerror(errno));
     }
-}
+*/}
 
 /**
  * Parses the superblock of the given disk file to ensure the file is a valid
@@ -922,6 +919,8 @@ int main(int argc, char *argv[]) {
         struct wfs_log_entry* entry = get_log_entry(i);
         if (entry) {
             PRINT_LOG_ENTRY(entry);
+        
+            free(entry);
         }
     }
 

@@ -55,6 +55,7 @@
         strncpy(buffer, (x)->data, (x)->inode.size);\
         buffer[(x)->inode.size] = '\0';\
         printf("File Content:\n%s\n", buffer);\
+        free(buffer);\
     }\
     else if (S_ISDIR(((x)->inode.mode))) {\
         printf("Directory Contents:\n");\
