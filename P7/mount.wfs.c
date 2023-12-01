@@ -717,7 +717,9 @@ static int wfs_getattr(const char* path, struct stat* stbuf) {
         .st_mtime = inode->mtime,
         .st_ctime = inode->ctime,
     };
-
+    if(entry){
+        free(entry);
+    }
     return 0;
 }
 
@@ -730,7 +732,44 @@ static int wfs_mkdir(const char* path, mode_t mode) {
 }
 
 static int wfs_read(const char* path, char *buf, size_t size, off_t offset, struct fuse_file_info* fi) {
-    return 0;
+     _check();
+    uint inode_number;
+    int bytes_transferred;
+
+    if(parse_path(path, &inode_number) != FSOPSC) {
+        WFS_ERROR("Failed to find inode\n");
+        return -ENOENT;
+    }
+
+    struct wfs_log_entry* entry = get_log_entry(inode_number);
+    if (!entry) {
+        WFS_ERROR("Failed to find log_entry for inode %d.\n", inode_number);
+        return -ENOENT;
+    }
+
+    // Read sizebytes from the given file into the buffer buf, 
+    // beginning offset bytes into the file.
+    char * filedata = entry->data; 
+    int filesize = sizeof(filedata);
+    int myoffset = offset;
+    if(myoffset >= filesize){
+        bytes_transferred = 0;
+    }else{
+        if(myoffset + size > entry->inode.size){
+            bytes_transferred = entry->inode.size - myoffset;
+        }else{
+            bytes_transferred = size; 
+        }
+    }
+    // Returns the number of bytes transferred, 
+    // or 0 if offset was at or beyond the end of the file.
+    if(bytes_transferred != 0){
+        filedata = filedata + offset; 
+        memmove(buf,filedata,bytes_transferred);
+    }
+
+    free(entry);
+    return bytes_transferred;
 }
 
 static int wfs_write(const char* path, const char *buf, size_t size, off_t offset, struct fuse_file_info* fi) {
