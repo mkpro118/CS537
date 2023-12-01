@@ -50,7 +50,12 @@
     printf("\n------------------------------------------------------------\n");\
     PRINT_INODE((&(x)->inode));\
 \
-    if (S_ISREG(((x)->inode.mode))) printf("File Content:\n%s\n", (x)->data);\
+    if (S_ISREG(((x)->inode.mode))) {\
+        char* buffer = calloc((x)->inode.size + 1, sizeof(char));\
+        strncpy(buffer, (x)->data, (x)->inode.size);\
+        buffer[(x)->inode.size] = '\0';\
+        printf("File Content:\n%s\n", buffer);\
+    }\
     else if (S_ISDIR(((x)->inode.mode))) {\
         printf("Directory Contents:\n");\
 \
@@ -71,6 +76,7 @@
             } else {\
                 printf("frick we failed again\n");\
             }\
+            free(temp);\
         }\
     }\
     else printf("UNSUPPORTED TYPE\n");\
