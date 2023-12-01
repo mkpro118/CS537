@@ -36,15 +36,13 @@
     printf("\n{\n");\
     printf("  inode_number = %u\n", x->inode_number);\
     printf("  deleted      = %u\n", x->deleted);\
-    printf("  mode         = %u\n", x->mode);\
-    printf("  uid          = %u\n", x->uid);\
-    printf("  gid          = %u\n", x->gid);\
-    printf("  flags        = %u\n", x->flags);\
+    printf("  mode         = %u\t", x->mode);\
+    printf("  uid          = %u\t", x->uid);\
+    printf("  gid          = %u\t", x->gid);\
     printf("  size         = %u\n", x->size);\
-    printf("  atime        = %u\n", x->atime);\
-    printf("  mtime        = %u\n", x->mtime);\
+    printf("  atime        = %u\t", x->atime);\
+    printf("  mtime        = %u\t", x->mtime);\
     printf("  ctime        = %u\n", x->ctime);\
-    printf("  links        = %u\n", x->links);\
     printf("}\n");\
 } while(0)
 
