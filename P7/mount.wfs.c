@@ -920,22 +920,67 @@ int main(int argc, char *argv[]) {
         if (entry) {
             PRINT_LOG_ENTRY(entry);
         }
+    }
 
-        if (S_ISDIR(entry->inode.mode)) {
-            int n_entries = entry->inode.size / sizeof(struct wfs_dentry);
+    const char* path = "///";
+    uint out;
 
-            struct wfs_dentry* dentry = (struct wfs_dentry*) entry->data;
+    if(parse_path(path, out) != FSOPSC) {
+        printf("lol parse path failed\n");
+        exit(1);
+    }
 
-            for (int i = 0; i < n_entries; i++, dentry++) {
-                printf("INODE: %lu, DIR: %s\n", dentry->inode_number, dentry->name);
-            }
+    printf("%s, %u\n", path, out);
+
+    if (strstr(disk_file, "prebuilt_disk") == NULL)
+        goto done;
+
+    const char* paths_to_check[] = {
+        "/file0", "/file1", "/dir0", "/dir1",
+        "///file0", "/file1///", "///dir0/", "/dir1///",
+        "/dir0/../file0", "/./dir1/../file1", "/dir1/../dir0", "/./dir0/../dir1//",
+        "/dir0/../file0", "/./file1", "/dir1/../dir0", "/./dir0/../dir1//",
+        "/dir0/file00", "/dir0/file01", "/dir1/file10", "/dir1/file11",
+        "///dir0/file00", "/dir1/../dir0/file01", "/dir1/../dir1/file10", "/./dir0/./../dir1/file11",
+        "/dir1/././dir0/file00///", "///dir0/file01", "//dir1/file10", "/./dir0/../dir1/file11",
+    };
+
+    const uint expected_inodes[] {
+        1, 2, 3, 4,
+        1, 2, 3, 4,
+        1, 2, 3, 4,
+        5, 6, 7, 8,
+        5, 6, 7, 8,
+        5, 6, 7, 8,
+    };
+
+    int n_paths = sizeof(paths_to_check) / sizeof(char*);
+    int n_exp = sizeof(paths_to_check) / sizeof(uint);
+
+    if (n_exp != n_paths) {
+        printf("Inconsistents tests!\n");
+        goto done;
+    }
+
+    for (int j = 0; j < n_exp; j++) {
+        const char* p = expected_inodes[j];
+        uint i;
+
+        if(parse_path(p, i) != FSOPSC) {
+            printf("lol parse path failed\n");
+            exit(1);
+        }
+
+        if (i == expected_inodes[j]) {
+            printf("%u, %s, %u | SUCCESS\n", expected_inodes[j], path, out);
+        } else {
+            printf("%u, %s, %u | FAIL\n", expected_inodes[j], path, out);
         }
 
 
     }
 
-    printf("\n");
-
+    done:
     return 0;
     #else
     int fuse_argc = argc - 1;
