@@ -928,14 +928,14 @@ int main(int argc, char *argv[]) {
     const char* path = "///";
     uint out;
 
-    if(parse_path(path, out) != FSOPSC) {
+    if(parse_path(path, &out) != FSOPSC) {
         printf("lol parse path failed\n");
         exit(1);
     }
 
     printf("%s, %u\n", path, out);
 
-    if (strstr(disk_file, "prebuilt_disk") == NULL)
+    if (strstr(argv[1], "prebuilt_disk") == NULL)
         goto done;
 
     const char* paths_to_check[] = {
@@ -948,7 +948,7 @@ int main(int argc, char *argv[]) {
         "/dir1/././dir0/file00///", "///dir0/file01", "//dir1/file10", "/./dir0/../dir1/file11",
     };
 
-    const uint expected_inodes[] {
+    const uint expected_inodes[] = {
         1, 2, 3, 4,
         1, 2, 3, 4,
         1, 2, 3, 4,
@@ -958,7 +958,7 @@ int main(int argc, char *argv[]) {
     };
 
     int n_paths = sizeof(paths_to_check) / sizeof(char*);
-    int n_exp = sizeof(paths_to_check) / sizeof(uint);
+    int n_exp = sizeof(expected_inodes) / sizeof(uint);
 
     if (n_exp != n_paths) {
         printf("Inconsistents tests!\n");
@@ -969,7 +969,7 @@ int main(int argc, char *argv[]) {
         const char* p = expected_inodes[j];
         uint i;
 
-        if(parse_path(p, i) != FSOPSC) {
+        if(parse_path(p, &i) != FSOPSC) {
             printf("lol parse path failed\n");
             exit(1);
         }
