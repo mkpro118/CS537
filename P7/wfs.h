@@ -47,6 +47,7 @@
 } while(0)
 
 #define PRINT_LOG_ENTRY(x) do {\
+    printf("\n------------------------------------------------------------\n");\
     PRINT_INODE((&(x)->inode));\
 \
     if (S_ISREG(((x)->inode.mode))) printf("File Content:\n%s\n", (x)->data);\
@@ -73,6 +74,7 @@
         }\
     }\
     else printf("UNSUPPORTED TYPE\n");\
+    printf("------------------------------------------------------------\n");\
 } while(0)
 
 #else
