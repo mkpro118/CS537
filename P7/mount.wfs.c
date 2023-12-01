@@ -19,6 +19,7 @@ typedef unsigned int uint;
 #else
 #define F_WRLCK 1
 #define F_SETLKW 1
+#define F_UNLCK 1
 char* strtok_r(char*, char*, char**);
 struct flock {
     int l_type;
@@ -657,11 +658,11 @@ static void setup_flocks() {
 
 static inline void begin_op() {
     ps_sb.wfs_lock.l_type = F_WRLCK;
-    fcntl()
+    fcntl(fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.wfs_lock);
 }
 static inline void end_op() {
     ps_sb.wfs_lock.l_type = F_UNLCK;
-    fcntl()
+    fcntl(fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.wfs_lock);
 }
 
 /**
