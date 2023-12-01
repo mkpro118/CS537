@@ -20,6 +20,7 @@ typedef unsigned int uint;
 #define F_WRLCK 1
 #define F_SETLKW 1
 #define F_UNLCK 1
+
 char* strtok_r(char*, char*, char**);
 struct flock {
     int l_type;
@@ -28,6 +29,9 @@ struct flock {
     int l_len;
     int l_pid;
 };
+
+int fcntl(int, int, struct flock*);
+
 struct fuse_file_info {};
 enum fuse_readdir_flags {
         FUSE_READDIR_PLUS = (1 << 0)
@@ -70,16 +74,16 @@ int fuse_main(int argc, char* argv[], struct fuse_operations* ops, void* opts);
 /////////////////////////// FUNCTION PROTOTYPES START //////////////////////////
 
 static void _check();
-static void fill_itable(uint inode_number, long offset);
+static void fill_itable(uint, long);
 static inline void invalidate_itable();
-static int set_itable_capacity(uint capacity);
+static int set_itable_capacity(uint);
 static int build_itable();
 static inline void invalidate_path_history();
-static int set_path_history_capacity(uint capacity);
-static int find_file_in_dir(struct wfs_log_entry* entry, char* filename, uint* out);
-static int parse_path(const char* restrict path, uint* restrict out);
-static struct wfs_log_entry* get_log_entry(uint inode_number);
-static void read_from_disk(off_t offset, struct wfs_log_entry** entry_buf);
+static int set_path_history_capacity(uint);
+static int find_file_in_dir(struct wfs_log_entry*, char*, uint*);
+static int parse_path(const char* restrict, uint* restrict);
+static struct wfs_log_entry* get_log_entry(uint);
+static void read_from_disk(off_t, struct wfs_log_entry**);
 static void setup_flocks();
 static void begin_op();
 static void end_op();
@@ -105,7 +109,6 @@ static struct {
     uint n_log_entries;
     char* restrict disk_filename;
     FILE* restrict disk_file;
-    struct flock sb_lock;
     struct flock wfs_lock;
     struct {
         long* restrict table; // This struct is like a cache for
@@ -122,13 +125,6 @@ static struct {
     .n_log_entries = 0,
     .disk_filename = NULL,
     .disk_file = NULL,
-    .sb_lock = {
-        .l_type   = F_WRLCK,
-        .l_whence = SEEK_SET,
-        .l_start  =  0,
-        .l_len    = sizeof(struct wfs_sb),
-        .l_pid    = -1,
-    },
     .wfs_lock = {
         .l_type   = F_WRLCK,
         .l_whence = SEEK_SET,
@@ -162,16 +158,6 @@ static void _check() {
     validate_disk_file();
     if (!ps_sb.is_valid) {
         WFS_ERROR("Cannot perform operation because given disk_file is not a valid wfs disk_file\n");
-        exit(ITOPFL);
-    }
-
-    if (ps_sb.sb.magic != WFS_MAGIC) {
-        WFS_ERROR("File is not a WFS FileSystem disk image.\n");
-        exit(ITOPFL);
-    }
-
-    if (ps_sb.sb.head < WFS_BASE_ENTRY_OFFSET) {
-        WFS_ERROR("Invalid Superblock!\n");
         exit(ITOPFL);
     }
 
@@ -232,8 +218,6 @@ static inline void invalidate_itable() {
  *           - EITWNR  I-Table Was Not Reset
  */
 static int set_itable_capacity(uint capacity) {
-    _check();
-
     off_t* temp;
     switch (ps_sb.itable.capacity) {
     case 0:
@@ -283,8 +267,11 @@ static int build_itable() {
     ps_sb.n_inodes = 0;
     ps_sb.n_log_entries = 0;
 
+    begin_op();
+
     if(fseek(ps_sb.disk_file, sizeof(struct wfs_sb), SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
+        end_op();
         exit(ITOPFL);
     }
 
@@ -294,12 +281,14 @@ static int build_itable() {
         struct wfs_log_entry* entry = malloc(sizeof(struct wfs_log_entry));
         if (!entry) {
             WFS_ERROR("MALLOC FAILED!\n");
+            end_op();
             return ITOPFL;
         }
 
         if (fread(entry, sizeof(struct wfs_inode), 1, ps_sb.disk_file) != 1) {
             WFS_ERROR("fread Failed!\n");
             free(entry);
+            end_op();
             return ITOPFL;
         }
 
@@ -319,13 +308,16 @@ static int build_itable() {
                 WFS_ERROR("ABORTING Increase itable Capacity operation! Reset itable capacity and size to 0.\n");
                 WFS_ERROR("Future operations should try to re-read the disk image to re-build the ps_sb.itable.\n");
                 invalidate_itable();
+                end_op();
                 return EITWNB;
             case EITWR:
                 WFS_ERROR("Orignal data should be intact.\n");
+                end_op();
                 return EITWR;
             case EITWNR:
                 WFS_ERROR("Failed to restore old data.\n");
                 invalidate_itable();
+                end_op();
                 return EITWNR;
             }
         }
@@ -334,11 +326,14 @@ static int build_itable() {
 
         if (fseek(ps_sb.disk_file, data_size, SEEK_CUR)) {
             WFS_ERROR("fseek failed!\n");
+            end_op();
             exit(ITOPFL);
         }
 
         free(entry);
     }
+
+    end_op();
 
     if (*ps_sb.itable.table < WFS_INIT_ROOT_OFFSET) {
         WFS_ERROR("Didn't find root inode. Build Failed!\n");
@@ -472,16 +467,17 @@ static int find_file_in_dir(struct wfs_log_entry* entry, char* filename,
 static int parse_path(const char* path, uint* out) {
     invalidate_path_history();
     char* orig = NULL;
+    uint inode_number;
+    struct wfs_log_entry* entry;
+    int ph_idx = 1;
 
     // All paths should start with a "/"
     if (*path != '/')
         goto fail;
 
     // If the filepath is literally the root directory, return inode 0
-    if (strcmp("/", path) == 0) {
-        *out = 0;
+    if (strcmp("/", path) == 0)
         goto success;
-    }
 
     // Strip any leading forward slashes
     const char* p = path;
@@ -493,14 +489,14 @@ static int parse_path(const char* path, uint* out) {
     ssize_t len = strlen(_path);
 
     // Strip any trailing forward slashes
-    while (_path[len - 1] == '/')
+    while (len > 0 && _path[len - 1] == '/')
         _path[--len] = '\0';
 
-    char* base_filename = strrchr(_path, '/');
+    // If fter all stripping we're left with nothing (i.e. "///" -> "")
+    if (*_path == '\0')
+        goto success;
 
-    uint inode_number;
-    struct wfs_log_entry* entry;
-    int ph_idx = 1;
+    char* base_filename = strrchr(_path, '/');
 
     // Special Case, File is in the root directory.
     if (!base_filename) {
@@ -608,8 +604,11 @@ static struct wfs_log_entry* get_log_entry(uint inode_number) {
 static void read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
     *entry_buf = malloc(sizeof(struct wfs_log_entry));
 
+    begin_op();
+
     if (fseek(ps_sb.disk_file, offset, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
+        end_op();
         exit(FSOPFL);
     }
 
@@ -631,9 +630,12 @@ static void read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
     if (fread(&(*entry_buf)->data, sizeof(char), size, ps_sb.disk_file) != size)
         goto fail;
 
+    end_op();
     return;
 
     fail:
+    end_op();
+
     if (*entry_buf)
         free(*entry_buf);
 
@@ -658,11 +660,21 @@ static void setup_flocks() {
 
 static inline void begin_op() {
     ps_sb.wfs_lock.l_type = F_WRLCK;
-    fcntl(fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.wfs_lock);
+    int ret;
+    do {
+        ret = fcntl(fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.wfs_lock);
+    } while (ret == -1);
 }
 static inline void end_op() {
-    ps_sb.wfs_lock.l_type = F_UNLCK;
-    fcntl(fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.wfs_lock);
+    int ret;
+    do {
+        ps_sb.wfs_lock.l_type = F_UNLCK;
+        ret = fcntl(fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.wfs_lock);
+    } while (ret == -1 && errno == EINTR);
+
+    if (ret == -1) {
+        WFS_ERROR("FLock Unlock failed! (err: %s)", strerror(errno));
+    }
 }
 
 /**
@@ -673,22 +685,44 @@ static inline void end_op() {
  */
 static void validate_disk_file() {
     ps_sb.is_valid = 0;
+
+    begin_op();
+
+    // Store initial offset
     long pos = ftell(ps_sb.disk_file);
+
     if (fseek(ps_sb.disk_file, 0, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
+        end_op();
         exit(FSOPFL);
     }
 
     if(fread(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
         WFS_ERROR("fread failed!\n");
+        end_op();
         exit(ITOPFL);
     }
 
+    // Restore initial offset
     if (fseek(ps_sb.disk_file, pos, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
+        end_op();
         exit(FSOPFL); 
     }
+
+    end_op();
     
+    if (ps_sb.sb.magic != WFS_MAGIC) {
+        WFS_ERROR("File \"%s\" is not a WFS FileSystem disk image. (byte 1 = %x)\n",
+                  ps_sb.disk_filename, ps_sb.sb.magic);
+        return;
+    }
+
+    if (ps_sb.sb.head < WFS_BASE_ENTRY_OFFSET) {
+        WFS_ERROR("Invalid Superblock!\n");
+        return;
+    }
+
     ps_sb.is_valid = 1;
 }
 
@@ -696,6 +730,20 @@ static void validate_disk_file() {
 
 
 ///////////////////////// FUSE HANDLER FUNCTIONS START /////////////////////////
+
+static void wfs_stat_init(struct stat* stbuf, struct wfs_inode* restrict inode) {
+    *stbuf = (struct stat) {
+        .st_ino   = inode->inode_number,
+        .st_mode  = inode->mode,
+        .st_nlink = inode->links,
+        .st_uid   = inode->uid,
+        .st_gid   = inode->gid,
+        .st_size  = inode->size,
+        .st_atime = inode->atime,
+        .st_mtime = inode->mtime,
+        .st_ctime = inode->ctime,
+    };
+}
 
 static int wfs_getattr(const char* path, struct stat* stbuf) {
     _check();
@@ -712,29 +760,11 @@ static int wfs_getattr(const char* path, struct stat* stbuf) {
         return -ENOENT;
     }
 
-    struct wfs_inode* restrict inode = &entry->inode;
-    makestate(&stbuf,&inode);
-    if(entry){
-        free(entry);
-    }
+    wfs_stat_init(stbuf, &entry->inode);
+
+    free(entry);
     return 0;
 }
-
-static void makestate(struct stat * stbuf, struct wfs_inode * inode){
-    *stbuf = (struct stat) {
-        .st_ino   = inode->inode_number,
-        .st_mode  = inode->mode,
-        .st_nlink = inode->links,
-        .st_uid   = inode->uid,
-        .st_gid   = inode->gid,
-        .st_size  = inode->size,
-        .st_atime = inode->atime,
-        .st_mtime = inode->mtime,
-        .st_ctime = inode->ctime,
-    };
-}
-
-
 
 static int wfs_mknod(const char* path, mode_t mode, dev_t rdev) {
     return 0;
@@ -744,10 +774,12 @@ static int wfs_mkdir(const char* path, mode_t mode) {
     return 0;
 }
 
-static int wfs_read(const char* path, char *buf, size_t size, off_t offset, struct fuse_file_info* fi) {
+static int wfs_read(const char* path, char* buf, size_t size, off_t offset, struct fuse_file_info* fi) {
+    if (size == 0)
+        goto done;
+
      _check();
     uint inode_number;
-    int bytes_transferred;
 
     if(parse_path(path, &inode_number) != FSOPSC) {
         WFS_ERROR("Failed to find inode\n");
@@ -760,39 +792,42 @@ static int wfs_read(const char* path, char *buf, size_t size, off_t offset, stru
         return -ENOENT;
     }
 
+    if (_check_reg_inode(&entry->inode))
+        return -EACCES;
+
     // Read sizebytes from the given file into the buffer buf, 
     // beginning offset bytes into the file.
-    char * filedata = entry->data; 
-    int filesize = sizeof(filedata);
-    int myoffset = offset;
-    if(myoffset >= filesize){
-        bytes_transferred = 0;
-    }else{
-        if(myoffset + size > entry->inode.size){
-            bytes_transferred = entry->inode.size - myoffset;
-        }else{
-            bytes_transferred = size; 
-        }
-    }
+    char* data = entry->data;
+    int file_size = entry->inode.size;
+    int n_bytes = 0;
+
+    if (offset >= file_size)
+        goto done;
+
+    n_bytes = offset + size <= file_size ? size : file_size - offset;
+
     // Returns the number of bytes transferred, 
     // or 0 if offset was at or beyond the end of the file.
-    if(bytes_transferred != 0){
-        filedata = filedata + offset; 
-        memmove(buf,filedata,bytes_transferred);
-    }
+
+    data = data + offset;
+    memmove(buf, data, n_bytes);
 
     free(entry);
-    return bytes_transferred;
+
+    done:
+    return n_bytes;
 }
 
-static int wfs_write(const char* path, const char *buf, size_t size, off_t offset, struct fuse_file_info* fi) {
+static int wfs_write(const char* path, const char* buf, size_t size, off_t offset, struct fuse_file_info* fi) {
     return 0;
 }
 
 static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info* fi) {
+    filler(buf,  ".", NULL, 0); // Current  directory
+    filler(buf, "..", NULL, 0); // Previous directory
+    /*
     _check();
     uint inode_number;
-    int bytes_transferred;
 
     if(parse_path(path, &inode_number) != FSOPSC) {
         WFS_ERROR("Failed to find inode\n");
@@ -806,21 +841,15 @@ static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler, off_
     }
 
     // now we have access to the data we want to keep going copying until end of 
-    char * filedata = entry->data; 
-    int filesize = sizeof(filedata);
-
     int n_entries = entry->inode.size / sizeof(struct wfs_dentry);
 
     struct wfs_dentry* dentry = (struct wfs_dentry*) entry->data;
     for (int i = 0; i < n_entries; i++, dentry++) {
         // copy over stat pass it in 
-        char * filename = dentry->name;
+        // char* filename = dentry->name;
         inode_number = dentry->inode_number;
         break;
-    }
-
-    filler(buf,  ".", NULL, 0); // Current  directory
-    filler(buf, "..", NULL, 0); // Previous directory
+    } */
     return 0;
 }
 
@@ -864,6 +893,13 @@ int main(int argc, char *argv[]) {
     invalidate_path_history();
 
     validate_disk_file();
+
+    if (!ps_sb.is_valid) {
+        WFS_ERROR("Disk File validation failed! (disk_file: \"%s\")\n",
+                  ps_sb.disk_filename);
+        exit(FSOPFL);
+    }
+
     setup_flocks();
 
     WFS_INFO("Building I-Table...\n");
@@ -871,7 +907,7 @@ int main(int argc, char *argv[]) {
     int err;
     if((err = build_itable(ps_sb.disk_file)) != ITOPSC) {
         WFS_ERROR("Failed to build I-Table | Error Code: %d\n", err);
-
+        exit(FSOPFL);
     }
 
     WFS_INFO("Built I-Table successfully!\n");
@@ -897,6 +933,8 @@ int main(int argc, char *argv[]) {
                 printf("INODE: %lu, DIR: %s\n", dentry->inode_number, dentry->name);
             }
         }
+
+
     }
 
     printf("\n");
