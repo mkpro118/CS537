@@ -966,7 +966,7 @@ int main(int argc, char *argv[]) {
     }
 
     for (int j = 0; j < n_exp; j++) {
-        const char* p = expected_inodes[j];
+        const char* p = paths_to_check[j];
         uint i;
 
         if(parse_path(p, &i) != FSOPSC) {
