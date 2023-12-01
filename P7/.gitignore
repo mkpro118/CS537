@@ -64,3 +64,8 @@ fsck.wfs
 disk
 prebuilt_disk
 
+# Testing files
+stress-*
+stress_*
+test-*
+test_*
