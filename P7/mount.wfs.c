@@ -530,7 +530,7 @@ static int parse_path(const char* path, uint* out) {
             goto next_token;
         else if (strcmp("..", token) == 0) {
             WFS_DEBUG("Found \"..\"! Curr ph_idx is\t%i\n", ph_idx);
-            ph_idx -= (1 + (ph_idx != 0));
+            ph_idx -= ph_idx != 0;
             WFS_DEBUG("SET ph_idx to\t%i\n", ph_idx);
             goto next_token;
         }
@@ -552,8 +552,8 @@ static int parse_path(const char* path, uint* out) {
         // Free allocated memory for previous log_entry
         free(entry);
         // Get log_entry corresponding to the inode_number
-        if (!(entry = get_log_entry(inode_number))) {
-            WFS_ERROR("get_log_entry failed! (arg = %u)", inode_number);
+        if (!(entry = get_log_entry(ps_sb.path_history.history[ph_idx - 1]))) {
+            WFS_ERROR("get_log_entry failed! (arg = %u)", ps_sb.path_history.history[ph_idx - 1]);
             goto fail;
         }
 
