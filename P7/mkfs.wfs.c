@@ -43,7 +43,7 @@ int main(int argc, const char* restrict argv[]) {
     struct wfs_log_entry entry;
     wfs_inode_init(&entry.inode, DIRECTORY_MODE);
 
-    if (write_to_disk(ftell(ps_sb.disk_file), &entry)) {
+    if (write_to_disk(WFS_INIT_ROOT_OFFSET,  &entry)) {
         WFS_ERROR("Failed to write to file \"%s\"\n", argv[1]);
         goto fail;
     }
