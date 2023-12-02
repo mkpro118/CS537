@@ -354,9 +354,6 @@ static struct {
 
 ////////////////////// I-TABLE MANAGEMENT FUNCTIONS START //////////////////////
 
-//#ifdef WFS_SETUP
-//void _check() {}
-//#else
 /**
  * Performs checks to verify in-memory data structures are intact
  */
@@ -375,7 +372,7 @@ void _check() {
         WFS_ERROR("No FILE handle for the %s was found\n", ps_sb.disk_filename);
         WFS_ERROR("Retrying once to re-build.\n");
 
-        ps_sb.disk_file = fopen(ps_sb.disk_filename, "ab+");
+        ps_sb.disk_file = fopen(ps_sb.disk_filename, "r+");
 
         if (!ps_sb.disk_file || (build_itable() != ITOPSC)) {
             WFS_ERROR("Retry failed! Exiting!\n");
@@ -383,7 +380,6 @@ void _check() {
         }
     }
 }
-//#endif
 
 
 /**
@@ -899,11 +895,6 @@ int write_to_disk(off_t offset, struct wfs_log_entry* entry) {
         exit(FSOPFL);
     }
 
-    if (fflush(NULL)) {
-        WFS_ERROR("fsync failed!\n");
-        exit(FSOPFL);
-    }
-
     if (fseek(ps_sb.disk_file, pos, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
         exit(FSOPFL);
@@ -1062,11 +1053,6 @@ void write_sb_to_disk() {
         exit(FSOPFL);
     }
 
-    if (fflush(NULL)) {
-        WFS_ERROR("fsync failed!\n");
-        exit(FSOPFL);
-    } 
-
     if (fseek(ps_sb.disk_file, pos, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
         exit(FSOPFL);
@@ -1143,7 +1129,7 @@ void wfs_init(const char* filename) {
         exit(ITOPFL);
     }
     WFS_INFO("disk_path = %s\n", ps_sb.disk_filename);
-    ps_sb.disk_file = fopen(ps_sb.disk_filename, "ab+");
+    ps_sb.disk_file = fopen(ps_sb.disk_filename, "r+");
 
     if (!ps_sb.disk_file) {
         WFS_ERROR("Couldn't open file \"%s\"\n", ps_sb.disk_filename);
