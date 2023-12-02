@@ -21,9 +21,6 @@ int main(int argc, const char* restrict argv[]) {
         goto success;
     }
 
-    // filename = argv[1]
-
-    // Write in binary mode
     ps_sb.disk_filename = strdup(argv[1]);
     ps_sb.disk_file = fopen(argv[1], "r+");
 
