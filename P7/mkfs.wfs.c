@@ -29,18 +29,23 @@ int main(int argc, const char* restrict argv[]) {
         goto fail;
     }
 
+    begin_op();
+
     fseek(ps_sb.disk_file, 0, SEEK_SET);
 
     // Write the Superblock to file
     wfs_sb_init(&ps_sb.sb);
 
-    write_sb_to_disk();
+    if (write_sb_to_disk() != FSOPSC) {
+        WFS_ERROR("Failed to write superblock to file \"%s\"\n", argv[1]);
+        goto fail;
+    }
 
     // Write Log Entry 0, for root to the file
     struct wfs_log_entry entry;
     wfs_inode_init(&entry.inode, DIRECTORY_MODE);
 
-    if (write_to_disk(WFS_INIT_ROOT_OFFSET,  &entry)) {
+    if (write_to_disk(WFS_INIT_ROOT_OFFSET,  &entry) != FSOPSC) {
         WFS_ERROR("Failed to write to file \"%s\"\n", argv[1]);
         goto fail;
     }
@@ -50,9 +55,11 @@ int main(int argc, const char* restrict argv[]) {
     free(ps_sb.disk_filename);
 
     success:
+    end_op();
     return 0;
 
     fail:
+    end_op();
     WFS_ERROR("Couldn't intialize WFS.\n");
     if (ps_sb.disk_filename)
         free(ps_sb.disk_filename);

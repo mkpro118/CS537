@@ -284,9 +284,10 @@ int set_path_history_capacity(uint);
 int find_file_in_dir(struct wfs_log_entry*, char*, uint*);
 int parse_path(const char* restrict, uint* restrict);
 struct wfs_log_entry* get_log_entry(uint);
-void read_from_disk(off_t, struct wfs_log_entry**);
+int read_from_disk(off_t, struct wfs_log_entry**);
 int write_to_disk(off_t, struct wfs_log_entry*);
-void write_sb_to_disk();
+int read_sb_from_disk();
+int write_sb_to_disk();
 void setup_flock();
 static inline void begin_op();
 static inline void end_op();
@@ -804,7 +805,9 @@ struct wfs_log_entry* get_log_entry(uint inode_number) {
     off_t offset = ps_sb.itable.table[inode_number];
     struct wfs_log_entry* entry = NULL;
 
+    begin_op();
     read_from_disk(offset, &entry);
+    end_op();
 
     if (!entry)
         WFS_ERROR("Read from disk at offset %ld failed!\n", offset);
@@ -815,19 +818,21 @@ struct wfs_log_entry* get_log_entry(uint inode_number) {
 /**
  * Reads the log_entry at the given offset from the disk image
  *
+ * Assumes locks are held by callee
+ *
  * @param offset    The offset of the start of the log_entry
  * @param entry_buf The log_entry buffer to fill. Will be heap allocated.
+ *
+ * returns FSOPSC on success, FSOPFL on failure
  */
-void read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
+int read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
     _check();
     *entry_buf = malloc(sizeof(struct wfs_log_entry));
-
-    begin_op();
 
     if (fseek(ps_sb.disk_file, offset, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
         end_op();
-        exit(FSOPFL);
+        return FSOPFL;
     }
 
     if (fread(*entry_buf, sizeof(struct wfs_inode), 1, ps_sb.disk_file) != 1)
@@ -848,25 +853,27 @@ void read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
     if (fread(&(*entry_buf)->data, sizeof(char), size, ps_sb.disk_file) != size)
         goto fail;
 
-    end_op();
-    return;
+    return FSOPSC;
 
     fail:
-    end_op();
-
     if (*entry_buf)
         free(*entry_buf);
 
     *entry_buf = NULL;
+    return FSOPFL;
 }
 
 /**
  * Writes the log_entry at the given offset to the disk image
  *
+ * Assumes locks are held by callee
+ *
  * @param offset    The offset of file to write to
  * @param entry_buf The log_entry to write to the file
  *
- * @return  0 on success, -ENOSPC if disk_file doesn't have enough space
+ * @return  FSOPSC on success,
+ *          -ENOSPC if disk_file doesn't have enough space
+ *          FSOPFL on failure of any other type
  */
 int write_to_disk(off_t offset, struct wfs_log_entry* entry) {
 	WFS_DEBUG("Writing log entry at offset %lu (inode = %u)\n", offset, entry->inode.inode_number);
@@ -879,40 +886,36 @@ int write_to_disk(off_t offset, struct wfs_log_entry* entry) {
     if ((offset + size) > MAX_DISK_FILE_SIZE)
         return -ENOSPC;
 
-    begin_op();
-
     long pos = ftell(ps_sb.disk_file);
 
     if (fseek(ps_sb.disk_file, offset, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
-        exit(FSOPFL);
+        return FSOPFL;
     }
 
     WFS_DEBUG("seek = %li\n", ftell(ps_sb.disk_file));
 
     if(fwrite(entry, size, 1, ps_sb.disk_file) < 1) {
         WFS_ERROR("fwrite failed!\n");
-        exit(FSOPFL);
+        return FSOPFL;
     }
 
     if (fsync(fileno(ps_sb.disk_file)) != 0) {
         WFS_ERROR("fsync failed!\n");
-        exit(FSOPFL);
+        return FSOPFL;
     }
 
     if (fseek(ps_sb.disk_file, pos, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
-        exit(FSOPFL);
+        return FSOPFL;
     }
-
-    end_op();
 
     if (offset == ps_sb.sb.head)
         ps_sb.sb.head = offset + size;
 
     fill_itable(entry->inode.inode_number, offset);
 
-    return 0;
+    return FSOPSC;
 }
 
 /**
@@ -920,6 +923,8 @@ int write_to_disk(off_t offset, struct wfs_log_entry* entry) {
  *
  * This is just a convenient wrapper function over write_to_disk
  * to append a new log entry at the end.
+ *
+ * Assumes locks are held by callee
  *
  * @param  entry The log entry to append
  *
@@ -932,38 +937,33 @@ int append_log_entry(struct wfs_log_entry* entry) {
 /**
  * Reads the superblock from the disk image
  */
-void read_sb_from_disk() {
-    begin_op();
-
+int read_sb_from_disk() {
     // Store initial offset
     long pos = ftell(ps_sb.disk_file);
 
     if (fseek(ps_sb.disk_file, 0, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
-        end_op();
-        exit(FSOPFL);
+        return FSOPFL;
     }
 
     if(fread(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
         WFS_ERROR("fread failed!\n");
-        end_op();
         exit(ITOPFL);
     }
 
     // Restore initial offset
     if (fseek(ps_sb.disk_file, pos, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
-        end_op();
-        exit(FSOPFL);
+        return FSOPFL;
     }
 
-    end_op();
+    return FSOPSC;
 }
 
 /**
  * Writes a superblock to the disk image
  */
-void write_sb_to_disk() {
+int write_sb_to_disk() {
     if (ps_sb.sb.magic != WFS_MAGIC) {
         WFS_ERROR("In memory superblock is invalid. "
                   "Expected Magic = %x, Actual = %x\n"
@@ -977,7 +977,7 @@ void write_sb_to_disk() {
         WFS_INFO("Determined disk image to be valid. "
                  "However this is an unrecoverable error. ABORTING!\n");
 
-        exit(FSOPFL);
+        return FSOPFL;
     }
 
     if (ps_sb.sb.head < WFS_INIT_ROOT_OFFSET || ps_sb.sb.head > MAX_DISK_FILE_SIZE) {
@@ -1008,14 +1008,14 @@ void write_sb_to_disk() {
 
             if (max_idx == -1) {
                 WFS_ERROR("Cache is invalid. Aborting\n");
-                exit(FSOPFL);
+                return FSOPFL;
             }
 
             struct wfs_log_entry* entry = get_log_entry(max_idx);
 
             if (!entry) {
                 WFS_ERROR("Cache is invalid. Aborting\n");
-                exit(FSOPFL);
+                return FSOPFL;
             }
 
             max = entry->inode.size;
@@ -1033,36 +1033,35 @@ void write_sb_to_disk() {
             ps_sb.sb.head = max;
         } else {
             WFS_INFO("Cache is unavailable. Aborting!");
-            exit(FSOPFL);
+            return FSOPFL;
         }
     }
-
-    begin_op();
 
     long pos = ftell(ps_sb.disk_file);
 
     if (fseek(ps_sb.disk_file, 0, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
-        exit(FSOPFL);
+        return FSOPFL;
     }
 
     if (fwrite(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
         WFS_ERROR("fwrite failed!\n");
-        exit(FSOPFL);
+        return FSOPFL;
     }
 
     if (fsync(fileno(ps_sb.disk_file)) != 0) {
         WFS_ERROR("fsync failed!\n");
-        exit(FSOPFL);
+        return FSOPFL;
     }
 
     if (fseek(ps_sb.disk_file, pos, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
-        exit(FSOPFL);
+        return FSOPFL;
     }
 
-    end_op();
+    return FSOPSC;
 }
+
 //////////////////// FILE SYSTEM MANAGEMENT FUNCTIONS START ////////////////////
 
 

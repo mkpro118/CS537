@@ -78,14 +78,12 @@ int main(int argc, char const *argv[]) {
     off_t* table = ps_sb.itable.table;
 
     for (off_t* off = table; off < &table[ps_sb.n_inodes]; off++) {
-        WFS_DEBUG("Current Head = %u", ps_sb.sb.head);
+        WFS_DEBUG("Current Head = %u\n", ps_sb.sb.head);
 
         struct wfs_log_entry* entry;
 
-        WFS_DEBUG("Reading from offset %lu", *off);
-        read_from_disk(*off, &entry);
-
-        if (!entry) {
+        WFS_DEBUG("Reading from offset %lu\n", *off);
+        if ((read_from_disk(*off, &entry) != FSOPSC) || !entry) {
             WFS_ERROR("Failed to read entry at offset %lu "
                       "likely due to a failed system call. ABORTING!\n",
                       *off);
