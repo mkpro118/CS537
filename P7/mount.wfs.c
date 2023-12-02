@@ -561,6 +561,8 @@ static int parse_path(const char* path, uint* out) {
     *out = (uint) -1;
     if (orig)
         free(orig);
+    if (entry)
+        free(entry);
 
     WFS_ERROR("Path %s is not a valid path!\n", path);
     return FSOPFL;
