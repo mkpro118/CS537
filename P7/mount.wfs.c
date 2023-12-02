@@ -924,9 +924,10 @@ int main(int argc, char *argv[]) {
     int print_inodes = 0;
     int test_parse   = 0;
     for (int i = 0; i < argc; i++) {
-        if (strcmp("-i", argv[i]))
+        if (strcmp("-i", argv[i]) == 0) {
             print_inodes = 1;
-        else if (strcmp("-p", argv[i])) {
+        }
+        else if (strcmp("-p", argv[i]) == 0) {
             test_parse = 1;
         }
     }
@@ -943,7 +944,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (test_parse) {
-        if (strstr(argv[1], "prebuilt_disk") == NULL) {
+        if (strstr(argv[argc - 2], "prebuilt_disk") == NULL) {
             printf("-p required disk_file to be \"prebuilt_disk\"\n");
             goto done;
         }
