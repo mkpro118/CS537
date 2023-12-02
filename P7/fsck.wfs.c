@@ -117,6 +117,8 @@ int main(int argc, char const *argv[]) {
             WFS_ERROR("Ran out of space while compacting? ABORTING!\n");
             exit(FSOPFL);
         }
+
+        free(entry);
     }
 
     write_sb_to_disk();
