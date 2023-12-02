@@ -64,6 +64,12 @@ int main(int argc, char const *argv[]) {
     WFS_INFO("Initial file size: %d\n", ps_sb.sb.head);
 
     off_t* table = malloc(sizeof(off_t) * ps_sb.n_inodes);
+
+    if (!table) {
+        WFS_ERROR("Malloc failed while compacting!\n");
+        exit(1);
+    }
+
     memcpy(table, ps_sb.itable.table, sizeof(off_t) * ps_sb.n_inodes);
 
     heap_sort(table, ps_sb.n_inodes);
@@ -111,6 +117,7 @@ int main(int argc, char const *argv[]) {
 
     fclose(ps_sb.disk_file);
     free(ps_sb.disk_filename);
+    free(table);
 
     return 0;
 }
