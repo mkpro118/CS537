@@ -956,23 +956,23 @@ int main(int argc, char *argv[]) {
         goto done;
 
     const char* paths_to_check[] = {
-       // "/file0", "/file1", "/dir0", "/dir1",
-       //"///file0", "/file1///", "///dir0/", "/dir1///",
+        "/file0", "/file1", "/dir0", "/dir1",
+        "///file0", "/file1///", "///dir0/", "/dir1///",
         "/dir0/../file0", "/./dir1/../file1", "/dir1/../dir0", "/./dir0/../dir1//",
         "/dir0/../file0", "/./file1", "/dir1/../dir0", "/./dir0/../dir1//",
         "/dir0/file00", "/dir0/file01", "/dir1/file10", "/dir1/file11",
         "///dir0/file00", "/dir1/../dir0/file01", "/dir1/../dir1/file10", "/./dir0/./../dir1/file11",
-        "/dir1/././dir0/file00///", "///dir0/file01", "//dir1/file10", "/./dir0/../dir1/file11",
+        "/dir1/./../dir0/file00///", "///dir0/file01", "//dir1/file10", "/./dir0/../dir1/file11",
     };
 
     const uint expected_inodes[] = {
- //       1, 2, 3, 4,
- //       1, 2, 3, 4,
         1, 2, 3, 4,
         1, 2, 3, 4,
-        5, 6, 7, 8,
-        5, 6, 7, 8,
-        5, 6, 7, 8,
+        1, 2, 3, 4,
+        1, 2, 3, 4,
+        5, 6, 8, 7,
+        5, 6, 8, 7,
+        5, 6, 8, 7,
     };
  
     int n_paths = sizeof(paths_to_check) / sizeof(char*);
