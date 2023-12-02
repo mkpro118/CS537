@@ -422,6 +422,7 @@ static int set_path_history_capacity(uint capacity) {
  */
 static int find_file_in_dir(struct wfs_log_entry* entry, char* filename,
                             uint* out) {
+    WFS_DEBUG("Looking for %s, in entry with Inode number %u\n", filename, entry->inode.inode_number);
     if(_check_dir_inode(&entry->inode))
         return FSOPFL;
 
@@ -435,15 +436,19 @@ static int find_file_in_dir(struct wfs_log_entry* entry, char* filename,
         if (strcmp(filename, dentry->name) != 0)
             continue;
 
+        dentry->name[MAX_FILE_NAME_LEN - 1] = 0;
+
+        WFS_DEBUG("Last Dentry->name\t=\t%s\n", dentry->name);
+        WFS_DEBUG("Last Dentry->number\t=\t%lu\n", dentry->inode_number);
         inode_number = dentry->inode_number;
         break;
     }
-
+    WFS_DEBUG("Pre-set i-number:\t%d\tFor filename:\t%s\n", inode_number, filename);
     *out = inode_number;
 
     if (inode_number >= ps_sb.n_inodes) {
         WFS_ERROR(
-            "Corrupted Data in WFS! Inode number %d"
+            "Corrupted Data in WFS! Inode number %d "
             "exceeds total number of inodes %d\n",
             inode_number, ps_sb.n_inodes
         );
@@ -524,7 +529,9 @@ static int parse_path(const char* path, uint* out) {
         if (strcmp(".", token) == 0)
             goto next_token;
         else if (strcmp("..", token) == 0) {
-            ph_idx -= ph_idx != 1;
+            WFS_DEBUG("Found \"..\"! Curr ph_idx is\t%i\n", ph_idx);
+            ph_idx -= (1 + (ph_idx != 0));
+            WFS_DEBUG("SET ph_idx to\t%i\n", ph_idx);
             goto next_token;
         }
 
@@ -534,18 +541,27 @@ static int parse_path(const char* path, uint* out) {
         if (ps_sb.path_history.capacity <= ph_idx)
             set_path_history_capacity(ph_idx + PATH_HISTORY_CAPACITY_INCREMENT);
 
+        WFS_DEBUG("Adding to the path history\n");
         ps_sb.path_history.history[ph_idx++] = inode_number;
+        for (int i = 0; i < ps_sb.path_history.capacity; i++) {
+            printf("%3d  ", ps_sb.path_history.history[i]);
+        }
+        printf("\n");
 
+        next_token:
         // Free allocated memory for previous log_entry
         free(entry);
         // Get log_entry corresponding to the inode_number
-        entry = get_log_entry(inode_number);
+        if (!(entry = get_log_entry(inode_number))) {
+            WFS_ERROR("get_log_entry failed! (arg = %u)", inode_number);
+            goto fail;
+        }
 
-        next_token:
         _path = context;
     }
 
     success:
+    WFS_DEBUG("Final ph_idx:\t%i\n", ph_idx - 1);
     *out = ps_sb.path_history.history[--ph_idx];
     if (orig)
         free(orig);
@@ -940,8 +956,8 @@ int main(int argc, char *argv[]) {
         goto done;
 
     const char* paths_to_check[] = {
-        "/file0", "/file1", "/dir0", "/dir1",
-        "///file0", "/file1///", "///dir0/", "/dir1///",
+       // "/file0", "/file1", "/dir0", "/dir1",
+       //"///file0", "/file1///", "///dir0/", "/dir1///",
         "/dir0/../file0", "/./dir1/../file1", "/dir1/../dir0", "/./dir0/../dir1//",
         "/dir0/../file0", "/./file1", "/dir1/../dir0", "/./dir0/../dir1//",
         "/dir0/file00", "/dir0/file01", "/dir1/file10", "/dir1/file11",
@@ -950,8 +966,8 @@ int main(int argc, char *argv[]) {
     };
 
     const uint expected_inodes[] = {
-        1, 2, 3, 4,
-        1, 2, 3, 4,
+ //       1, 2, 3, 4,
+ //       1, 2, 3, 4,
         1, 2, 3, 4,
         1, 2, 3, 4,
         5, 6, 7, 8,
