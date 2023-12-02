@@ -74,6 +74,9 @@ int main(int argc, char const *argv[]) {
     heap_sort(ps_sb.itable.table, ps_sb.n_inodes);
 
     #if WFS_DBUG == 1
+    for (int i = 0; i < ps_sb.n_inodes; i++)
+        printf("%lu\n", ps_sb.itable.table[i]);
+
     FILE* infile = ps_sb.disk_file;
     FILE* outfile = fopen(argv[2], "r+");
     if (!outfile) {
