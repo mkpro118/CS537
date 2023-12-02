@@ -309,6 +309,7 @@ void validate_disk_file();
  */
 static struct {
     unsigned char is_valid;
+    unsigned char fsck;
     uint n_inodes;
     uint n_log_entries;
     char* restrict disk_filename;
@@ -359,6 +360,10 @@ static struct {
  * Performs checks to verify in-memory data structures are intact
  */
 void _check() {
+    // FSCK performs it's own checks
+    if (ps_sb.fsck)
+        return;
+
     validate_disk_file();
     if (!ps_sb.is_valid) {
         WFS_ERROR("Cannot perform operation because given disk_file is not a valid wfs disk_file\n");
@@ -1124,7 +1129,9 @@ void validate_disk_file() {
 
 ////////////////////// DISK FILE MANAGEMENT FUNCTIONS END //////////////////////
 
-void wfs_init(const char* filename) {
+void wfs_init(const char* program, const char* filename) {
+    ps_sb.fsck = strstr(program, "fsck.wfs") != NULL;
+
     ps_sb.disk_filename = strdup(filename);
     if(!ps_sb.disk_filename){
         WFS_ERROR("strdup failed\n");

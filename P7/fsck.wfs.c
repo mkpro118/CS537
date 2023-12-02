@@ -95,6 +95,8 @@ int main(int argc, char const *argv[]) {
             exit(FSOPFL);
         }
 
+        ps_sb.sb.head += WFS_LOG_ENTRY_SIZE(entry);
+
         free(entry);
     }
 
