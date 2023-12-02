@@ -274,18 +274,18 @@ int fuse_main(int argc, char* argv[], struct fuse_operations* ops, void* opts);
 
 void _check();
 void fill_itable(uint, long);
-inline void invalidate_itable();
+static inline void invalidate_itable();
 int set_itable_capacity(uint);
 int build_itable();
-inline void invalidate_path_history();
+static inline void invalidate_path_history();
 int set_path_history_capacity(uint);
 int find_file_in_dir(struct wfs_log_entry*, char*, uint*);
 int parse_path(const char* restrict, uint* restrict);
 struct wfs_log_entry* get_log_entry(uint);
 void read_from_disk(off_t, struct wfs_log_entry**);
 void setup_flock();
-void begin_op();
-void end_op();
+static inline void begin_op();
+static inline void end_op();
 void validate_disk_file();
 
 //////////////////////////// FUNCTION PROTOTYPES END ///////////////////////////
@@ -397,7 +397,7 @@ void fill_itable(uint inode_number, long offset) {
 /**
  * Invalidates the I-Table
  */
-inline void invalidate_itable() {
+static inline void invalidate_itable() {
     if (ps_sb.itable.table)
         free(ps_sb.itable.table);
 
@@ -551,7 +551,7 @@ int build_itable() {
  * If path history is an array of uints, sets all except index 0 to (uint) -1
  * (uint) -1 is the code that specified invalid entry
  */
-inline void invalidate_path_history() {
+static inline void invalidate_path_history() {
     if (!ps_sb.path_history.history || ps_sb.path_history.capacity == 0) {
         ps_sb.path_history.capacity = 0;
         set_path_history_capacity(PATH_HISTORY_CAPACITY_INCREMENT);
@@ -866,14 +866,14 @@ void setup_flock() {
     ps_sb.wfs_lock.l_pid = getpid();
 }
 
-inline void begin_op() {
+static inline void begin_op() {
     ps_sb.wfs_lock.l_type = F_WRLCK;
     int ret;
     do {
         ret = fcntl(fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.wfs_lock);
     } while (ret == -1);
 }
-inline void end_op() {
+static inline void end_op() {
     int ret;
     do {
         ps_sb.wfs_lock.l_type = F_UNLCK;
