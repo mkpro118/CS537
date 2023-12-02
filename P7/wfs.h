@@ -100,7 +100,7 @@
 } while(0)
 
 #define WFS_ERROR(...) do {\
-    fprintf(stderr, ":ERROR:  ");\
+    fprintf(stderr, ":ERROR: (%d) ", __LINE__);\
     fprintf(stderr, __VA_ARGS__);\
 } while(0)
 
@@ -890,6 +890,11 @@ int write_to_disk(off_t offset, struct wfs_log_entry* entry) {
         exit(FSOPFL);
     }
 
+    if (fflush(ps_sb.disk_file) != 0) {
+        WFS_ERROR("fflush failed!\n");
+        exit(FSOPFL);
+    }
+
     if (fseek(ps_sb.disk_file, pos, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
         exit(FSOPFL);
@@ -975,7 +980,7 @@ void write_sb_to_disk() {
                   "Expected Head to be greater than or equal to %x, Actual = %x\n"
                   "This may be a recoverable error.\n"
                   "Verifying disk file...\n",
-                  WFS_INIT_ROOT_OFFSET, ps_sb.sb.magic);
+                  (uint) WFS_INIT_ROOT_OFFSET, ps_sb.sb.magic);
 
         validate_disk_file();
 
@@ -1038,6 +1043,11 @@ void write_sb_to_disk() {
 
     if (fwrite(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
         WFS_ERROR("fwrite failed!\n");
+        exit(FSOPFL);
+    }
+
+    if (fflush(ps_sb.disk_file) != 0) {
+        WFS_ERROR("fflush failed!\n");
         exit(FSOPFL);
     }
 
