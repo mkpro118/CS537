@@ -957,16 +957,18 @@ int main(int argc, char *argv[]) {
             "/dir0/file00", "/dir0/file01", "/dir1/file10", "/dir1/file11",
             "///dir0/file00", "/dir1/../dir0/file01", "/dir1/../dir1/file10", "/./dir0/./../dir1/file11",
             "/dir1/./../dir0/file00///", "///dir0/file01", "//dir1/file10", "/./dir0/../dir1/file11",
+            "mk", "saanvi", "//kumar//", "\\malhotra\\",
         };
 
         const uint expected_inodes[] = {
-            1, 2, 3, 4,
-            1, 2, 3, 4,
-            1, 2, 3, 4,
-            1, 2, 3, 4,
-            5, 6, 8, 7,
-            5, 6, 8, 7,
-            5, 6, 8, 7,
+             1,  2,  3,  4,
+             1,  2,  3,  4,
+             1,  2,  3,  4,
+             1,  2,  3,  4,
+             5,  6,  8,  7,
+             5,  6,  8,  7,
+             5,  6,  8,  7,
+            -1, -1, -1, -1,
         };
 
         int n_paths = sizeof(paths_to_check) / sizeof(char*);
@@ -985,7 +987,7 @@ int main(int argc, char *argv[]) {
 
             printf("|Test %2i|\tPath:\t%s\n", j+1, p);
 
-            if(parse_path(p, &i) != FSOPSC) {
+            if((parse_path(p, &i) != FSOPSC) && (j < n_exp - 4 )) {
                 printf("lol parse path failed\n");
                 exit(1);
             }
