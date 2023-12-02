@@ -27,6 +27,7 @@ clean:
 
 .PHONY: debug
 debug:
+	./create_disk.sh
 	rm -fr compact_disk outfile
 	yes | cp prebuilt_disk compact_disk
 	truncate -s 1M outfile
