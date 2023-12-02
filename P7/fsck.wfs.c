@@ -5,13 +5,13 @@
 
 #include <stdio.h>
 
-inline void swap(off_t *a, off_t *b) {
+static inline void swap(off_t *a, off_t *b) {
     off_t t = *a;
     *a = *b;
     *b = t;
 }
 
-void heapify(off_t* arr, int len, int idx) {
+static void heapify(off_t* arr, int len, int idx) {
     int left, right;
     int max = idx;
 
@@ -34,7 +34,7 @@ void heapify(off_t* arr, int len, int idx) {
     } while(1);
 }
 
-void heap_sort(off_t* arr, int n) {
+static void heap_sort(off_t* arr, int n) {
     // Heapify for nodes with children
     for (int i = n / 2 - 1; i >= 0; i--)
         heapify(arr, n, i);
