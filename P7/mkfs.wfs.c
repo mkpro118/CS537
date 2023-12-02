@@ -24,37 +24,31 @@ int main(int argc, const char* restrict argv[]) {
     // filename = argv[1]
 
     // Write in binary mode
-    FILE* img_file = fopen(argv[1], "wb");
+    ps_sb.disk_file = fopen(argv[1], "wb");
 
-    if (!img_file) {
+    if (!ps_sb.disk_file) {
         WFS_ERROR("Failed to open file \"%s\"!\n", argv[1]);
         goto fail;
     }
 
+    fseek(ps_sb.disk_file, 0, SEEK_SET);
+
     // Write the Superblock to file
-    struct wfs_sb sb;
-    wfs_sb_init(&sb);
+    wfs_sb_init(&ps_sb.sb);
 
-    size_t sb_size = sizeof(struct wfs_sb);
-
-    if (fwrite(&sb, sb_size, 1, img_file) != 1) {
-        WFS_ERROR("Failed to write to file \"%s\"\n", argv[1]);
-        goto fail;
-    }
+    write_sb_to_disk();
 
     // Write Log Entry 0, for root to the file
     struct wfs_log_entry entry;
     wfs_inode_init(&entry.inode, DIRECTORY_MODE);
 
-    size_t entry_size = sizeof(struct wfs_log_entry);
-
-    if (fwrite(&entry, entry_size, 1, img_file) != 1) {
+    if (write_to_disk(ftell(ps_sb.disk_file), &entry)) {
         WFS_ERROR("Failed to write to file \"%s\"\n", argv[1]);
         goto fail;
     }
 
     printf("Successfully initialized file \"%s\" for WFS\n", argv[1]);
-    fclose(img_file);
+    fclose(ps_sb.disk_file);
 
     success:
     return 0;
