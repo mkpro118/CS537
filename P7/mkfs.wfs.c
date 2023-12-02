@@ -51,11 +51,11 @@ int main(int argc, const char* restrict argv[]) {
     }
 
     WFS_INFO("Successfully initialized file \"%s\" for WFS\n", argv[1]);
-    fclose(ps_sb.disk_file);
-    free(ps_sb.disk_filename);
 
     success:
     end_op();
+    fclose(ps_sb.disk_file);
+    free(ps_sb.disk_filename);
     return 0;
 
     fail:
