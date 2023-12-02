@@ -52,7 +52,7 @@ int main(int argc, char const *argv[]) {
         return 0;
     }
 
-    wfs_init(argv[1]);
+    wfs_init(argv[0], argv[1]);
 
     if (ps_sb.n_inodes < 1) {
         WFS_INFO("No inodes were found.\n"
@@ -63,19 +63,20 @@ int main(int argc, char const *argv[]) {
 
     WFS_INFO("Initial file size: %d\n", ps_sb.sb.head);
 
-    heap_sort(ps_sb.itable.table, ps_sb.n_inodes);
+    off_t* table = malloc(sizeof(off_t) * ps_sb.n_inodes);
+    memcpy(table, ps_sb.itable.table, sizeof(off_t) * ps_sb.n_inodes);
+
+    heap_sort(table, ps_sb.n_inodes);
 
     #if WFS_DBUG == 1
     for (int i = 0; i < ps_sb.n_inodes; i++)
-        printf("%lu\n", ps_sb.itable.table[i]);
+        printf("%lu\n", table[i]);
     #endif
 
     begin_op();
 
     ps_sb.sb.head = WFS_INIT_ROOT_OFFSET;
     write_sb_to_disk();
-
-    off_t* table = ps_sb.itable.table;
 
     for (off_t* off = table; off < &table[ps_sb.n_inodes]; off++) {
         WFS_DEBUG("Current Head = %u\n", ps_sb.sb.head);
@@ -95,7 +96,8 @@ int main(int argc, char const *argv[]) {
             exit(FSOPFL);
         }
 
-        ps_sb.sb.head += WFS_LOG_ENTRY_SIZE(entry);
+        //ps_sb.sb.head += WFS_LOG_ENTRY_SIZE(entry);
+        WFS_DEBUG("New Head = %i\n", ps_sb.sb.head);
 
         free(entry);
     }
