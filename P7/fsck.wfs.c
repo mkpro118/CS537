@@ -3,12 +3,16 @@
 
 #include "wfs.h"
 
-#include <stdio.h>
-
-static inline void swap(off_t *a, off_t *b) {
-    off_t t = *a;
-    *a = *b;
-    *b = t;
+/**
+ * Performs a swap of the contents at the given addresses
+ *
+ * @param a address of first value to swap
+ * @param b address of second value to swap
+ */
+static inline void swap(off_t *x, off_t *y) {
+    off_t t = *x;
+    *x = *y;
+    *y = t;
 }
 
 static void heapify(off_t* arr, int len, int idx) {
@@ -74,22 +78,14 @@ int main(int argc, char const *argv[]) {
 
     heap_sort(table, ps_sb.n_inodes);
 
-    #if WFS_DBUG == 1
-    for (int i = 0; i < ps_sb.n_inodes; i++)
-        printf("%lu\n", table[i]);
-    #endif
-
     begin_op();
 
     ps_sb.sb.head = WFS_INIT_ROOT_OFFSET;
     write_sb_to_disk();
 
     for (off_t* off = table; off < &table[ps_sb.n_inodes]; off++) {
-        WFS_DEBUG("Current Head = %u\n", ps_sb.sb.head);
-
         struct wfs_log_entry* entry;
 
-        WFS_DEBUG("Reading from offset %lu\n", *off);
         if ((read_from_disk(*off, &entry) != FSOPSC) || !entry) {
             WFS_ERROR("Failed to read entry at offset %lu "
                       "likely due to a failed system call. ABORTING!\n",
@@ -101,9 +97,6 @@ int main(int argc, char const *argv[]) {
             WFS_ERROR("Ran out of space while compacting? ABORTING!\n");
             exit(FSOPFL);
         }
-
-        //ps_sb.sb.head += WFS_LOG_ENTRY_SIZE(entry);
-        WFS_DEBUG("New Head = %i\n", ps_sb.sb.head);
 
         free(entry);
     }
