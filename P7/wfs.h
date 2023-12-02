@@ -13,6 +13,7 @@
 #define MOUNT_WFS_H_
 
 #define MAX_FILE_NAME_LEN 32
+#define MAX_DISK_FILE_SIZE 1048576
 #define WFS_MAGIC 0xdeadbeef
 
 #ifdef WFS_SETUP
@@ -143,6 +144,7 @@ struct wfs_log_entry {
 
 #define WFS_INIT_ROOT_OFFSET  (sizeof(struct wfs_sb))
 #define WFS_BASE_ENTRY_OFFSET (sizeof(struct wfs_sb) + sizeof(struct wfs_log_entry))
+#define WFS_LOG_ENTRY_SIZE(x) (sizeof(struct wfs_log_entry) + (sizeof(char) * (x)->inode.size))
 
 enum InodeModes {
     FILE_MODE = S_IFREG,
@@ -283,6 +285,8 @@ int find_file_in_dir(struct wfs_log_entry*, char*, uint*);
 int parse_path(const char* restrict, uint* restrict);
 struct wfs_log_entry* get_log_entry(uint);
 void read_from_disk(off_t, struct wfs_log_entry**);
+int write_to_disk(off_t, struct wfs_log_entry*);
+void write_sb_to_disk();
 void setup_flock();
 static inline void begin_op();
 static inline void end_op();
@@ -463,6 +467,7 @@ int set_itable_capacity(uint capacity) {
  *           - EITWNR  I-Table Was Not Reset
  */
 int build_itable() {
+    _check();
     ps_sb.n_inodes = 0;
     ps_sb.n_log_entries = 0;
 
@@ -666,6 +671,7 @@ int find_file_in_dir(struct wfs_log_entry* entry, char* filename,
  * @return FSOPSC on success, FSOPFL on failure
  */
 int parse_path(const char* path, uint* out) {
+    _check();
     invalidate_path_history();
     char* orig = NULL;
     uint inode_number;
@@ -813,6 +819,7 @@ struct wfs_log_entry* get_log_entry(uint inode_number) {
  * @param entry_buf The log_entry buffer to fill. Will be heap allocated.
  */
 void read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
+    _check();
     *entry_buf = malloc(sizeof(struct wfs_log_entry));
 
     begin_op();
@@ -853,6 +860,194 @@ void read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
     *entry_buf = NULL;
 }
 
+/**
+ * Writes the log_entry at the given offset to the disk image
+ *
+ * @param offset    The offset of file to write to
+ * @param entry_buf The log_entry to write to the file
+ *
+ * @return  0 on success, -ENOSPC if disk_file doesn't have enough space
+ */
+int write_to_disk(off_t offset, struct wfs_log_entry* entry) {
+    _check();
+
+    size_t size = WFS_LOG_ENTRY_SIZE(entry);
+
+    if ((offset + size) > MAX_DISK_FILE_SIZE)
+        return -ENOSPC;
+
+    begin_op();
+
+    long pos = ftell(ps_sb.disk_file);
+
+    if (fseek(ps_sb.disk_file, offset, SEEK_SET)) {
+        WFS_ERROR("fseek failed!\n");
+        exit(FSOPFL);
+    }
+
+    if(fwrite(entry, size, 1, ps_sb.disk_file) < 1) {
+        WFS_ERROR("fwrite failed!\n");
+        exit(FSOPFL);
+    }
+
+    if (fseek(ps_sb.disk_file, pos, SEEK_SET)) {
+        WFS_ERROR("fseek failed!\n");
+        exit(FSOPFL);
+    }
+
+    end_op();
+
+    if (offset == ps_sb.sb.head)
+        ps_sb.sb.head = offset + size;
+
+    fill_itable(entry->inode.inode_number, offset);
+
+    return 0;
+}
+
+/**
+ * Append a log entry to the disk image
+ *
+ * This is just a convenient wrapper function over write_to_disk
+ * to append a new log entry at the end.
+ *
+ * @param  entry The log entry to append
+ *
+ * @return  0 on success, -ENOSPC if disk_file doesn't have enough space
+ */
+int append_log_entry(struct wfs_log_entry* entry) {
+    return write_to_disk(ps_sb.sb.head, entry);
+}
+
+/**
+ * Reads the superblock from the disk image
+ */
+void read_sb_from_disk() {
+    begin_op();
+
+    // Store initial offset
+    long pos = ftell(ps_sb.disk_file);
+
+    if (fseek(ps_sb.disk_file, 0, SEEK_SET)) {
+        WFS_ERROR("fseek failed!\n");
+        end_op();
+        exit(FSOPFL);
+    }
+
+    if(fread(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
+        WFS_ERROR("fread failed!\n");
+        end_op();
+        exit(ITOPFL);
+    }
+
+    // Restore initial offset
+    if (fseek(ps_sb.disk_file, pos, SEEK_SET)) {
+        WFS_ERROR("fseek failed!\n");
+        end_op();
+        exit(FSOPFL);
+    }
+
+    end_op();
+}
+
+/**
+ * Writes a superblock to the disk image
+ */
+void write_sb_to_disk() {
+    if (ps_sb.sb.magic != WFS_MAGIC) {
+        WFS_ERROR("In memory superblock is invalid. "
+                  "Expected Magic = %x, Actual = %x\n"
+                  "WFS will abort after checking disk file status\n",
+                  WFS_MAGIC, ps_sb.sb.magic);
+
+        WFS_INFO("Verifying disk file...\n");
+
+        validate_disk_file();
+
+        WFS_INFO("Determined disk image to be valid. "
+                 "However this is an unrecoverable error. ABORTING!\n");
+
+        exit(FSOPFL);
+    }
+
+    if (ps_sb.sb.head < WFS_INIT_ROOT_OFFSET || ps_sb.sb.head > MAX_DISK_FILE_SIZE) {
+        WFS_ERROR("In memory superblock is invalid. "
+                  "Expected Head to be greater than or equal to %x, Actual = %x\n"
+                  "This may be a recoverable error.\n"
+                  "Verifying disk file...\n",
+                  WFS_INIT_ROOT_OFFSET, ps_sb.sb.magic);
+
+        validate_disk_file();
+
+        WFS_INFO("Determined disk image to be valid. (head = %x)", ps_sb.sb.head);
+
+        if (ps_sb.itable.table != NULL
+                && ps_sb.itable.capacity > 0
+                && ps_sb.n_inodes < ps_sb.itable.capacity) {
+            WFS_INFO("Cache is available. Recomputing head using cache.\n");
+
+            off_t max = WFS_INIT_ROOT_OFFSET;
+            uint max_idx = -1;
+
+            for (uint i = 0; i < ps_sb.n_inodes; i++) {
+                if (ps_sb.itable.table[i] > max) {
+                    max = ps_sb.itable.table[i];
+                    max_idx = i;
+                }
+            }
+
+            if (max_idx == -1) {
+                WFS_ERROR("Cache is invalid. Aborting\n");
+                exit(FSOPFL);
+            }
+
+            struct wfs_log_entry* entry = get_log_entry(max_idx);
+
+            if (!entry) {
+                WFS_ERROR("Cache is invalid. Aborting\n");
+                exit(FSOPFL);
+            }
+
+            max = entry->inode.size;
+            free(entry);
+
+            if (max != ps_sb.sb.head) {
+                WFS_INFO("Head on disk is not equal to the one computed from"
+                         " cache (%x != %x). "
+                         "Setting the head to the **larger** value!",
+                         ps_sb.sb.head, (unsigned int) max);
+
+                max = max > ps_sb.sb.head ? max : ps_sb.sb.head;
+            }
+
+            ps_sb.sb.head = max;
+        } else {
+            WFS_INFO("Cache is unavailable. Aborting!");
+            exit(FSOPFL);
+        }
+    }
+
+    begin_op();
+
+    long pos = ftell(ps_sb.disk_file);
+
+    if (fseek(ps_sb.disk_file, 0, SEEK_SET)) {
+        WFS_ERROR("fseek failed!\n");
+        exit(FSOPFL);
+    }
+
+    if (fwrite(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
+        WFS_ERROR("fwrite failed!\n");
+        exit(FSOPFL);
+    }
+
+    if (fseek(ps_sb.disk_file, pos, SEEK_SET)) {
+        WFS_ERROR("fseek failed!\n");
+        exit(FSOPFL);
+    }
+
+    end_op();
+}
 //////////////////// FILE SYSTEM MANAGEMENT FUNCTIONS START ////////////////////
 
 
@@ -894,40 +1089,19 @@ static inline void end_op() {
 void validate_disk_file() {
     ps_sb.is_valid = 0;
 
-    begin_op();
-
-    // Store initial offset
-    long pos = ftell(ps_sb.disk_file);
-
-    if (fseek(ps_sb.disk_file, 0, SEEK_SET)) {
-        WFS_ERROR("fseek failed!\n");
-        end_op();
-        exit(FSOPFL);
-    }
-
-    if(fread(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
-        WFS_ERROR("fread failed!\n");
-        end_op();
-        exit(ITOPFL);
-    }
-
-    // Restore initial offset
-    if (fseek(ps_sb.disk_file, pos, SEEK_SET)) {
-        WFS_ERROR("fseek failed!\n");
-        end_op();
-        exit(FSOPFL);
-    }
-
-    end_op();
+    read_sb_from_disk();
 
     if (ps_sb.sb.magic != WFS_MAGIC) {
-        WFS_ERROR("File \"%s\" is not a WFS FileSystem disk image. (byte 1 = %x)\n",
+        WFS_ERROR("File \"%s\" is not a valid WFS FileSystem disk image. "
+                  "(magic = %x)\n",
                   ps_sb.disk_filename, ps_sb.sb.magic);
         return;
     }
 
-    if (ps_sb.sb.head < WFS_BASE_ENTRY_OFFSET) {
-        WFS_ERROR("Invalid Superblock!\n");
+    if (ps_sb.sb.head < WFS_INIT_ROOT_OFFSET) {
+        WFS_ERROR("File \"%s\" is not a valid WFS FileSystem disk image. "
+                  "(head = %x)\n",
+                  ps_sb.disk_filename, ps_sb.sb.head);
         return;
     }
 
@@ -936,5 +1110,45 @@ void validate_disk_file() {
 
 ////////////////////// DISK FILE MANAGEMENT FUNCTIONS END //////////////////////
 
+void wfs_init(const char* filename) {
+    ps_sb.disk_filename = strdup(filename);
+    if(!ps_sb.disk_filename){
+        WFS_ERROR("strdup failed\n");
+        exit(ITOPFL);
+    }
+    WFS_INFO("disk_path = %s\n", ps_sb.disk_filename);
+    ps_sb.disk_file = fopen(ps_sb.disk_filename, "ab+");
+
+    if (!ps_sb.disk_file) {
+        WFS_ERROR("Couldn't open file \"%s\"\n", ps_sb.disk_filename);
+        exit(FSOPFL);
+    }
+
+    invalidate_itable();
+    invalidate_path_history();
+
+    validate_disk_file();
+
+    if (!ps_sb.is_valid) {
+        WFS_ERROR("Disk File validation failed! (disk_file: \"%s\")\n",
+                  ps_sb.disk_filename);
+        exit(FSOPFL);
+    }
+
+    setup_flock();
+
+    WFS_INFO("Building I-Table...\n");
+
+    int err;
+    if((err = build_itable(ps_sb.disk_file)) != ITOPSC) {
+        WFS_ERROR("Failed to build I-Table | Error Code: %d\n", err);
+        exit(FSOPFL);
+    }
+
+    WFS_INFO("Built I-Table successfully!\n");
+    WFS_INFO("Parsed %d log entries, with %d inodes\n", ps_sb.n_log_entries, ps_sb.n_inodes);
+
+    WFS_INFO("WFS Initialized successfully!\n");
+}
 
 #endif
