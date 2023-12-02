@@ -354,9 +354,9 @@ static struct {
 
 ////////////////////// I-TABLE MANAGEMENT FUNCTIONS START //////////////////////
 
-#ifdef WFS_SETUP
-void _check() {}
-#else
+//#ifdef WFS_SETUP
+//void _check() {}
+//#else
 /**
  * Performs checks to verify in-memory data structures are intact
  */
@@ -383,7 +383,7 @@ void _check() {
         }
     }
 }
-#endif
+//#endif
 
 
 /**
@@ -894,7 +894,7 @@ int write_to_disk(off_t offset, struct wfs_log_entry* entry) {
         exit(FSOPFL);
     }
 
-    if (fsync(ps_sb.disk_file) != 0) {
+    if (fsync(fileno(ps_sb.disk_file)) != 0) {
         WFS_ERROR("fsync failed!\n");
         exit(FSOPFL);
     }
@@ -1050,7 +1050,7 @@ void write_sb_to_disk() {
         exit(FSOPFL);
     }
 
-    if (fsync(ps_sb.disk_file) != 0) {
+    if (fsync(fileno(ps_sb.disk_file)) != 0) {
         WFS_ERROR("fsync failed!\n");
         exit(FSOPFL);
     }
