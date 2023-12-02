@@ -522,10 +522,10 @@ static int parse_path(const char* path, uint* out) {
 
     while ((token = strtok_r(_path, "/", &context)) != NULL) {
         if (strcmp(".", token) == 0)
-            continue;
+            goto next_token;
         else if (strcmp("..", token) == 0) {
             ph_idx -= ph_idx != 1;
-            continue;
+            goto next_token;
         }
 
         if (find_file_in_dir(entry, token, &inode_number) != FSOPSC)
@@ -540,6 +540,8 @@ static int parse_path(const char* path, uint* out) {
         free(entry);
         // Get log_entry corresponding to the inode_number
         entry = get_log_entry(inode_number);
+
+        next_token:
         _path = context;
     }
 
@@ -951,35 +953,39 @@ int main(int argc, char *argv[]) {
         1, 2, 3, 4,
         1, 2, 3, 4,
         1, 2, 3, 4,
+        1, 2, 3, 4,
         5, 6, 7, 8,
         5, 6, 7, 8,
         5, 6, 7, 8,
     };
-
+ 
     int n_paths = sizeof(paths_to_check) / sizeof(char*);
     int n_exp = sizeof(expected_inodes) / sizeof(uint);
 
     if (n_exp != n_paths) {
-        printf("Inconsistents tests!\n");
+        printf("Inconsistents tests! %d != %d\n", n_paths, n_exp);
         goto done;
     }
+
+    printf("about to run %i tests.\n", n_exp);
 
     for (int j = 0; j < n_exp; j++) {
         const char* p = paths_to_check[j];
         uint i;
+
+        printf("Test %i\tParsing path:\t\"%s\"\n", j+1, p);
 
         if(parse_path(p, &i) != FSOPSC) {
             printf("lol parse path failed\n");
             exit(1);
         }
 
+        printf("Expected:%u\tActual:%u\t", expected_inodes[j], i);
         if (i == expected_inodes[j]) {
-            printf("%u, %s, %u | SUCCESS\n", expected_inodes[j], path, out);
+            printf("| SUCCESS\n");
         } else {
-            printf("%u, %s, %u | FAIL\n", expected_inodes[j], path, out);
+            printf("| FAIL\n");
         }
-
-
     }
 
     done:
