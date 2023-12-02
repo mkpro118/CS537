@@ -74,8 +74,8 @@ int main(int argc, char const *argv[]) {
     heap_sort(ps_sb.itable.table, ps_sb.n_inodes);
 
     #if WFS_DBUG == 1
-    FILE* infile = disk_file;
-    FILE* outfile = fopen(argv[2], "ab+");
+    FILE* infile = ps_sb.disk_file;
+    FILE* outfile = fopen(argv[2], "r+");
     if (!outfile) {
         WFS_ERROR("Couldn't open outfile \"%s\"\n", ps_sb.disk_filename);
         exit(FSOPFL);
@@ -95,6 +95,11 @@ int main(int argc, char const *argv[]) {
 
     for (off_t* off = table; off < &table[ps_sb.n_inodes]; off++) {
         struct wfs_log_entry* entry;
+
+        #if WFS_DBUG == 1
+        ps_sb.disk_file = infile;
+        #endif
+
         read_from_disk(*off, &entry);
 
         if (!entry) {
@@ -103,6 +108,10 @@ int main(int argc, char const *argv[]) {
                       *off);
             exit(FSOPFL);
         }
+
+        #if WFS_DBUG == 1
+        ps_sb.disk_file = infile;
+        #endif
 
         if(append_log_entry(entry)) {
             WFS_ERROR("Ran out of space while compacting? ABORTING!\n");
