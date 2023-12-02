@@ -128,7 +128,7 @@ static struct {
     .wfs_lock = {
         .l_type   = F_WRLCK,
         .l_whence = SEEK_SET,
-        .l_start  = sizeof(struct wfs_sb),
+        .l_start  =  0,
         .l_len    =  0,
         .l_pid    = -1,
     },
@@ -442,11 +442,15 @@ static int find_file_in_dir(struct wfs_log_entry* entry, char* filename,
     }
     *out = inode_number;
 
+    if (inode_number == ((uint)-1))
+        return FSOPFL;
+
     if (inode_number >= ps_sb.n_inodes) {
         WFS_ERROR(
             "Corrupted Data in WFS! Inode number %d "
-            "exceeds total number of inodes %d\n",
-            inode_number, ps_sb.n_inodes
+            "exceeds total number of inodes %d\n"
+            "Looking for file %s in Inode %d",
+            inode_number, ps_sb.n_inodes, filename, entry->inode.inode_number
         );
         return FSOPFL;
     }
@@ -663,14 +667,14 @@ static void setup_flock() {
     ps_sb.wfs_lock.l_pid = getpid();
 }
 
-static inline void begin_op() {/*
+static inline void begin_op() {
     ps_sb.wfs_lock.l_type = F_WRLCK;
     int ret;
     do {
         ret = fcntl(fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.wfs_lock);
     } while (ret == -1);
-*/}
-static inline void end_op() {/*
+}
+static inline void end_op() {
     int ret;
     do {
         ps_sb.wfs_lock.l_type = F_UNLCK;
@@ -680,7 +684,7 @@ static inline void end_op() {/*
     if (ret == -1) {
         WFS_ERROR("FLock Unlock failed! (err: %s)", strerror(errno));
     }
-*/}
+}
 
 /**
  * Parses the superblock of the given disk file to ensure the file is a valid
@@ -996,9 +1000,15 @@ int main(int argc, char *argv[]) {
 
             printf("Expected: %u\tActual: %u\t", expected_inodes[j], i);
             if (i == expected_inodes[j]) {
-                printf("\t\t\t| SUCCESS\n");
+                if (j < (n_exp - 4))
+                    printf("\t\t\t| SUCCESS\n");
+                else
+                    printf("\t| SUCCESS\n");
             } else {
-                printf("\t\t\t| FAIL\n");
+                if (j < (n_exp - 4))
+                    printf("\t\t\t| FAIL\n");
+                else
+                    printf("\t| FAIL\n");
             }
             printf("\n");
         }
