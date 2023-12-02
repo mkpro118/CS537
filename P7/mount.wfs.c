@@ -161,7 +161,7 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    wfs_init(argv[argc - 2]);
+    wfs_init(argv[0], argv[argc - 2]);
 
     WFS_DEBUG("%p\n", (void*)&ops);
 
