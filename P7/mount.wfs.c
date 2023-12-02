@@ -7,6 +7,11 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+#ifdef __unix__
+#define FUSE_USE_VERSION 30
+#include <fuse.h>
+#endif
+
 #include "wfs.h"
 
 ///////////////////////// FUSE HANDLER FUNCTIONS START /////////////////////////

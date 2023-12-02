@@ -215,10 +215,7 @@ typedef unsigned int uint;
 
 //////////////// MK COPING WITH THE LINTER, NEVERMIND THIS BLOCK ///////////////
 
-#ifdef __unix__
-#define FUSE_USE_VERSION 30
-#include <fuse.h>
-#else
+#ifndef __unix__
 #define F_WRLCK 1
 #define F_SETLKW 1
 #define F_UNLCK 1
