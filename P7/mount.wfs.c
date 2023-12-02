@@ -918,79 +918,85 @@ int main(int argc, char *argv[]) {
 
     WFS_DEBUG("%p\n", (void*)&ops);
 
+    /* For testing */
     #if WFS_DBUG == 1
 
-    /* For testing */
-    for (uint i = 0; i < ps_sb.n_inodes; i++) {
-        struct wfs_log_entry* entry = get_log_entry(i);
-        if (entry) {
-            PRINT_LOG_ENTRY(entry);
-        
-            free(entry);
+    int print_inodes = 0;
+    int test_parse   = 0;
+    for (int i = 0; i < argc; i++) {
+        if (strcmp("-i", argv[i]))
+            print_inodes = 1;
+        else if (strcmp("-p", argv[i])) {
+            test_parse = 1;
         }
     }
 
-    const char* path = "///";
-    uint out;
+    if (print_inodes) {
+        for (uint i = 0; i < ps_sb.n_inodes; i++) {
+            struct wfs_log_entry* entry = get_log_entry(i);
+            if (entry) {
+                PRINT_LOG_ENTRY(entry);
 
-    if(parse_path(path, &out) != FSOPSC) {
-        printf("lol parse path failed\n");
-        exit(1);
+                free(entry);
+            }
+        }
     }
 
-    printf("%s, %u\n", path, out);
-
-    if (strstr(argv[1], "prebuilt_disk") == NULL)
-        goto done;
-
-    const char* paths_to_check[] = {
-        "/file0", "/file1", "/dir0", "/dir1",
-        "///file0", "/file1///", "///dir0/", "/dir1///",
-        "/dir0/../file0", "/./dir1/../file1", "/dir1/../dir0", "/./dir0/../dir1//",
-        "/dir0/../file0", "/./file1", "/dir1/../dir0", "/./dir0/../dir1//",
-        "/dir0/file00", "/dir0/file01", "/dir1/file10", "/dir1/file11",
-        "///dir0/file00", "/dir1/../dir0/file01", "/dir1/../dir1/file10", "/./dir0/./../dir1/file11",
-        "/dir1/./../dir0/file00///", "///dir0/file01", "//dir1/file10", "/./dir0/../dir1/file11",
-    };
-
-    const uint expected_inodes[] = {
-        1, 2, 3, 4,
-        1, 2, 3, 4,
-        1, 2, 3, 4,
-        1, 2, 3, 4,
-        5, 6, 8, 7,
-        5, 6, 8, 7,
-        5, 6, 8, 7,
-    };
- 
-    int n_paths = sizeof(paths_to_check) / sizeof(char*);
-    int n_exp = sizeof(expected_inodes) / sizeof(uint);
-
-    if (n_exp != n_paths) {
-        printf("Inconsistents tests! %d != %d\n", n_paths, n_exp);
-        goto done;
-    }
-
-    printf("about to run %i tests.\n", n_exp);
-
-    for (int j = 0; j < n_exp; j++) {
-        const char* p = paths_to_check[j];
-        uint i;
-
-        printf("|Test %2i|\tPath:\t%s\n", j+1, p);
-
-        if(parse_path(p, &i) != FSOPSC) {
-            printf("lol parse path failed\n");
-            exit(1);
+    if (test_parse) {
+        if (strstr(argv[1], "prebuilt_disk") == NULL) {
+            printf("-p required disk_file to be \"prebuilt_disk\"\n");
+            goto done;
         }
 
-        printf("Expected: %u\tActual: %u\t", expected_inodes[j], i);
-        if (i == expected_inodes[j]) {
-            printf("\t\t\t| SUCCESS\n");
-        } else {
-            printf("\t\t\t| FAIL\n");
+        const char* paths_to_check[] = {
+            "/file0", "/file1", "/dir0", "/dir1",
+            "///file0", "/file1///", "///dir0/", "/dir1///",
+            "/dir0/../file0", "/./dir1/../file1", "/dir1/../dir0", "/./dir0/../dir1//",
+            "/dir0/../file0", "/./file1", "/dir1/../dir0", "/./dir0/../dir1//",
+            "/dir0/file00", "/dir0/file01", "/dir1/file10", "/dir1/file11",
+            "///dir0/file00", "/dir1/../dir0/file01", "/dir1/../dir1/file10", "/./dir0/./../dir1/file11",
+            "/dir1/./../dir0/file00///", "///dir0/file01", "//dir1/file10", "/./dir0/../dir1/file11",
+        };
+
+        const uint expected_inodes[] = {
+            1, 2, 3, 4,
+            1, 2, 3, 4,
+            1, 2, 3, 4,
+            1, 2, 3, 4,
+            5, 6, 8, 7,
+            5, 6, 8, 7,
+            5, 6, 8, 7,
+        };
+
+        int n_paths = sizeof(paths_to_check) / sizeof(char*);
+        int n_exp = sizeof(expected_inodes) / sizeof(uint);
+
+        if (n_exp != n_paths) {
+            printf("Inconsistents tests! %d != %d\n", n_paths, n_exp);
+            goto done;
         }
-        printf("\n");
+
+        printf("about to run %i tests.\n", n_exp);
+
+        for (int j = 0; j < n_exp; j++) {
+            const char* p = paths_to_check[j];
+            uint i;
+
+            printf("|Test %2i|\tPath:\t%s\n", j+1, p);
+
+            if(parse_path(p, &i) != FSOPSC) {
+                printf("lol parse path failed\n");
+                exit(1);
+            }
+
+            printf("Expected: %u\tActual: %u\t", expected_inodes[j], i);
+            if (i == expected_inodes[j]) {
+                printf("\t\t\t| SUCCESS\n");
+            } else {
+                printf("\t\t\t| FAIL\n");
+            }
+            printf("\n");
+        }
     }
 
     done:
