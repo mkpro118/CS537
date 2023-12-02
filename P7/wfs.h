@@ -354,6 +354,9 @@ static struct {
 
 ////////////////////// I-TABLE MANAGEMENT FUNCTIONS START //////////////////////
 
+#ifdef WFS_SETUP
+void _check() {}
+#else
 /**
  * Performs checks to verify in-memory data structures are intact
  */
@@ -380,6 +383,7 @@ void _check() {
         }
     }
 }
+#endif
 
 
 /**
