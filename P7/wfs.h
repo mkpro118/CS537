@@ -272,21 +272,21 @@ int fuse_main(int argc, char* argv[], struct fuse_operations* ops, void* opts);
 
 /////////////////////////// FUNCTION PROTOTYPES START //////////////////////////
 
-static void _check();
-static void fill_itable(uint, long);
-static inline void invalidate_itable();
-static int set_itable_capacity(uint);
-static int build_itable();
-static inline void invalidate_path_history();
-static int set_path_history_capacity(uint);
-static int find_file_in_dir(struct wfs_log_entry*, char*, uint*);
-static int parse_path(const char* restrict, uint* restrict);
-static struct wfs_log_entry* get_log_entry(uint);
-static void read_from_disk(off_t, struct wfs_log_entry**);
-static void setup_flock();
-static void begin_op();
-static void end_op();
-static void validate_disk_file();
+void _check();
+void fill_itable(uint, long);
+inline void invalidate_itable();
+int set_itable_capacity(uint);
+int build_itable();
+inline void invalidate_path_history();
+int set_path_history_capacity(uint);
+int find_file_in_dir(struct wfs_log_entry*, char*, uint*);
+int parse_path(const char* restrict, uint* restrict);
+struct wfs_log_entry* get_log_entry(uint);
+void read_from_disk(off_t, struct wfs_log_entry**);
+void setup_flock();
+void begin_op();
+void end_op();
+void validate_disk_file();
 
 //////////////////////////// FUNCTION PROTOTYPES END ///////////////////////////
 
@@ -353,7 +353,7 @@ static struct {
 /**
  * Performs checks to verify in-memory data structures are intact
  */
-static void _check() {
+void _check() {
     validate_disk_file();
     if (!ps_sb.is_valid) {
         WFS_ERROR("Cannot perform operation because given disk_file is not a valid wfs disk_file\n");
@@ -384,7 +384,7 @@ static void _check() {
  * @param inode_number Inode this entry is for
  * @param offset       The offset of the most recent entry for the given inode
  */
-static void fill_itable(uint inode_number, long offset) {
+void fill_itable(uint inode_number, long offset) {
     _check();
 
     if (ps_sb.itable.capacity <= inode_number)
@@ -397,7 +397,7 @@ static void fill_itable(uint inode_number, long offset) {
 /**
  * Invalidates the I-Table
  */
-static inline void invalidate_itable() {
+inline void invalidate_itable() {
     if (ps_sb.itable.table)
         free(ps_sb.itable.table);
 
@@ -416,7 +416,7 @@ static inline void invalidate_itable() {
  *           - EITWR   I-Table Was Reset
  *           - EITWNR  I-Table Was Not Reset
  */
-static int set_itable_capacity(uint capacity) {
+int set_itable_capacity(uint capacity) {
     off_t* temp;
     switch (ps_sb.itable.capacity) {
     case 0:
@@ -462,7 +462,7 @@ static int set_itable_capacity(uint capacity) {
  *           - EITWR   I-Table Was Reset
  *           - EITWNR  I-Table Was Not Reset
  */
-static int build_itable() {
+int build_itable() {
     ps_sb.n_inodes = 0;
     ps_sb.n_log_entries = 0;
 
@@ -551,7 +551,7 @@ static int build_itable() {
  * If path history is an array of uints, sets all except index 0 to (uint) -1
  * (uint) -1 is the code that specified invalid entry
  */
-static inline void invalidate_path_history() {
+inline void invalidate_path_history() {
     if (!ps_sb.path_history.history || ps_sb.path_history.capacity == 0) {
         ps_sb.path_history.capacity = 0;
         set_path_history_capacity(PATH_HISTORY_CAPACITY_INCREMENT);
@@ -572,7 +572,7 @@ static inline void invalidate_path_history() {
  *
  * @return Returns FSOPSC on success, FSOPFL on failure returns
  */
-static int set_path_history_capacity(uint capacity) {
+int set_path_history_capacity(uint capacity) {
     _check();
 
     uint* temp;
@@ -619,7 +619,7 @@ static int set_path_history_capacity(uint capacity) {
  *
  * @return  FSOPSC on success, FSOPFL on failure
  */
-static int find_file_in_dir(struct wfs_log_entry* entry, char* filename,
+int find_file_in_dir(struct wfs_log_entry* entry, char* filename,
                             uint* out) {
     if(_check_dir_inode(&entry->inode))
         return FSOPFL;
@@ -665,7 +665,7 @@ static int find_file_in_dir(struct wfs_log_entry* entry, char* filename,
  *
  * @return FSOPSC on success, FSOPFL on failure
  */
-static int parse_path(const char* path, uint* out) {
+int parse_path(const char* path, uint* out) {
     invalidate_path_history();
     char* orig = NULL;
     uint inode_number;
@@ -778,7 +778,7 @@ static int parse_path(const char* path, uint* out) {
  *
  * @return Pointer to an in-memory representation of the log_entry (heap allocated)
  */
-static struct wfs_log_entry* get_log_entry(uint inode_number) {
+struct wfs_log_entry* get_log_entry(uint inode_number) {
     if (inode_number > ps_sb.n_inodes || inode_number >= ps_sb.itable.capacity) {
         WFS_INFO("Inode %d was not found in the I-Table. Rebuilding...\n", inode_number);
         invalidate_itable();
@@ -812,7 +812,7 @@ static struct wfs_log_entry* get_log_entry(uint inode_number) {
  * @param offset    The offset of the start of the log_entry
  * @param entry_buf The log_entry buffer to fill. Will be heap allocated.
  */
-static void read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
+void read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
     *entry_buf = malloc(sizeof(struct wfs_log_entry));
 
     begin_op();
@@ -861,19 +861,19 @@ static void read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
 /**
  * Sets up file locks to work with multiple processes
  */
-static void setup_flock() {
+void setup_flock() {
     _check();
     ps_sb.wfs_lock.l_pid = getpid();
 }
 
-static inline void begin_op() {
+inline void begin_op() {
     ps_sb.wfs_lock.l_type = F_WRLCK;
     int ret;
     do {
         ret = fcntl(fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.wfs_lock);
     } while (ret == -1);
 }
-static inline void end_op() {
+inline void end_op() {
     int ret;
     do {
         ps_sb.wfs_lock.l_type = F_UNLCK;
@@ -891,7 +891,7 @@ static inline void end_op() {
  *
  * Exits with a failure code if the given file is invalid
  */
-static void validate_disk_file() {
+void validate_disk_file() {
     ps_sb.is_valid = 0;
 
     begin_op();
