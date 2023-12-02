@@ -47,18 +47,10 @@ static void heap_sort(off_t* arr, int n) {
 }
 
 int main(int argc, char const *argv[]) {
-    #if WFS_DBUG == 1
-    if (argc != 3) {
-        printf("IN DEBUG MODE\n");
-        printf("Usage: $ fsck.wfs disk_path outfile\n");
-        return 0;
-    }
-    #else
     if (argc != 2) {
         printf("Usage: $ fsck.wfs disk_path\n");
         return 0;
     }
-    #endif
 
     wfs_init(argv[1]);
 
@@ -76,20 +68,9 @@ int main(int argc, char const *argv[]) {
     #if WFS_DBUG == 1
     for (int i = 0; i < ps_sb.n_inodes; i++)
         printf("%lu\n", ps_sb.itable.table[i]);
-
-    FILE* infile = ps_sb.disk_file;
-    FILE* outfile = fopen(argv[2], "r+");
-    if (!outfile) {
-        WFS_ERROR("Couldn't open outfile \"%s\"\n", ps_sb.disk_filename);
-        exit(FSOPFL);
-    }
-
-    ps_sb.disk_file = outfile;
     #endif
 
-    #ifndef WFS_DBUG
     begin_op();
-    #endif
 
     ps_sb.sb.head = WFS_INIT_ROOT_OFFSET;
     write_sb_to_disk();
@@ -97,12 +78,11 @@ int main(int argc, char const *argv[]) {
     off_t* table = ps_sb.itable.table;
 
     for (off_t* off = table; off < &table[ps_sb.n_inodes]; off++) {
+        WFS_DEBUG("Current Head = %u", ps_sb.sb.head);
+
         struct wfs_log_entry* entry;
 
-        #if WFS_DBUG == 1
-        ps_sb.disk_file = infile;
-        #endif
-
+        WFS_DEBUG("Reading from offset %lu", *off);
         read_from_disk(*off, &entry);
 
         if (!entry) {
@@ -111,10 +91,6 @@ int main(int argc, char const *argv[]) {
                       *off);
             exit(FSOPFL);
         }
-
-        #if WFS_DBUG == 1
-        ps_sb.disk_file = infile;
-        #endif
 
         if(append_log_entry(entry)) {
             WFS_ERROR("Ran out of space while compacting? ABORTING!\n");
@@ -126,9 +102,7 @@ int main(int argc, char const *argv[]) {
 
     write_sb_to_disk();
 
-    #ifndef WFS_DBUG
     end_op();
-    #endif
 
     WFS_INFO("Finished compacting!\n");
     WFS_INFO("Final file size: %d\n", ps_sb.sb.head);

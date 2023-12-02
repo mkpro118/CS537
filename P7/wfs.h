@@ -938,8 +938,6 @@ void read_sb_from_disk() {
     // Store initial offset
     long pos = ftell(ps_sb.disk_file);
 
-    // ps_sb.disk_file = freopen(NULL, "r+", ps_sb.disk_file);
-
     if (fseek(ps_sb.disk_file, 0, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
         end_op();
