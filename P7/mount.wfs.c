@@ -422,7 +422,6 @@ static int set_path_history_capacity(uint capacity) {
  */
 static int find_file_in_dir(struct wfs_log_entry* entry, char* filename,
                             uint* out) {
-    WFS_DEBUG("Looking for %s, in entry with Inode number %u\n", filename, entry->inode.inode_number);
     if(_check_dir_inode(&entry->inode))
         return FSOPFL;
 
@@ -438,12 +437,9 @@ static int find_file_in_dir(struct wfs_log_entry* entry, char* filename,
 
         dentry->name[MAX_FILE_NAME_LEN - 1] = 0;
 
-        WFS_DEBUG("Last Dentry->name\t=\t%s\n", dentry->name);
-        WFS_DEBUG("Last Dentry->number\t=\t%lu\n", dentry->inode_number);
         inode_number = dentry->inode_number;
         break;
     }
-    WFS_DEBUG("Pre-set i-number:\t%d\tFor filename:\t%s\n", inode_number, filename);
     *out = inode_number;
 
     if (inode_number >= ps_sb.n_inodes) {
@@ -529,9 +525,7 @@ static int parse_path(const char* path, uint* out) {
         if (strcmp(".", token) == 0)
             goto next_token;
         else if (strcmp("..", token) == 0) {
-            WFS_DEBUG("Found \"..\"! Curr ph_idx is\t%i\n", ph_idx);
             ph_idx -= ph_idx != 0;
-            WFS_DEBUG("SET ph_idx to\t%i\n", ph_idx);
             goto next_token;
         }
 
@@ -541,12 +535,7 @@ static int parse_path(const char* path, uint* out) {
         if (ps_sb.path_history.capacity <= ph_idx)
             set_path_history_capacity(ph_idx + PATH_HISTORY_CAPACITY_INCREMENT);
 
-        WFS_DEBUG("Adding to the path history\n");
         ps_sb.path_history.history[ph_idx++] = inode_number;
-        for (int i = 0; i < ps_sb.path_history.capacity; i++) {
-            printf("%3d  ", ps_sb.path_history.history[i]);
-        }
-        printf("\n");
 
         next_token:
         // Free allocated memory for previous log_entry
@@ -561,7 +550,6 @@ static int parse_path(const char* path, uint* out) {
     }
 
     success:
-    WFS_DEBUG("Final ph_idx:\t%i\n", ph_idx - 1);
     *out = ps_sb.path_history.history[--ph_idx];
     if (orig)
         free(orig);
@@ -989,19 +977,20 @@ int main(int argc, char *argv[]) {
         const char* p = paths_to_check[j];
         uint i;
 
-        printf("Test %i\tParsing path:\t\"%s\"\n", j+1, p);
+        printf("|Test %2i|\tPath:\t%s\n", j+1, p);
 
         if(parse_path(p, &i) != FSOPSC) {
             printf("lol parse path failed\n");
             exit(1);
         }
 
-        printf("Expected:%u\tActual:%u\t", expected_inodes[j], i);
+        printf("Expected: %u\tActual: %u\t", expected_inodes[j], i);
         if (i == expected_inodes[j]) {
-            printf("| SUCCESS\n");
+            printf("\t\t\t| SUCCESS\n");
         } else {
-            printf("| FAIL\n");
+            printf("\t\t\t| FAIL\n");
         }
+        printf("\n");
     }
 
     done:
