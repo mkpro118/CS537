@@ -24,7 +24,8 @@ int main(int argc, const char* restrict argv[]) {
     // filename = argv[1]
 
     // Write in binary mode
-    ps_sb.disk_file = fopen(argv[1], "wb");
+    ps_sb.disk_filename = strdup(argv[1]);
+    ps_sb.disk_file = fopen(argv[1], "ab+");
 
     if (!ps_sb.disk_file) {
         WFS_ERROR("Failed to open file \"%s\"!\n", argv[1]);
@@ -47,13 +48,19 @@ int main(int argc, const char* restrict argv[]) {
         goto fail;
     }
 
-    printf("Successfully initialized file \"%s\" for WFS\n", argv[1]);
+    WFS_INFO("Successfully initialized file \"%s\" for WFS\n", argv[1]);
     fclose(ps_sb.disk_file);
+    free(ps_sb.disk_filename);
 
     success:
     return 0;
 
     fail:
     WFS_ERROR("Couldn't intialize WFS.\n");
+    if (ps_sb.disk_filename)
+        free(ps_sb.disk_filename);
+    if (ps_sb.disk_file)
+        fclose(ps_sb.disk_file);
+
     return 1;
 }
