@@ -161,42 +161,7 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    ps_sb.disk_filename = strdup(argv[argc - 2]);
-    if(!ps_sb.disk_filename){
-        WFS_ERROR("strdup failed\n");
-        exit(ITOPFL);
-    }
-    WFS_INFO("disk_path = %s\n", argv[argc - 2]);
-    ps_sb.disk_file = fopen(ps_sb.disk_filename, "a+");
-
-    if (!ps_sb.disk_file) {
-        WFS_ERROR("Couldn't open file \"%s\"\n", ps_sb.disk_filename);
-        exit(ITOPFL);
-    }
-
-    invalidate_itable();
-    invalidate_path_history();
-
-    validate_disk_file();
-
-    if (!ps_sb.is_valid) {
-        WFS_ERROR("Disk File validation failed! (disk_file: \"%s\")\n",
-                  ps_sb.disk_filename);
-        exit(FSOPFL);
-    }
-
-    setup_flock();
-
-    WFS_INFO("Building I-Table...\n");
-
-    int err;
-    if((err = build_itable(ps_sb.disk_file)) != ITOPSC) {
-        WFS_ERROR("Failed to build I-Table | Error Code: %d\n", err);
-        exit(FSOPFL);
-    }
-
-    WFS_INFO("Built I-Table successfully!\n");
-    WFS_INFO("Parsed %d log entries, with %d inodes\n", ps_sb.n_log_entries, ps_sb.n_inodes);
+    wfs_init(argv[argc - 2]);
 
     WFS_DEBUG("%p\n", (void*)&ops);
 
