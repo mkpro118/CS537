@@ -899,6 +899,11 @@ int write_to_disk(off_t offset, struct wfs_log_entry* entry) {
         exit(FSOPFL);
     }
 
+    if (fflush(NULL)) {
+        WFS_ERROR("fsync failed!\n");
+        exit(FSOPFL);
+    }
+
     if (fseek(ps_sb.disk_file, pos, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
         exit(FSOPFL);
@@ -936,6 +941,8 @@ void read_sb_from_disk() {
 
     // Store initial offset
     long pos = ftell(ps_sb.disk_file);
+
+    ps_sb.disk_file = freopen(NULL, "ab+", ps_sb.disk_file);
 
     if (fseek(ps_sb.disk_file, 0, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
@@ -1054,6 +1061,11 @@ void write_sb_to_disk() {
         WFS_ERROR("fsync failed!\n");
         exit(FSOPFL);
     }
+
+    if (fflush(NULL)) {
+        WFS_ERROR("fsync failed!\n");
+        exit(FSOPFL);
+    } 
 
     if (fseek(ps_sb.disk_file, pos, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
