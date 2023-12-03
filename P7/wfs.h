@@ -100,7 +100,7 @@
 } while(0)
 
 #define WFS_ERROR(...) do {\
-    fprintf(stderr, "\x1b[31m:ERROR:\x1b[0m (%d) ", __LINE__);\
+    fprintf(stderr, "\x1b[31m:ERROR:\x1b[0m (%s) ", __func__);\
     fprintf(stderr, __VA_ARGS__);\
 } while(0)
 
@@ -858,40 +858,75 @@ struct wfs_log_entry* get_log_entry(uint inode_number) {
 
 /**
  * Add a new WFS Dentry to the given log entry
- * @param  parent [description]
- * @param  dentry [description]
- * @return        [description]
+ * This can fail if a dentry with the same name already exists
+ *
+ * @param  entry  The log entry to extend with the given dentry
+ * @param  dentry The dentry to add
+ *
+ * @return  FSOPSC on success, FSOPFL on failure
  */
 int add_dentry(struct wfs_log_entry** entry, struct wfs_dentry* dentry) {
-    return 0;
+    // First we check if dentry already exists
+    int n_entries = (*entry)->inode.size / sizeof(struct wfs_dentry);
+
+    struct wfs_dentry* dentries = (struct wfs_dentry*) (*entry)->data;
+
+    for (int i = 0; i < n_entries; i++)
+        if (0 == strcmp(dentry->name, dentries[i].name))
+            return FSOPFL;
+
+    struct wfs_log_entry* temp = realloc(*entry, WFS_LOG_ENTRY_SIZE(*entry) + sizeof(struct wfs_dentry));
+
+    if (!temp) {
+        WFS_ERROR("realloc failed!");
+        return FSOPFL;
+    }
+
+    *entry = temp;
+
+    dentries = (struct wfs_dentry*) (*entry)->data;
+    dentries[n_entries] = *dentry;
+
+    return FSOPSC;
 }
 
 /**
  * Remove a WFS Dentry from the given log entry
- * @param  parent [description]
- * @param  dentry [description]
- * @return        [description]
+ *
+ * @param  entry  Log Entry that contains the given dentry
+ * @param  dentry The Dentry to remove
+ *
+ * @return  FSOPSC on success, FSOPFL on failure
  */
-int remove_dentry(struct wfs_log_entry** haystack, struct wfs_dentry* needle) {
-    int n_entries = (*haystack)->inode.size / sizeof(struct wfs_dentry);
+int remove_dentry(struct wfs_log_entry** entry, struct wfs_dentry* dentry) {
+    int n_entries = (*entry)->inode.size / sizeof(struct wfs_dentry);
 
-    struct wfs_dentry* dentry = (struct wfs_dentry*) (*haystack)->data;
+    struct wfs_dentry* dentries = (struct wfs_dentry*) (*entry)->data;
 
-    char found = 0;
+    int i;
 
-    for (int i = 0; i < n_entries; i++) {
-        if (!strcmp(needle->name, dentry[i].name)) {
-            found = 1;
+    for (i = 0; i < n_entries; i++)
+        if (0 == strcmp(dentry->name, dentries[i].name))
             break;
-        }
+
+    if (i >= n_entries)
+        return FSOPFL;
+
+    for (int j = i; j < n_entries - 1; j++)
+        dentries[j] = dentries[j + 1];
+
+    size_t new_size = WFS_LOG_ENTRY_SIZE(*entry) - sizeof(struct wfs_dentry);
+
+    struct wfs_log_entry* temp = realloc(*entry, new_size);
+
+    if (!temp) {
+        WFS_ERROR("realloc failed!");
+        return FSOPFL;
     }
 
-    if (!found) {
-        return -1;
-    }
+    *entry = temp;
 
-
-    return 0;
+    return FSOPSC;
 }
 
 //////////////////// FILE SYSTEM MANAGEMENT FUNCTIONS START ////////////////////
