@@ -1162,7 +1162,7 @@ void validate_disk_file() {
         return;
     }
 
-    if (ps_sb.cached_head != ps_sb.sb.head) {
+    if (ps_sb.cached_head != ps_sb.sb.head && !ps_sb.rebuilding) {
         WFS_INFO("Current head doesn't match cached head. Rebuilding I-Table...\n");
         if(build_itable() != ITOPSC) {
             WFS_ERROR("Failed to re-build I-Table\n");
@@ -1184,6 +1184,7 @@ void validate_disk_file() {
  */
 void wfs_init(const char* program, const char* filename) {
     ps_sb.fsck = strstr(program, "fsck.wfs") != NULL;
+    ps_sb.rebuilding = 1;
 
     ps_sb.disk_filename = strdup(filename);
     if(!ps_sb.disk_filename){
@@ -1223,6 +1224,7 @@ void wfs_init(const char* program, const char* filename) {
     WFS_INFO("Parsed %d log entries, with %d inodes\n", ps_sb.n_log_entries, ps_sb.n_inodes);
 
     WFS_INFO("WFS Initialized successfully!\n");
+    ps_sb.rebuilding = 0;
 }
 
 #endif
