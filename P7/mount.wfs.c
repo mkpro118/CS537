@@ -111,11 +111,11 @@ static int wfs_write(const char* path, const char* buf, size_t size, off_t offse
 }
 
 static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info* fi) {
+    _check();
 
     filler(buf,  ".", NULL, 0); // Current  directory
     filler(buf, "..", NULL, 0); // Previous directory
     
-    _check();
     uint inode_number;
 
     if(parse_path(path, &inode_number) != FSOPSC) {
@@ -129,28 +129,25 @@ static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler, off_
         return -ENOENT;
     }
 
-    // now we have access to the data we want to keep going copying until end of 
     int n_entries = entry->inode.size / sizeof(struct wfs_dentry);
 
     struct wfs_dentry* dentry = (struct wfs_dentry*) entry->data;
-    // Call the filler function with arguments of buf, the null-terminated filename, 
-    // the address of your struct stat (or NULL if you have none), 
-    // and the offset of the next directory entry.
+
     for (int i = 0; i < n_entries; i++, dentry++) {
-        // copy over stat pass it in 
-        char* filename = dentry->name;
-        uint currinode_number = dentry->inode_number;
-        struct wfs_log_entry* currentry = get_log_entry(currinode_number); 
-        if (!currentry) {
-            WFS_ERROR("Failed to find log_entry for inode %d.\n", inode_number);
-            return -ENOENT;
+        inode_number = dentry->inode_number;
+        struct wfs_log_entry* entry = get_log_entry(inode_number);
+
+        if (!entry) {
+            WFS_ERROR("Failed to find log_entry for inode %u.\n", inode_number);
+            continue;
         }
-        struct stat stbuf; 
-        wfs_stat_init(&stbuf, &currentry->inode);
-        filler(buf, filename, &stbuf,0);
-        free(currentry);
-        break;
-    } 
+
+        struct stat stbuf;
+        wfs_stat_init(&stbuf, &entry->inode);
+
+        filler(buf, dentry->name, &stbuf,0);
+        free(entry);
+    }
 
     free(entry);
     return 0;
