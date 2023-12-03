@@ -264,7 +264,7 @@ struct fuse_operations {
 };
 
 int fuse_main(int argc, char* argv[], struct fuse_operations* ops, void* opts);
-
+char* strndup(const char*, size_t);
 #endif
 ////////////////////////////// COPING BLOCK ENDS ///////////////////////////////
 
@@ -293,8 +293,11 @@ int build_itable();
 static inline void invalidate_path_history();
 int set_path_history_capacity(uint);
 int find_file_in_dir(struct wfs_log_entry*, char*, uint*);
+char* simplify_path(const char* restrict);
 int parse_path(const char* restrict, uint* restrict);
 struct wfs_log_entry* get_log_entry(uint);
+int add_dentry(struct wfs_log_entry** entry, struct wfs_dentry* dentry);
+int remove_dentry(struct wfs_log_entry** entry, struct wfs_dentry* dentry);
 int read_from_disk(off_t, struct wfs_log_entry**);
 int write_to_disk(off_t, struct wfs_log_entry*);
 int append_log_entry(struct wfs_log_entry*);
@@ -675,6 +678,7 @@ int find_file_in_dir(struct wfs_log_entry* entry, char* filename,
         inode_number = dentry->inode_number;
         break;
     }
+
     *out = inode_number;
 
     if (inode_number == ((uint)-1))
@@ -693,7 +697,7 @@ int find_file_in_dir(struct wfs_log_entry* entry, char* filename,
     return FSOPSC;
 }
 
-char* simplify_path(const char* path) {
+char* simplify_path(const char* restrict path) {
     ssize_t len = strlen(path);
     const char* s = path;
     const char* e = &path[len - 1];
@@ -834,6 +838,12 @@ struct wfs_log_entry* get_log_entry(uint inode_number) {
     }
 
     off_t offset = ps_sb.itable.table[inode_number];
+
+    if (offset < WFS_INIT_ROOT_OFFSET) {
+        WFS_ERROR("Inode Number %u has been deleted\n", inode_number);
+        return NULL;
+    }
+
     struct wfs_log_entry* entry = NULL;
 
     begin_op();
@@ -844,6 +854,44 @@ struct wfs_log_entry* get_log_entry(uint inode_number) {
         WFS_ERROR("Read from disk at offset %ld failed!\n", offset);
 
     return entry;
+}
+
+/**
+ * Add a new WFS Dentry to the given log entry
+ * @param  parent [description]
+ * @param  dentry [description]
+ * @return        [description]
+ */
+int add_dentry(struct wfs_log_entry** entry, struct wfs_dentry* dentry) {
+    return 0;
+}
+
+/**
+ * Remove a WFS Dentry from the given log entry
+ * @param  parent [description]
+ * @param  dentry [description]
+ * @return        [description]
+ */
+int remove_dentry(struct wfs_log_entry** haystack, struct wfs_dentry* needle) {
+    int n_entries = (*haystack)->inode.size / sizeof(struct wfs_dentry);
+
+    struct wfs_dentry* dentry = (struct wfs_dentry*) (*haystack)->data;
+
+    char found = 0;
+
+    for (int i = 0; i < n_entries; i++) {
+        if (!strcmp(needle->name, dentry[i].name)) {
+            found = 1;
+            break;
+        }
+    }
+
+    if (!found) {
+        return -1;
+    }
+
+
+    return 0;
 }
 
 //////////////////// FILE SYSTEM MANAGEMENT FUNCTIONS START ////////////////////

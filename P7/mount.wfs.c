@@ -199,17 +199,85 @@ static int wfs_unlink(const char* path) {
     }
 
     if(_check_reg_inode(&entry->inode)){
-        WFS_ERROR("Cannot unlink a directory\n");
+        WFS_ERROR("Unlink is only supported on regular files\n");
         return -1;
     }
 
     entry->inode.deleted = 1;
+
+    if (inode_number > ps_sb.n_inodes || inode_number >= ps_sb.itable.capacity) {
+        WFS_INFO("Inode %d was not found in the I-Table. Rebuilding...\n", inode_number);
+        invalidate_itable();
+        if (build_itable() != ITOPSC) {
+            WFS_ERROR("Failed to re-build I-Table.\n");
+            exit(ITOPFL);
+        }
+        WFS_INFO("I-Table was re-built successfully\n");
+    }
 
     off_t offset = ps_sb.itable.table[inode_number];
 
     write_to_disk(offset, entry);
     free(entry);
 
+    // Change the parent directory to reflect the deletion
+    char* _path = simplify_path(path);
+
+    char* base_file = strrchr(_path, '/');
+
+    struct wfs_dentry dentry = {
+        .name = {0},
+        .inode_number = inode_number,
+    };
+
+    // Special Case, File is in root
+    if (!base_file) {
+        if (!strncpy(dentry.name, base_file, MAX_FILE_NAME_LEN)) {
+            WFS_ERROR("strncpy failed!\n");
+            return -1;
+        }
+
+        entry = get_log_entry(0);
+
+        if (!entry) {
+            WFS_ERROR("Failed to find log_entry for inode %d.\n", inode_number);
+            return -ENOENT;
+        }
+
+        if (remove_dentry(&entry, &dentry)) {
+            WFS_ERROR("Failed to remove dentry %s from inode %i\n", _path, 0);
+            return -1;
+        }
+        free(_path);
+        return 0;
+    }
+
+    *base_file = 0;
+
+    if (!strncpy(dentry.name, base_file + 1, MAX_FILE_NAME_LEN)) {
+        WFS_ERROR("strncpy failed!\n");
+        return -1;
+    }
+
+    // Find parent Inode
+    if(parse_path(_path, &inode_number) != FSOPSC) {
+        WFS_ERROR("Failed to find inode\n");
+        return -ENOENT;
+    }
+
+    entry = get_log_entry(0);
+
+    if (!entry) {
+        WFS_ERROR("Failed to find log_entry for inode %d.\n", inode_number);
+        return -ENOENT;
+    }
+
+    if (remove_dentry(&entry, &dentry)) {
+        WFS_ERROR("Failed to remove dentry %s from inode %i\n", _path, 0);
+        return -1;
+    }
+
+    free(_path);
     return 0;
 }
 
