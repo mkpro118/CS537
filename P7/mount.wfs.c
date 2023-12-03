@@ -114,7 +114,7 @@ static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler, off_
     _check();
     filler(buf,  ".", NULL, 0); // Current  directory
     filler(buf, "..", NULL, 0); // Previous directory
-    /*
+    
     _check();
     uint inode_number;
 
@@ -133,12 +133,27 @@ static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler, off_
     int n_entries = entry->inode.size / sizeof(struct wfs_dentry);
 
     struct wfs_dentry* dentry = (struct wfs_dentry*) entry->data;
+    // Call the filler function with arguments of buf, the null-terminated filename, 
+    // the address of your struct stat (or NULL if you have none), 
+    // and the offset of the next directory entry.
     for (int i = 0; i < n_entries; i++, dentry++) {
         // copy over stat pass it in 
-        // char* filename = dentry->name;
-        inode_number = dentry->inode_number;
+        char* filename = dentry->name;
+        uint currinode_number = dentry->inode_number;
+        struct wfs_log_entry* currentry = get_log_entry(currinode_number); 
+        if (!currentry) {
+            WFS_ERROR("Failed to find log_entry for inode %d.\n", inode_number);
+            return -ENOENT;
+        }
+        struct stat* stbuf; 
+        wfs_stat_init(stbuf, &currentry->inode);
+        filler(buf, filename, stbuf,0);
+        free(stbuf);
+        free(currentry);
         break;
-    } */
+    } 
+
+    free(entry);
     return 0;
 }
 
