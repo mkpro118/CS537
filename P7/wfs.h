@@ -95,7 +95,7 @@
 #endif
 
 #define WFS_INFO(...) do {\
-    fprintf(stdout, "\x1b[33m:Info:\x1b[0m  ");\
+    fprintf(stdout, "\x1b[32m:Info:\x1b[0m  ");\
     fprintf(stdout, __VA_ARGS__);\
 } while(0)
 
