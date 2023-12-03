@@ -111,6 +111,9 @@ static int wfs_write(const char* path, const char* buf, size_t size, off_t offse
 }
 
 static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info* fi) {
+
+    filler(buf,  ".", NULL, 0); // Current  directory
+    filler(buf, "..", NULL, 0); // Previous directory
     
     _check();
     uint inode_number;
