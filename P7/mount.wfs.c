@@ -145,10 +145,9 @@ static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler, off_
             WFS_ERROR("Failed to find log_entry for inode %d.\n", inode_number);
             return -ENOENT;
         }
-        struct stat* stbuf; 
-        wfs_stat_init(stbuf, &currentry->inode);
-        filler(buf, filename, stbuf,0);
-        free(stbuf);
+        struct stat stbuf; 
+        wfs_stat_init(&stbuf, &currentry->inode);
+        filler(buf, filename, &stbuf,0);
         free(currentry);
         break;
     } 
