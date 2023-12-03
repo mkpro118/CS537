@@ -1165,6 +1165,7 @@ void validate_disk_file() {
             return;
         }
         WFS_INFO("Re-built I-Table successfully!\n");
+        ps_sb.cached_head = ps_sb.sb.head;
     }
 
     ps_sb.is_valid = 1;
