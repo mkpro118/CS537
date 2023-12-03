@@ -912,12 +912,9 @@ int read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
  *          FSOPFL on failure of any other type
  */
 int write_to_disk(off_t offset, struct wfs_log_entry* entry) {
-	WFS_DEBUG("Writing log entry at offset %lu (inode = %u)\n", offset, entry->inode.inode_number);
-    _check();
+	_check();
 
     size_t size = WFS_LOG_ENTRY_SIZE(entry);
-
-    WFS_DEBUG("size = %lu\n", size);
 
     if ((offset + size) > MAX_DISK_FILE_SIZE)
         return -ENOSPC;
@@ -928,8 +925,6 @@ int write_to_disk(off_t offset, struct wfs_log_entry* entry) {
         WFS_ERROR("fseek failed!\n");
         return FSOPFL;
     }
-
-    WFS_DEBUG("seek = %li\n", ftell(ps_sb.disk_file));
 
     if(fwrite(entry, size, 1, ps_sb.disk_file) < 1) {
         WFS_ERROR("fwrite failed!\n");
