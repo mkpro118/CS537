@@ -417,7 +417,7 @@ int main(int argc, char *argv[]) {
 
         struct wfs_dentry dentry = {
             .name = "file3",
-            .inode_number = ps_sb.n_inodes + 1,
+            .inode_number = ps_sb.n_inodes,
         };
 
         if (add_dentry(&root, &dentry)) {
