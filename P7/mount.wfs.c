@@ -159,6 +159,37 @@ static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler, off_
 
 static int wfs_unlink(const char* path) {
     _check();
+    // get the inode # at path
+    // get log entry at inode # 
+    uint inode_number;
+
+    if(inode_number == 0){
+        WFS_ERROR("Cannot unlink root\n");
+        return -1;
+    }
+
+   
+    if(parse_path(path, &inode_number) != FSOPSC) {
+        WFS_ERROR("Failed to find inode\n");
+        return -ENOENT;
+    }
+
+    struct wfs_log_entry* entry = get_log_entry(inode_number);
+    if (!entry) {
+        WFS_ERROR("Failed to find log_entry for inode %d.\n", inode_number);
+        return -ENOENT;
+    }
+     // check reg inode
+    if(_check_reg_inode(&entry->inode) == 1){
+        WFS_ERROR("Cannot unlink a directory\n");
+        return -1;
+    }
+    // see entry->inode->deleted = 1
+    entry->inode.deleted = 1;
+    // now we need to write tis back to disk so search up offset in itable 
+    off_t offset = ps_sb.itable.table[inode_number];
+    write_to_disk(offset, entry);
+    free(entry);
     return 0;
 }
 
