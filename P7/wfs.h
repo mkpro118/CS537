@@ -693,6 +693,17 @@ int find_file_in_dir(struct wfs_log_entry* entry, char* filename,
     return FSOPSC;
 }
 
+char* simplify_path(const char* path) {
+    ssize_t len = strlen(path);
+    const char* s = path;
+    const char* e = &path[len - 1];
+
+    while (s < e && *s == '/') s++;
+    while (e > s && *e == '/') e--;
+
+    return strndup(s, e - s);
+}
+
 /**
  * Given a path, this function will parse it to find the inode number
  * corresponding to the file or directory point to by this
@@ -717,20 +728,10 @@ int parse_path(const char* path, uint* out) {
     if (strcmp("/", path) == 0)
         goto success;
 
-    // Strip any leading forward slashes
-    const char* p = path;
-    while (*p++ == '/');
-    p--;
-
-    char* _path = strdup(p);
+    char* _path = simplify_path(path);
     orig = _path;
-    ssize_t len = strlen(_path);
 
-    // Strip any trailing forward slashes
-    while (len > 0 && _path[len - 1] == '/')
-        _path[--len] = '\0';
-
-    // If fter all stripping we're left with nothing (i.e. "///" -> "")
+    // If after all stripping we're left with nothing (i.e. "///" -> "")
     if (*_path == '\0')
         goto success;
 
