@@ -701,7 +701,7 @@ char* simplify_path(const char* path) {
     while (s < e && *s == '/') s++;
     while (e > s && *e == '/') e--;
 
-    return strndup(s, e - s);
+    return strndup(s, e - s + 1);
 }
 
 /**
@@ -1206,6 +1206,8 @@ void wfs_init(const char* program, const char* filename) {
                   ps_sb.disk_filename);
         exit(FSOPFL);
     }
+
+    ps_sb.cached_head = ps_sb.sb.head;
 
     setup_flock();
 
