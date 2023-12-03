@@ -64,9 +64,9 @@
     else if (S_ISDIR(((x)->inode.mode))) {\
         printf("Directory Contents:\n");\
 \
-        int n_entries = entry->inode.size / sizeof(struct wfs_dentry);\
+        int n_entries = (x)->inode.size / sizeof(struct wfs_dentry);\
 \
-        struct wfs_dentry* dentry = (struct wfs_dentry*) entry->data;\
+        struct wfs_dentry* dentry = (struct wfs_dentry*) (x)->data;\
 \
         for (int i = 0; i < n_entries; i++, dentry++) {\
             struct wfs_log_entry* temp = get_log_entry(dentry->inode_number);\
@@ -875,7 +875,8 @@ int add_dentry(struct wfs_log_entry** entry, struct wfs_dentry* dentry) {
         if (0 == strcmp(dentry->name, dentries[i].name))
             return FSOPFL;
 
-    struct wfs_log_entry* temp = realloc(*entry, WFS_LOG_ENTRY_SIZE(*entry) + sizeof(struct wfs_dentry));
+    size_t new_size = WFS_LOG_ENTRY_SIZE(*entry) + sizeof(struct wfs_dentry);
+    struct wfs_log_entry* temp = realloc(*entry, new_size);
 
     if (!temp) {
         WFS_ERROR("realloc failed!");
@@ -886,6 +887,8 @@ int add_dentry(struct wfs_log_entry** entry, struct wfs_dentry* dentry) {
 
     dentries = (struct wfs_dentry*) (*entry)->data;
     dentries[n_entries] = *dentry;
+
+    (*entry)->inode.size = new_size;
 
     return FSOPSC;
 }
@@ -925,6 +928,7 @@ int remove_dentry(struct wfs_log_entry** entry, struct wfs_dentry* dentry) {
     }
 
     *entry = temp;
+    (*entry)->inode.size = new_size;
 
     return FSOPSC;
 }

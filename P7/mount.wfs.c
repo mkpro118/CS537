@@ -310,19 +310,19 @@ int main(int argc, char *argv[]) {
     /* For testing */
     #if WFS_DBUG == 1
 
-    int print_inodes  = 0;
-    int test_parse    = 0;
-    int add_dentry    = 0;
-    int remove_dentry = 0;
+    int print_inodes = 0;
+    int test_parse   = 0;
+    int add          = 0;
+    int remove       = 0;
     for (int i = 0; i < argc; i++) {
         if (strcmp("-i", argv[i]) == 0) {
             print_inodes = 1;
         } else if (strcmp("-p", argv[i]) == 0) {
             test_parse = 1;
         } else if (strcmp("-a", argv[i]) == 0) {
-            add_dentry = 1;
+            add = 1;
         } else if (strcmp("-r", argv[i]) == 0) {
-            remove_dentry = 1;
+            remove = 1;
         }
     }
 
@@ -402,7 +402,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if (add_dentry) {
+    if (add) {
         if (strstr(argv[argc - 2], "prebuilt_disk") == NULL) {
             printf("-a requires disk_file to be \"prebuilt_disk\"\n");
             goto done;
@@ -418,17 +418,19 @@ int main(int argc, char *argv[]) {
         struct wfs_dentry dentry = {
             .name = "file3",
             .inode_number = ps_sb.n_inodes + 1,
-        }
+        };
 
         if (add_dentry(&root, &dentry)) {
-            WFS_ERROR("Failed to add dentry! {.name = %s, .inode_number = %d}\n", dentry.name, dentry.inode_number);
+            WFS_ERROR("Failed to add dentry! {.name = %s, .inode_number = %lu}\n", dentry.name, dentry.inode_number);
         }
+
+        ps_sb.n_inodes++;
 
         PRINT_LOG_ENTRY(root);
         printf("\n");
     }
 
-    if (remove_dentry) {
+    if (remove) {
         if (strstr(argv[argc - 2], "prebuilt_disk") == NULL) {
             printf("-r requires disk_file to be \"prebuilt_disk\"\n");
             goto done;
@@ -444,10 +446,10 @@ int main(int argc, char *argv[]) {
         struct wfs_dentry dentry = {
             .name = "file1",
             .inode_number = 2,
-        }
+        };
 
         if (remove_dentry(&root, &dentry)) {
-            WFS_ERROR("Failed to remove dentry! {.name = %s, .inode_number = %d}\n", dentry.name, dentry.inode_number);
+            WFS_ERROR("Failed to remove dentry! {.name = %s, .inode_number = %lu}\n", dentry.name, dentry.inode_number);
         }
 
         PRINT_LOG_ENTRY(root);
