@@ -52,10 +52,12 @@ static int wfs_getattr(const char* path, struct stat* stbuf) {
 }
 
 static int wfs_mknod(const char* path, mode_t mode, dev_t rdev) {
+    _check();
     return 0;
 }
 
 static int wfs_mkdir(const char* path, mode_t mode) {
+    _check();
     return 0;
 }
 
@@ -104,10 +106,12 @@ static int wfs_read(const char* path, char* buf, size_t size, off_t offset, stru
 }
 
 static int wfs_write(const char* path, const char* buf, size_t size, off_t offset, struct fuse_file_info* fi) {
+    _check();
     return 0;
 }
 
 static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info* fi) {
+    _check();
     filler(buf,  ".", NULL, 0); // Current  directory
     filler(buf, "..", NULL, 0); // Previous directory
     /*
@@ -139,6 +143,7 @@ static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler, off_
 }
 
 static int wfs_unlink(const char* path) {
+    _check();
     return 0;
 }
 
