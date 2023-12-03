@@ -18,7 +18,7 @@
 int main(int argc, const char* restrict argv[]) {
     if (argc != 2) {
         printf("Usage: mkfs.wfs disk_path\n");
-        goto success;
+        return 0;
     }
 
     ps_sb.disk_filename = strdup(argv[1]);
@@ -53,7 +53,6 @@ int main(int argc, const char* restrict argv[]) {
 
     WFS_INFO("Successfully initialized file \"%s\" for WFS\n", argv[1]);
 
-    success:
     end_op();
     fclose(ps_sb.disk_file);
     free(ps_sb.disk_filename);
