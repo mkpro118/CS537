@@ -151,11 +151,22 @@ enum InodeModes {
     DIRECTORY_MODE = S_IFDIR,
 };
 
+/**
+ * Initialize a Superblock
+ *
+ * @param sb The superblock buffer to fill up
+ */
 void wfs_sb_init(struct wfs_sb* restrict sb) {
     sb->magic = WFS_MAGIC;
     sb->head = (uint32_t) WFS_BASE_ENTRY_OFFSET;
 }
 
+/**
+ * Initialize an Inode
+ *
+ * @param inode The inode buffer to fill up
+ * @param mode  The mode of the new inode
+ */
 void wfs_inode_init(struct wfs_inode* restrict inode, enum InodeModes mode) {
     static unsigned int inode_number = WFS_INITIAL_INODE_NUMBER;
     *inode = (struct wfs_inode) {
@@ -267,8 +278,8 @@ int fuse_main(int argc, char* argv[], struct fuse_operations* ops, void* opts);
 #define EITWNR -4 // I-Table Was Not Reset              |  Error  Code
 
 
-#define FSOPSC 0  // File System operation succeeded    | Success Code
-#define FSOPFL 1  // File System operation failed       | Failure Code
+#define FSOPSC  0  // File System operation succeeded   | Success Code
+#define FSOPFL -1  // File System operation failed      | Failure Code
 ////////////////////////////////// ERROR CODES /////////////////////////////////
 
 
@@ -286,6 +297,7 @@ int parse_path(const char* restrict, uint* restrict);
 struct wfs_log_entry* get_log_entry(uint);
 int read_from_disk(off_t, struct wfs_log_entry**);
 int write_to_disk(off_t, struct wfs_log_entry*);
+int append_log_entry(struct wfs_log_entry*);
 int read_sb_from_disk();
 int write_sb_to_disk();
 void setup_flock();
@@ -387,7 +399,6 @@ void _check() {
     }
 }
 
-
 /**
  * Adds or updates itable entries for the given inode
  *
@@ -403,7 +414,6 @@ void fill_itable(uint inode_number, long offset) {
     ps_sb.itable.table[inode_number] = offset;
 }
 
-
 /**
  * Invalidates the I-Table
  */
@@ -414,7 +424,6 @@ static inline void invalidate_itable() {
     ps_sb.itable.table = NULL;
     ps_sb.itable.capacity = 0;
 }
-
 
 /**
  * Increase the capacity of the I-Table
@@ -820,6 +829,11 @@ struct wfs_log_entry* get_log_entry(uint inode_number) {
     return entry;
 }
 
+//////////////////// FILE SYSTEM MANAGEMENT FUNCTIONS START ////////////////////
+
+
+///////////////////// DISK FILE MANAGEMENT FUNCTIONS START /////////////////////
+
 /**
  * Reads the log_entry at the given offset from the disk image
  *
@@ -1067,11 +1081,6 @@ int write_sb_to_disk() {
     return FSOPSC;
 }
 
-//////////////////// FILE SYSTEM MANAGEMENT FUNCTIONS START ////////////////////
-
-
-///////////////////// DISK FILE MANAGEMENT FUNCTIONS START /////////////////////
-
 /**
  * Sets up file locks to work with multiple processes
  */
@@ -1080,6 +1089,9 @@ void setup_flock() {
     ps_sb.wfs_lock.l_pid = getpid();
 }
 
+/**
+ * Acquire file locks
+ */
 static inline void begin_op() {
     ps_sb.wfs_lock.l_type = F_WRLCK;
     int ret;
@@ -1087,6 +1099,10 @@ static inline void begin_op() {
         ret = fcntl(fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.wfs_lock);
     } while (ret == -1);
 }
+
+/**
+ * Release file locks
+ */
 static inline void end_op() {
     int ret;
     do {
@@ -1129,6 +1145,12 @@ void validate_disk_file() {
 
 ////////////////////// DISK FILE MANAGEMENT FUNCTIONS END //////////////////////
 
+/**
+ * Initializes WFS for a `program` with the given disk `filename`
+ *
+ * @param program  The program to initialize WFS for
+ * @param filename The path to the disk file
+ */
 void wfs_init(const char* program, const char* filename) {
     ps_sb.fsck = strstr(program, "fsck.wfs") != NULL;
 
