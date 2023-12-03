@@ -313,14 +313,14 @@ int main(int argc, char *argv[]) {
             printf("Expected: %u\tActual: %u\t", expected_inodes[j], i);
             if (i == expected_inodes[j]) {
                 if (j < (n_exp - 4))
-                    printf("\t\t\t| SUCCESS\n");
+                    printf("\t\t\t| \x1b[32mSUCCESS\x1b[0m\n");
                 else
-                    printf("\t| SUCCESS\n");
+                    printf("\t| \x1b[32mSUCCESS\x1b[0m\n");
             } else {
                 if (j < (n_exp - 4))
-                    printf("\t\t\t| FAIL\n");
+                    printf("\t\t\t| \x1b[31mFAIL\x1b[0m\n");
                 else
-                    printf("\t| FAIL\n");
+                    printf("\t| \x1b[31mFAIL\x1b[0m\n");
             }
             printf("\n");
         }
