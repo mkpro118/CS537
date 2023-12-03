@@ -29,6 +29,7 @@ int main(int argc, const char* restrict argv[]) {
         goto fail;
     }
 
+    ps_sb.rebuilding = 1;
     begin_op();
 
     fseek(ps_sb.disk_file, 0, SEEK_SET);
