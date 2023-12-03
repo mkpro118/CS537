@@ -244,10 +244,11 @@ static int wfs_unlink(const char* path) {
             return -ENOENT;
         }
 
-        if (remove_dentry(&entry, &dentry)) {
+        if (remove_dentry(&entry, &dentry) != FSOPSC) {
             WFS_ERROR("Failed to remove dentry %s from inode %i\n", _path, 0);
             return -1;
         }
+
         free(_path);
         return 0;
     }
@@ -265,17 +266,19 @@ static int wfs_unlink(const char* path) {
         return -ENOENT;
     }
 
-    entry = get_log_entry(0);
+    entry = get_log_entry(inode_number);
 
     if (!entry) {
         WFS_ERROR("Failed to find log_entry for inode %d.\n", inode_number);
         return -ENOENT;
     }
 
-    if (remove_dentry(&entry, &dentry)) {
+    if (remove_dentry(&entry, &dentry) != FSOPSC) {
         WFS_ERROR("Failed to remove dentry %s from inode %i\n", _path, 0);
         return -1;
     }
+
+
 
     free(_path);
     return 0;
@@ -307,14 +310,19 @@ int main(int argc, char *argv[]) {
     /* For testing */
     #if WFS_DBUG == 1
 
-    int print_inodes = 0;
-    int test_parse   = 0;
+    int print_inodes  = 0;
+    int test_parse    = 0;
+    int add_dentry    = 0;
+    int remove_dentry = 0;
     for (int i = 0; i < argc; i++) {
         if (strcmp("-i", argv[i]) == 0) {
             print_inodes = 1;
-        }
-        else if (strcmp("-p", argv[i]) == 0) {
+        } else if (strcmp("-p", argv[i]) == 0) {
             test_parse = 1;
+        } else if (strcmp("-a", argv[i]) == 0) {
+            add_dentry = 1;
+        } else if (strcmp("-r", argv[i]) == 0) {
+            remove_dentry = 1;
         }
     }
 
@@ -331,7 +339,7 @@ int main(int argc, char *argv[]) {
 
     if (test_parse) {
         if (strstr(argv[argc - 2], "prebuilt_disk") == NULL) {
-            printf("-p required disk_file to be \"prebuilt_disk\"\n");
+            printf("-p requires disk_file to be \"prebuilt_disk\"\n");
             goto done;
         }
 
@@ -392,6 +400,58 @@ int main(int argc, char *argv[]) {
             }
             printf("\n");
         }
+    }
+
+    if (add_dentry) {
+        if (strstr(argv[argc - 2], "prebuilt_disk") == NULL) {
+            printf("-a requires disk_file to be \"prebuilt_disk\"\n");
+            goto done;
+        }
+
+        struct wfs_log_entry* root = get_log_entry(0);
+
+        if (!root) {
+            WFS_ERROR("Failed to fetch root entry\n");
+            goto done;
+        }
+
+        struct wfs_dentry dentry = {
+            .name = "file3",
+            .inode_number = ps_sb.n_inodes + 1,
+        }
+
+        if (add_dentry(&root, &dentry)) {
+            WFS_ERROR("Failed to add dentry! {.name = %s, .inode_number = %d}\n", dentry.name, dentry.inode_number);
+        }
+
+        PRINT_LOG_ENTRY(root);
+        printf("\n");
+    }
+
+    if (remove_dentry) {
+        if (strstr(argv[argc - 2], "prebuilt_disk") == NULL) {
+            printf("-r requires disk_file to be \"prebuilt_disk\"\n");
+            goto done;
+        }
+
+        struct wfs_log_entry* root = get_log_entry(0);
+
+        if (!root) {
+            WFS_ERROR("Failed to fetch root entry\n");
+            goto done;
+        }
+
+        struct wfs_dentry dentry = {
+            .name = "file1",
+            .inode_number = 2,
+        }
+
+        if (remove_dentry(&root, &dentry)) {
+            WFS_ERROR("Failed to remove dentry! {.name = %s, .inode_number = %d}\n", dentry.name, dentry.inode_number);
+        }
+
+        PRINT_LOG_ENTRY(root);
+        printf("\n");
     }
 
     done:
