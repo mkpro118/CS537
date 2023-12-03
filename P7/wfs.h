@@ -32,7 +32,7 @@
 #if WFS_DBUG == 1
 
 #define WFS_DEBUG(...) do {\
-    fprintf(stdout, ":DEBUG (%d):  ", __LINE__);\
+    fprintf(stdout, "\x1b[33m:DEBUG (%d):\x1b[0m  ", __LINE__);\
     fprintf(stdout, __VA_ARGS__);\
 } while(0)
 
@@ -95,12 +95,12 @@
 #endif
 
 #define WFS_INFO(...) do {\
-    fprintf(stdout, ":Info:  ");\
+    fprintf(stdout, "\x1b[33m:Info:\x1b[0m  ");\
     fprintf(stdout, __VA_ARGS__);\
 } while(0)
 
 #define WFS_ERROR(...) do {\
-    fprintf(stderr, ":ERROR: (%d) ", __LINE__);\
+    fprintf(stderr, "\x1b[31m:ERROR:\x1b[0m (%d) ", __LINE__);\
     fprintf(stderr, __VA_ARGS__);\
 } while(0)
 
