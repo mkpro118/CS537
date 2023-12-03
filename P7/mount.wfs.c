@@ -107,6 +107,29 @@ static int wfs_read(const char* path, char* buf, size_t size, off_t offset, stru
 
 static int wfs_write(const char* path, const char* buf, size_t size, off_t offset, struct fuse_file_info* fi) {
     _check();
+     uint inode_number;
+
+    if(parse_path(path, &inode_number) != FSOPSC) {
+        WFS_ERROR("Failed to find inode\n");
+        return -ENOENT;
+    }
+
+    struct wfs_log_entry* entry = get_log_entry(inode_number);
+    if (!entry) {
+        WFS_ERROR("Failed to find log_entry for inode %d.\n", inode_number);
+        return -ENOENT;
+    }
+    // now we copy from buff to entry 
+
+    // check if its too much- offset + size > inode.size 
+    if(offset + size > entry->inode.size){
+        // realloc 
+
+        // change inode size if u realloc-ed
+    }
+
+    
+    free(entry);
     return 0;
 }
 
