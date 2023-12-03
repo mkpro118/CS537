@@ -320,8 +320,9 @@ void validate_disk_file();
  * This should be validated using the _check() function before any operation
  */
 static struct {
-    unsigned char is_valid;
-    unsigned char fsck;
+    unsigned char is_valid: 2;
+    unsigned char fsck: 2;
+    unsigned char rebuilding: 4;
     uint n_inodes;
     uint n_log_entries;
     char* restrict disk_filename;
@@ -336,8 +337,11 @@ static struct {
         uint capacity;  // backwards for relative paths.
     } path_history;     // Used only by parse_path
     struct wfs_sb sb; // This is set in validate_disk_file().
+    uint cached_head;
 } ps_sb = {
     .is_valid = 0,
+    .fsck = 0,
+    .rebuilding = 0,
     .n_inodes = 0,
     .n_log_entries = 0,
     .disk_filename = NULL,
@@ -361,6 +365,7 @@ static struct {
         .magic = 0,
         .head = 0,
     },
+    .cached_head = 0,
 };
 
 ////////////////////////// BOOKKEEPING VARIABLES END ///////////////////////////
@@ -373,17 +378,19 @@ static struct {
  */
 void _check() {
     // FSCK performs it's own checks
-    if (ps_sb.fsck)
+    if (ps_sb.fsck || ps_sb.rebuilding)
         return;
 
     validate_disk_file();
+
     if (!ps_sb.is_valid) {
         WFS_ERROR("Cannot perform operation because given disk_file is not a valid wfs disk_file\n");
-        exit(ITOPFL);
+        exit(FSOPFL);
     }
 
     if (!ps_sb.disk_filename) {
         WFS_ERROR("No disk file is specified\n");
+        exit(FSOPFL);
     }
 
     if (!ps_sb.disk_file) {
@@ -394,7 +401,7 @@ void _check() {
 
         if (!ps_sb.disk_file || (build_itable() != ITOPSC)) {
             WFS_ERROR("Retry failed! Exiting!\n");
-            exit(ITOPFL);
+            exit(FSOPFL);
         }
     }
 }
@@ -482,6 +489,7 @@ int set_itable_capacity(uint capacity) {
  *           - EITWNR  I-Table Was Not Reset
  */
 int build_itable() {
+    ps_sb.rebuilding = 1;
     _check();
     ps_sb.n_inodes = 0;
     ps_sb.n_log_entries = 0;
@@ -501,6 +509,7 @@ int build_itable() {
         if (!entry) {
             WFS_ERROR("MALLOC FAILED!\n");
             end_op();
+            ps_sb.rebuilding = 0;
             return ITOPFL;
         }
 
@@ -508,6 +517,7 @@ int build_itable() {
             WFS_ERROR("fread Failed!\n");
             free(entry);
             end_op();
+            ps_sb.rebuilding = 0;
             return ITOPFL;
         }
 
@@ -528,15 +538,18 @@ int build_itable() {
                 WFS_ERROR("Future operations should try to re-read the disk image to re-build the ps_sb.itable.\n");
                 invalidate_itable();
                 end_op();
+                ps_sb.rebuilding = 0;
                 return EITWNB;
             case EITWR:
                 WFS_ERROR("Orignal data should be intact.\n");
                 end_op();
+                ps_sb.rebuilding = 0;
                 return EITWR;
             case EITWNR:
                 WFS_ERROR("Failed to restore old data.\n");
                 invalidate_itable();
                 end_op();
+                ps_sb.rebuilding = 0;
                 return EITWNR;
             }
         }
@@ -556,8 +569,11 @@ int build_itable() {
 
     if (*ps_sb.itable.table < WFS_INIT_ROOT_OFFSET) {
         WFS_ERROR("Didn't find root inode. Build Failed!\n");
+        ps_sb.rebuilding = 0;
         return ITOPFL;
     }
+
+    ps_sb.rebuilding = 0;
     return ITOPSC;
 }
 
@@ -1097,7 +1113,12 @@ static inline void begin_op() {
     int ret;
     do {
         ret = fcntl(fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.wfs_lock);
-    } while (ret == -1);
+    } while (ret == -1  && errno == EINTR);
+
+    if (ret == -1) {
+        WFS_ERROR("FLock Lock failed! (err: %s)", strerror(errno));
+        exit(FSOPFL);
+    }
 }
 
 /**
@@ -1112,6 +1133,7 @@ static inline void end_op() {
 
     if (ret == -1) {
         WFS_ERROR("FLock Unlock failed! (err: %s)", strerror(errno));
+        exit(FSOPFL);
     }
 }
 
@@ -1138,6 +1160,15 @@ void validate_disk_file() {
                   "(head = %x)\n",
                   ps_sb.disk_filename, ps_sb.sb.head);
         return;
+    }
+
+    if (ps_sb.cached_head != ps_sb.sb.head) {
+        WFS_INFO("Current head doesn't match cached head. Rebuilding I-Table...\n");
+        if(build_itable() != ITOPSC) {
+            WFS_ERROR("Failed to re-build I-Table\n");
+            return;
+        }
+        WFS_INFO("Re-built I-Table successfully!\n");
     }
 
     ps_sb.is_valid = 1;
