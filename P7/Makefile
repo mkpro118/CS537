@@ -34,3 +34,8 @@ debug:
 	$(CC) $(CFLAGS) $(DEBUG_CFLAGS) mount.wfs.c $(FUSE_CFLAGS) -o mount.wfs
 	$(CC) $(CFLAGS) $(DEBUG_CFLAGS) -o mkfs.wfs mkfs.wfs.c
 	$(CC) $(CFLAGS) $(DEBUG_CFLAGS) -o fsck.wfs fsck.wfs.c
+
+.PHONY: test
+test:
+	~cs537-1/tests/P7/start.py
+
