@@ -438,25 +438,6 @@ static int wfs_unlink(const char* path) {
 
 ////////////////////// FILE CHANGE SIGNAL HANDLERS START ///////////////////////
 
-void sigusr1_handler(int signum) {
-    WFS_INFO("Caught SIGUSR1\n");
-    release_fsck_lock();
-}
-
-void sigusr2_handler(int signum) {
-    WFS_INFO("Caught SIGUSR2\n");
-    FILE* f = freopen(ps_sb.disk_filename, "r+", ps_sb.disk_file);
-
-    if (!f) {
-        WFS_ERROR("freopen faile!\n");
-        exit(FSOPFL);
-    }
-
-    ps_sb.disk_file = f;
-    setup_flocks();
-    acquire_fsck_lock();
-}
-
 void sigio_handler(int signum) {
     WFS_INFO("Caught SIGIO\n");
     FILE* f = freopen(ps_sb.disk_filename, "r+", ps_sb.disk_file);
@@ -680,42 +661,6 @@ int main(int argc, char *argv[]) {
     argv[argc - 2] = argv[fuse_argc];
     argv[fuse_argc] = NULL;
 
-    // acquire_fsck_lock();
-
-    // // set up SIGUSR1
-    // {
-    //     struct sigaction sa;
-
-    //     memset(&sa, 0, sizeof(struct sigaction));
-
-    //     sa.sa_handler = sigusr1_handler;
-
-    //     // ensure the handler is bound properly
-    //     if (sigaction(SIGUSR1, &sa, NULL) < 0) {
-    //         WFS_ERROR("FATAL ERROR: Couldn't bind SIGUSR2!\n");
-    //         exit(FSOPFL);
-    //     } else {
-    //         WFS_INFO("Successfully setup SIGUSR1!\n");
-    //     }
-    // }
-
-    // // set up SIGUSR2
-    // {
-    //     struct sigaction sa;
-
-    //     memset(&sa, 0, sizeof(struct sigaction));
-
-    //     sa.sa_handler = sigusr1_handler;
-
-    //     // ensure the handler is bound properly
-    //     if (sigaction(SIGUSR2, &sa, NULL) < 0) {
-    //         WFS_ERROR("FATAL ERROR: Couldn't bind SIGUSR2!\n");
-    //         exit(FSOPFL);
-    //     } else {
-    //         WFS_INFO("Successfully setup SIGUSR2!\n");
-    //     }
-    // }
-
     // set up SIGIO
     {
         /* Open the directory to be monitored */
@@ -737,7 +682,7 @@ int main(int argc, char *argv[]) {
             return FSOPFL;
         }
 
-        if (fcntl(fd, F_NOTIFY, DN_CREATE | DN_DELETE | DN_MODIFY | DN_MULTISHOT) == -1) {
+        if (fcntl(fd, F_NOTIFY, DN_MODIFY | DN_MULTISHOT) == -1) {
             WFS_ERROR("fcntl for monitoring failed!\n");
             return FSOPFL;
         }
