@@ -124,10 +124,17 @@ int main(int argc, char const *argv[]) {
 
         size_t size = WFS_LOG_ENTRY_SIZE(entry);
 
+        if (fseek(ps_sb.disk_file, ps_sb.sb.head, SEEK_SET)) {
+            WFS_ERROR("fseek failed!\n");
+            return FSOPFL;
+        }
+
         if(fwrite(entry, size, 1, ps_sb.disk_file) < 1) {
             WFS_ERROR("fwrite failed!\n");
             return FSOPFL;
         }
+
+        ps_sb.sb.head = ftell(ps_sb.disk_file);
 
         free(entry);
     }
