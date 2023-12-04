@@ -7,11 +7,12 @@ FUSE_CFLAGS = `pkg-config fuse --cflags --libs`
 DEBUG_CFLAGS = -DWFS_DBUG=1 -g -fsanitize=address
 
 .PHONY: all
-all: $(DEBUG_NAME)
+all: $(NAME)
+	./create_disk.sh
 
 .PHONY: mount.wfs
 mount.wfs:
-	$(CC) $(CFLAGS) mount.wfs.c $(FUSE_CFLAGS) -o mount.wfs
+	$(CC) $(CFLAGS) mount.wfs.c $(FUSE_CFLAGS) -fsanitize=address -o mount.wfs
 
 .PHONY: mkfs.wfs
 mkfs.wfs:
