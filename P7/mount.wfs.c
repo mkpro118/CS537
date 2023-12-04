@@ -283,8 +283,6 @@ static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler,
         return -ENOENT;
     }
 
-    off_t off = lookup_itable(inode_number);
-
     int n_entries = entry->inode.size / sizeof(struct wfs_dentry);
 
     SERVER_LOG("n_entries = %d\n", n_entries);
@@ -301,19 +299,17 @@ static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler,
             continue;
         }
 
-        if (entry->inode.deleted)
+        if (entry->inode.deleted){
+            free(entry);
             continue;
+        }
 
         struct stat stbuf;
         wfs_stat_init(&stbuf, &entry->inode);
 
-        filler(buf, dentry->name, &stbuf,0);
+        filler(buf, dentry->name, &stbuf, 0);
         free(entry);
     }
-
-    begin_op();
-    write_to_disk(off, entry);
-    end_op();
 
     free(entry);
     return 0;
