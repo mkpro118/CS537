@@ -10,6 +10,7 @@ DEBUG_CFLAGS = -DWFS_DBUG=1
 all: $(NAME)
 	./create_disk.sh
 	./mkfs.wfs disk
+	-./umount.wfs
 
 .PHONY: mount.wfs
 mount.wfs:
