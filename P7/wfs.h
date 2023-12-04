@@ -1057,8 +1057,13 @@ int write_to_disk(off_t offset, struct wfs_log_entry* entry) {
         return FSOPFL;
     }
 
-    if (fsync(fileno(ps_sb.disk_file)) != 0) {
-        WFS_ERROR("fsync failed!\n");
+    if (fflush(ps_sb.disk_file) != 0) {
+        WFS_ERROR("fflush failed!\n");
+        return FSOPFL;
+    }
+
+    if (fdatasync(fileno(ps_sb.disk_file)) != 0) {
+        WFS_ERROR("fdatasync failed!\n");
         return FSOPFL;
     }
 
@@ -1207,8 +1212,13 @@ int write_sb_to_disk() {
         return FSOPFL;
     }
 
-    if (fsync(fileno(ps_sb.disk_file)) != 0) {
-        WFS_ERROR("fsync failed!\n");
+    if (fflush(ps_sb.disk_file) != 0) {
+        WFS_ERROR("fflush failed!\n");
+        return FSOPFL;
+    }
+
+    if (fdatasync(fileno(ps_sb.disk_file)) != 0) {
+        WFS_ERROR("fdatasync failed!\n");
         return FSOPFL;
     }
 

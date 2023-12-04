@@ -157,8 +157,9 @@ static int wfs_mkdir(const char* path, mode_t mode) {
     return make_inode(path, DIRECTORY_MODE | mode);
 }
 
-static int wfs_read(const char* path, char* buf, size_t size, off_t offset, struct fuse_file_info* fi) {
-    SERVER_LOG("path: %s\tsize: %li\toffset: %lu\n", path, size, offset);
+static int wfs_read(const char* path, char* buf, size_t size,
+                    off_t offset, struct fuse_file_info* fi) {
+    SERVER_LOG("path: %s\tsize: %lu\toffset: %lu\n", path, size, offset);
     if (size == 0)
         goto done;
 
