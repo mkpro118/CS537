@@ -196,15 +196,33 @@ static int wfs_write(const char* path, const char* buf, size_t size, off_t offse
         return -ENOENT;
     }
     // now we copy from buff to entry 
-
+  
     // check if its too much- offset + size > inode.size 
     if(offset + size > entry->inode.size){
         // realloc 
+        size_t newsize = sizeof(struct wfs_log_entry) + offset + size;
+        // change inode size if u realloc-ed 
+        entry->inode.size = newsize;
 
-        // change inode size if u realloc-ed
+        struct wfs_log_entry* temp = realloc(entry, newsize);
+
+        if (!temp) {
+            WFS_ERROR("realloc failed!");
+            return FSOPFL;
+        }
+
+        entry = temp;
+
     }
 
-    
+    // now that we have enough space just memcopy the data from the buffer to the entry
+    char* data = entry->data;
+    data = data + offset;
+    memcpy(data, buf, size);
+    off_t offset = ps_sb.itable.table[inode_number];
+    begin_op();
+    write_to_disk(offset, entry);
+    end_op();
     free(entry);
     return 0;
 }

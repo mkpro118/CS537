@@ -879,7 +879,7 @@ int add_dentry(struct wfs_log_entry** entry, struct wfs_dentry* dentry) {
     for (int i = 0; i < n_entries; i++)
         if (0 == strcmp(dentry->name, dentries[i].name))
             return FSOPFL;
-
+    
     size_t new_size = WFS_LOG_ENTRY_SIZE(*entry) + sizeof(struct wfs_dentry);
     struct wfs_log_entry* temp = realloc(*entry, new_size);
 
