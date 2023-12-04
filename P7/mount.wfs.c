@@ -63,8 +63,13 @@ static int wfs_mknod(const char* path, mode_t mode, dev_t rdev) {
         return -1;
     }
 
-    char* _path = simplify_path(path);
+    if (!S_ISREG(mode)) {
+        WFS_ERROR("WFS only supports regular files and directories. "
+                  "Found mode %x.\n", mode);
+        return -1;
+    }
 
+    char* _path = simplify_path(path);
     char* base_file = strrchr(_path, '/');
 
     uint parent_inode = 0;
@@ -181,9 +186,10 @@ static int wfs_read(const char* path, char* buf, size_t size, off_t offset, stru
     return n_bytes;
 }
 
-static int wfs_write(const char* path, const char* buf, size_t size, off_t offset, struct fuse_file_info* fi) {
+static int wfs_write(const char* path, const char* buf, size_t size,
+                     off_t offset, struct fuse_file_info* fi) {
     _check();
-     uint inode_number;
+    uint inode_number;
 
     if(parse_path(path, &inode_number) != FSOPSC) {
         WFS_ERROR("Failed to find inode\n");
@@ -191,38 +197,40 @@ static int wfs_write(const char* path, const char* buf, size_t size, off_t offse
     }
 
     struct wfs_log_entry* entry = get_log_entry(inode_number);
+
     if (!entry) {
         WFS_ERROR("Failed to find log_entry for inode %d.\n", inode_number);
         return -ENOENT;
     }
-    // now we copy from buff to entry 
-  
-    // check if its too much- offset + size > inode.size 
-    if(offset + size > entry->inode.size){
-        // realloc 
-        size_t newsize = sizeof(struct wfs_log_entry) + offset + size;
-        // change inode size if u realloc-ed 
-        entry->inode.size = newsize;
 
-        struct wfs_log_entry* temp = realloc(entry, newsize);
+    if (_check_reg_inode(&entry->inode)) {
+        WFS_ERROR("Can only write to regular files. Found mode %x.", entry->inode.mode);
+    }
+
+    off_t result_offset = offset + size;
+
+    if(result_offset > entry->inode.size){
+        size_t new_size = sizeof(struct wfs_log_entry) + result_offset;
+
+        struct wfs_log_entry* temp = realloc(entry, new_size);
 
         if (!temp) {
             WFS_ERROR("realloc failed!");
             return FSOPFL;
         }
 
+        entry->inode.size = result_offset;
         entry = temp;
-
     }
 
-    // now that we have enough space just memcopy the data from the buffer to the entry
-    char* data = entry->data;
-    data = data + offset;
-    memcpy(data, buf, size);
-    off_t writeoffset = ps_sb.itable.table[inode_number];
+    memcpy(entry->data + offset, buf, size);
+
+    off_t off = lookup_itable(inode_number);
+
     begin_op();
-    write_to_disk(writeoffset, entry);
+    write_to_disk(off, entry);
     end_op();
+
     free(entry);
     return 0;
 }
@@ -299,17 +307,7 @@ static int wfs_unlink(const char* path) {
 
     entry->inode.deleted = 1;
 
-    if (inode_number > ps_sb.n_inodes || inode_number >= ps_sb.itable.capacity) {
-        WFS_INFO("Inode %d was not found in the I-Table. Rebuilding...\n", inode_number);
-        invalidate_itable();
-        if (build_itable() != ITOPSC) {
-            WFS_ERROR("Failed to re-build I-Table.\n");
-            exit(ITOPFL);
-        }
-        WFS_INFO("I-Table was re-built successfully\n");
-    }
-
-    off_t offset = ps_sb.itable.table[inode_number];
+    off_t offset = lookup_itable(inode_number);
 
     begin_op();
     write_to_disk(offset, entry);
@@ -384,7 +382,9 @@ static int wfs_unlink(const char* path) {
 
 ////////////////////////// FUSE HANDLER FUNCTIONS END //////////////////////////
 
-
+/**
+ * Register callbacks for fuse operations
+ */
 static struct fuse_operations ops = {
     .getattr = wfs_getattr,
     .mknod   = wfs_mknod,
@@ -395,6 +395,12 @@ static struct fuse_operations ops = {
     .unlink  = wfs_unlink,
 };
 
+/**
+ * Mounts the WFS on the mount point using the disk file using FUSE
+ *
+ * Usage:
+ *    $: mount.wfs [FUSE options] <disk_path> <mount_point>
+ */
 int main(int argc, char *argv[]) {
     if (argc < 3) {
         printf("Usage: $ mount.wfs [FUSE options] disk_path mount_point\n");
