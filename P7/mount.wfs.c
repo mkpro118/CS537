@@ -51,8 +51,7 @@ static int wfs_getattr(const char* path, struct stat* stbuf) {
     return 0;
 }
 
-static int wfs_mknod(const char* path, mode_t mode, dev_t rdev) {
-    _check();
+static int make_inode(const char* path, mode_t mode) {
     if (strlen(path) == 0) {
         WFS_ERROR("Cannot create file with empty name\n");
         return -1;
@@ -60,12 +59,6 @@ static int wfs_mknod(const char* path, mode_t mode, dev_t rdev) {
 
     if (strcmp(path, "/") == 0) {
         WFS_ERROR("Cannot create root\n");
-        return -1;
-    }
-
-    if (!S_ISREG(mode)) {
-        WFS_ERROR("WFS only supports regular files and directories. "
-                  "Found mode %x.\n", mode);
         return -1;
     }
 
@@ -111,7 +104,7 @@ static int wfs_mknod(const char* path, mode_t mode, dev_t rdev) {
 
     struct wfs_log_entry child;
 
-    wfs_inode_init(&child.inode, FILE_MODE);
+    wfs_inode_init(&child.inode, mode);
 
     struct wfs_dentry dentry = {
         .name = {0},
@@ -137,9 +130,27 @@ static int wfs_mknod(const char* path, mode_t mode, dev_t rdev) {
     return 0;
 }
 
+static int wfs_mknod(const char* path, mode_t mode, dev_t rdev) {
+    _check();
+    if (!S_ISREG(mode)) {
+        WFS_ERROR("WFS only supports regular files and directories. "
+                  "Found mode %x.\n", mode);
+        return -1;
+    }
+
+    return make_inode(path, mode);
+}
+
 static int wfs_mkdir(const char* path, mode_t mode) {
     _check();
-    return 0;
+    _check();
+    if (!S_ISDIR(mode)) {
+        WFS_ERROR("WFS only supports regular files and directories. "
+                  "Found mode %x.\n", mode);
+        return -1;
+    }
+
+    return make_inode(path, mode);
 }
 
 static int wfs_read(const char* path, char* buf, size_t size, off_t offset, struct fuse_file_info* fi) {
@@ -205,6 +216,7 @@ static int wfs_write(const char* path, const char* buf, size_t size,
 
     if (_check_reg_inode(&entry->inode)) {
         WFS_ERROR("Can only write to regular files. Found mode %x.", entry->inode.mode);
+        return -1;
     }
 
     off_t result_offset = offset + size;
@@ -225,17 +237,16 @@ static int wfs_write(const char* path, const char* buf, size_t size,
 
     memcpy(entry->data + offset, buf, size);
 
-    off_t off = lookup_itable(inode_number);
-
     begin_op();
-    write_to_disk(off, entry);
+    append_log_entry(entry);
     end_op();
 
     free(entry);
     return 0;
 }
 
-static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info* fi) {
+static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler,
+                       off_t offset, struct fuse_file_info* fi) {
     _check();
 
     filler(buf,  ".", NULL, 0); // Current  directory
@@ -253,6 +264,8 @@ static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler, off_
         WFS_ERROR("Failed to find log_entry for inode %d.\n", inode_number);
         return -ENOENT;
     }
+
+    off_t off = lookup_itable(inode_number);
 
     int n_entries = entry->inode.size / sizeof(struct wfs_dentry);
 
@@ -273,6 +286,10 @@ static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler, off_
         filler(buf, dentry->name, &stbuf,0);
         free(entry);
     }
+
+    begin_op();
+    write_to_disk(off, entry);
+    end_op();
 
     free(entry);
     return 0;
