@@ -292,15 +292,15 @@ static struct {
     .wfs_lock = {
         .l_type   = F_WRLCK,
         .l_whence = SEEK_SET,
-        .l_start  =  0,
+        .l_start  = sizeof(struct wfs_sb),
         .l_len    =  0,
         .l_pid    = -1,
     },
     .fsck_lock = {
         .l_type   = F_WRLCK,
         .l_whence = SEEK_SET,
-        .l_start  =  0,
-        .l_len    =  0,
+        .l_start  = 0,
+        .l_len    = sizeof(struct wfs_sb),
         .l_pid    = -1,
     },
     .itable = {

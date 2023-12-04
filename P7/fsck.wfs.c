@@ -83,7 +83,7 @@ int main(int argc, char const *argv[]) {
     int ret;
     do {
         ps_sb.fsck_lock.l_type = F_WRLCK;
-        ps_sb.fsck_lock.l_pid = getpid();
+        ps_sb.fsck_lock.l_pid = 0;
         ret = fcntl(fileno(ps_sb.disk_file), F_GETLK, &ps_sb.wfs_lock);
     } while (errno == EINTR);
 
