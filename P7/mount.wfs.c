@@ -426,7 +426,10 @@ int main(int argc, char *argv[]) {
 
         ps_sb.n_inodes++;
 
-        PRINT_LOG_ENTRY(root);
+        int n_entries = root->inode.size / sizeof(struct wfs_dentry);
+        struct wfs_dentry* dentry = (struct wfs_dentry*) root->data;
+        for (int i = 0; i < n_entries; i++, dentry++)
+            printf("Inode Number: %lu\tName: %s\n", dentry->inode_number, dentry->name);
         printf("\n");
     }
 
@@ -452,7 +455,12 @@ int main(int argc, char *argv[]) {
             WFS_ERROR("Failed to remove dentry! {.name = %s, .inode_number = %lu}\n", dentry.name, dentry.inode_number);
         }
 
-        PRINT_LOG_ENTRY(root);
+
+        int n_entries = root->inode.size / sizeof(struct wfs_dentry);
+        struct wfs_dentry* dentry = (struct wfs_dentry*) root->data;
+        for (int i = 0; i < n_entries; i++, dentry++)
+            printf("Inode Number: %lu\tName: %s\n", dentry->inode_number, dentry->name);
+
         printf("\n");
     }
 
