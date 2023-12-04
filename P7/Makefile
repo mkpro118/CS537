@@ -9,6 +9,7 @@ DEBUG_CFLAGS = -DWFS_DBUG=1 -g -fsanitize=address
 .PHONY: all
 all: $(NAME)
 	./create_disk.sh
+	./mkfs.wfs disk
 
 .PHONY: mount.wfs
 mount.wfs:
