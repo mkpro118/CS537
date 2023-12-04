@@ -53,6 +53,9 @@ static int wfs_getattr(const char* path, struct stat* stbuf) {
         return -ENOENT;
     }
 
+    if (entry->inode.deleted)
+        return -ENOENT;
+
     wfs_stat_init(stbuf, &entry->inode);
 
     free(entry);
