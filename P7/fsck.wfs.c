@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <signal.h>
 
 #include "wfs.h"
 
@@ -77,6 +78,27 @@ int main(int argc, char const *argv[]) {
         return 0;
     }
 
+    int ret;
+    do {
+        ps_sb.fsck_lock.l_type = F_WRLCK;
+        ps_sb.fsck_lock.l_pid = getpid();
+        ret = fcntl(fileno(ps_sb.disk_file), F_SETLK, &ps_sb.wfs_lock);
+    } while (errno == EINTR);
+
+    if (ret != -1) {
+        WFS_ERROR("FLock Lock should have failed! (err: %s)", strerror(errno));
+        exit(FSOPFL);
+    }
+
+    pid_t pid = ps_sb.fsck_lock.l_pid;
+
+    if (kill(pid, SIGUSR1) < 0) {
+        WFS_ERROR("FATAL ERROR: Couldn't send user1 signal!\n");
+        exit(FSOPFL);
+    }
+
+    acquire_fsck_lock();
+
     wfs_init(argv[0], argv[1]);
 
     if (ps_sb.n_inodes < 1) {
@@ -130,6 +152,13 @@ int main(int argc, char const *argv[]) {
     WFS_INFO("Final file size: %d\n", ps_sb.sb.head);
 
     fclose(ps_sb.disk_file);
+
+    release_fsck_lock();
+    if (kill(pid, SIGUSR2) < 0) {
+        WFS_ERROR("FATAL ERROR: Couldn't send user1 signal!\n");
+        exit(FSOPFL);
+    }
+
     free(ps_sb.disk_filename);
     free(table);
 

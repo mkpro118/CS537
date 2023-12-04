@@ -51,7 +51,6 @@
 
 #define PRINT_LOG_ENTRY(x) do {\
     printf("\n------------------------------------------------------------\n");\
-    printf("Offset: %lu\n", lookup_itable((x)->inode.inode_number));\
     PRINT_INODE((&(x)->inode));\
 \
     if (S_ISREG(((x)->inode.mode))) {\
@@ -71,8 +70,8 @@
         for (int i = 0; i < n_entries; i++, dentry++) {\
             struct wfs_log_entry* temp = get_log_entry(dentry->inode_number);\
             if (!temp) {\
-                printf("Log Entry for inode %lu not found! Inode was likely deleted!\n", dentry->inode_number);\
-                continue;\
+                printf("NOOO WE FAILED!\n");\
+                exit(1);\
             }\
             if (S_ISDIR((temp->inode.mode))) {\
                 printf("Inode: %lu\tType: Dir\tName: %s\n", dentry->inode_number, dentry->name);\
@@ -244,6 +243,8 @@ static inline void setup_flocks();
 static inline void set_max_file_size();
 static inline void begin_op();
 static inline void end_op();
+static inline void acquire_fsck_lock();
+static inline void release_fsck_lock();
 
 //////////////////////////// FUNCTION PROTOTYPES END ///////////////////////////
 
@@ -268,6 +269,7 @@ static struct {
     char* restrict disk_filename;
     FILE* restrict disk_file;
     struct flock wfs_lock;
+    struct flock fsck_lock;
     struct {
         long* restrict table; // This struct is like a cache for
         uint  capacity;       // faster lookups from the disk image.
@@ -288,6 +290,13 @@ static struct {
     .disk_filename = NULL,
     .disk_file = NULL,
     .wfs_lock = {
+        .l_type   = F_WRLCK,
+        .l_whence = SEEK_SET,
+        .l_start  =  0,
+        .l_len    =  0,
+        .l_pid    = -1,
+    },
+    .fsck_lock = {
         .l_type   = F_WRLCK,
         .l_whence = SEEK_SET,
         .l_start  =  0,
@@ -1285,9 +1294,11 @@ void validate_disk_file() {
  * Acquire file locks
  */
 static inline void begin_op() {
-    ps_sb.wfs_lock.l_type = F_WRLCK;
+    acquire_fsck_lock();
     int ret;
     do {
+        ps_sb.wfs_lock.l_type = F_WRLCK;
+        ps_sb.wfs_lock.l_pid = getpid();
         ret = fcntl(fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.wfs_lock);
     } while (ret == -1  && errno == EINTR);
 
@@ -1304,11 +1315,50 @@ static inline void end_op() {
     int ret;
     do {
         ps_sb.wfs_lock.l_type = F_UNLCK;
+        ps_sb.wfs_lock.l_pid = getpid();
         ret = fcntl(fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.wfs_lock);
     } while (ret == -1 && errno == EINTR);
 
     if (ret == -1) {
         WFS_ERROR("FLock Unlock failed! (err: %s)", strerror(errno));
+        exit(FSOPFL);
+    }
+}
+
+/**
+ * Acquire the lock over the disk file for FSCK
+ * Mount keeps this lock until a SIGUSR1 is caught
+ * FSCK sends Mount a SIGUSR2 to reacquire the lock
+ */
+static inline void acquire_fsck_lock() {
+    int ret;
+    do {
+        ps_sb.fsck_lock.l_type = F_WRLCK;
+        ps_sb.fsck_lock.l_pid = getpid();
+        ret = fcntl(fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.wfs_lock);
+    } while (ret == -1  && errno == EINTR);
+
+    if (ret == -1) {
+        WFS_ERROR("FLock Lock failed! (err: %s)", strerror(errno));
+        exit(FSOPFL);
+    }
+}
+
+/**
+ * Release the lock over the disk file for FSCK
+ * FSCK sends Mount a SIGUSR1 to release the lock,
+ * Then tries to acquire it.
+ */
+static inline void release_fsck_lock() {
+    int ret;
+    do {
+        ps_sb.fsck_lock.l_type = F_UNLCK;
+        ps_sb.fsck_lock.l_pid = getpid();
+        ret = fcntl(fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.wfs_lock);
+    } while (ret == -1  && errno == EINTR);
+
+    if (ret == -1) {
+        WFS_ERROR("FLock Lock failed! (err: %s)", strerror(errno));
         exit(FSOPFL);
     }
 }
@@ -1334,6 +1384,7 @@ void wfs_sb_init(struct wfs_sb* restrict sb) {
 static inline void setup_flocks() {
     _check();
     ps_sb.wfs_lock.l_pid = getpid();
+    ps_sb.fsck_lock.l_pid = getpid();
 }
 
 static inline void set_max_file_size() {

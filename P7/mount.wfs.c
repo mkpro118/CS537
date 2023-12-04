@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <errno.h>
+#include <signal.h>
 #include <time.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -433,6 +434,31 @@ static int wfs_unlink(const char* path) {
 
 ////////////////////////// FUSE HANDLER FUNCTIONS END //////////////////////////
 
+
+////////////////////// FILE CHANGE SIGNAL HANDLERS START ///////////////////////
+
+void sigusr1_handler(int signum) {
+    WFS_INFO("Caught SIGUSR1\n");
+    release_fsck_lock();
+}
+
+void sigusr2_handler(int signum) {
+    WFS_INFO("Caught SIGUSR2\n");
+    FILE* f = freopen(ps_sb.disk_filename, "r+", ps_sb.disk_file);
+
+    if (!f) {
+        WFS_ERROR("freopen faile!\n");
+        exit(FSOPFL);
+    }
+
+    ps_sb.disk_file = f;
+    setup_flocks();
+    acquire_fsck_lock();
+}
+
+/////////////////////// FILE CHANGE SIGNAL HANDLERS END ////////////////////////
+
+
 /**
  * Register callbacks for fuse operations
  */
@@ -640,7 +666,42 @@ int main(int argc, char *argv[]) {
     argv[argc - 2] = argv[fuse_argc];
     argv[fuse_argc] = NULL;
 
-    WFS_DEBUG("%p\n", (void*)&ops);
+    acquire_fsck_lock();
+
+    // set up SIGUSR1
+    {
+        struct sigaction sa;
+
+        memset(&sa, 0, sizeof(struct sigaction));
+
+        sa.sa_handler = sigusr1_handler;
+
+        // ensure the handler is bound properly
+        if (sigaction(sa, &sa, NULL) < 0) {
+            WFS_ERROR("FATAL ERROR: Couldn't bind SIGUSR2!\n");
+            exit(FSOPFL);
+        } else {
+            WFS_INFO("Successfully setup SIGUSR1!\n");
+        }
+    }
+
+    // set up SIGUSR2
+    {
+        struct sigaction sa;
+
+        memset(&sa, 0, sizeof(struct sigaction));
+
+        sa.sa_handler = sigusr1_handler;
+
+        // ensure the handler is bound properly
+        if (sigaction(SIGUSR2, &sa, NULL) < 0) {
+            WFS_ERROR("FATAL ERROR: Couldn't bind SIGUSR2!\n");
+            exit(FSOPFL);
+        } else {
+            WFS_INFO("Successfully setup SIGUSR2!\n");
+        }
+    }
+
     return fuse_main(fuse_argc, argv, &ops, NULL);
     #endif
 }
