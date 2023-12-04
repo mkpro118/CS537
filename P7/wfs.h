@@ -888,7 +888,7 @@ int add_dentry(struct wfs_log_entry** entry, struct wfs_dentry* dentry) {
     dentries = (struct wfs_dentry*) (*entry)->data;
     dentries[n_entries] = *dentry;
 
-    (*entry)->inode.size = new_size;
+    (*entry)->inode.size += sizeof(struct wfs_dentry);
 
     return FSOPSC;
 }
@@ -928,7 +928,7 @@ int remove_dentry(struct wfs_log_entry** entry, struct wfs_dentry* dentry) {
     }
 
     *entry = temp;
-    (*entry)->inode.size = new_size;
+    (*entry)->inode.size -= sizeof(struct wfs_dentry);
 
     return FSOPSC;
 }
