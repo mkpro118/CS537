@@ -969,9 +969,10 @@ int read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
     _check();
     *entry_buf = malloc(sizeof(struct wfs_log_entry));
 
+    long pos = ftell(ps_sb.disk_file);
+
     if (fseek(ps_sb.disk_file, offset, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
-        end_op();
         return FSOPFL;
     }
 
@@ -992,6 +993,24 @@ int read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
 
     if (fread(&(*entry_buf)->data, sizeof(char), size, ps_sb.disk_file) != size)
         goto fail;
+
+    (*entry_buf)->inode.atime = WFS_CURR_TIME;
+    (*entry_buf)->inode.ctime = WFS_CURR_TIME;
+
+    if (fseek(ps_sb.disk_file, offset, SEEK_SET)) {
+        WFS_ERROR("fseek failed!\n");
+        return FSOPFL;
+    }
+
+    if(fwrite(*entry_buf, sizeof(struct wfs_inode), 1, ps_sb.disk_file) < 1) {
+        WFS_ERROR("fwrite failed!\n");
+        return FSOPFL;
+    }
+
+    if (fseek(ps_sb.disk_file, pos, SEEK_SET)) {
+        WFS_ERROR("fseek failed!\n");
+        return FSOPFL;
+    }
 
     return FSOPSC;
 
@@ -1029,6 +1048,9 @@ int write_to_disk(off_t offset, struct wfs_log_entry* entry) {
         WFS_ERROR("fseek failed!\n");
         return FSOPFL;
     }
+
+    entry->inode.mtime = WFS_CURR_TIME;
+    entry->inode.ctime = WFS_CURR_TIME;
 
     if(fwrite(entry, size, 1, ps_sb.disk_file) < 1) {
         WFS_ERROR("fwrite failed!\n");
