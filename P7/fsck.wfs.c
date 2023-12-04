@@ -132,7 +132,11 @@ int main(int argc, char const *argv[]) {
         free(entry);
     }
 
-    write_sb_to_disk();
+    ps_sb.sb.head = ftell(ps_sb.disk_file);
+    if (fwrite(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
+        WFS_ERROR("fwrite failed!\n");
+        return FSOPFL;
+    }
 
     end_op();
 
