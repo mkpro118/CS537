@@ -435,6 +435,9 @@ int main(int argc, char *argv[]) {
         for (int i = 0; i < n_entries; i++, d++)
             printf("Inode Number: %lu\tName: %s\n", d->inode_number, d->name);
         printf("\n");
+
+        if (root)
+            free(root);
     }
 
     if (remove) {
@@ -466,6 +469,9 @@ int main(int argc, char *argv[]) {
             printf("Inode Number: %lu\tName: %s\n", d->inode_number, d->name);
 
         printf("\n");
+
+        if (root)
+            free(root);
     }
 
     done:
