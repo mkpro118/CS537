@@ -439,6 +439,9 @@ static int wfs_unlink(const char* path) {
 ////////////////////// FILE CHANGE SIGNAL HANDLERS START ///////////////////////
 
 void sigio_handler(int signum) {
+    if (ps_sb.wfs)
+        return;
+
     WFS_INFO("Caught SIGIO\n");
     FILE* f = freopen(ps_sb.disk_filename, "r+", ps_sb.disk_file);
 

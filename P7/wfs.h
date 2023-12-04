@@ -260,8 +260,9 @@ static inline void end_op();
  */
 static struct {
     unsigned char is_valid: 2;
+    unsigned char wfs: 2;
     unsigned char fsck: 2;
-    unsigned char rebuilding: 4;
+    unsigned char rebuilding: 2;
     uint n_inodes;
     uint n_log_entries;
     char* restrict disk_filename;
@@ -969,6 +970,7 @@ int remove_dentry(struct wfs_log_entry** entry, struct wfs_dentry* dentry) {
  * returns FSOPSC on success, FSOPFL on failure
  */
 int read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
+    ps_sb.wfs = 1;
     _check();
     *entry_buf = malloc(sizeof(struct wfs_log_entry));
 
@@ -976,6 +978,7 @@ int read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
 
     if (fseek(ps_sb.disk_file, offset, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
+        ps_sb.wfs = 0;
         return FSOPFL;
     }
 
@@ -1002,19 +1005,23 @@ int read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
 
     if (fseek(ps_sb.disk_file, offset, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
+        ps_sb.wfs = 0;
         return FSOPFL;
     }
 
     if(fwrite(*entry_buf, sizeof(struct wfs_inode), 1, ps_sb.disk_file) < 1) {
         WFS_ERROR("fwrite failed!\n");
+        ps_sb.wfs = 0;
         return FSOPFL;
     }
 
     if (fseek(ps_sb.disk_file, pos, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
+        ps_sb.wfs = 0;
         return FSOPFL;
     }
 
+    ps_sb.wfs = 0;
     return FSOPSC;
 
     fail:
@@ -1022,6 +1029,7 @@ int read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
         free(*entry_buf);
 
     *entry_buf = NULL;
+    ps_sb.wfs = 0;
     return FSOPFL;
 }
 
@@ -1038,17 +1046,21 @@ int read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
  *          FSOPFL on failure of any other type
  */
 int write_to_disk(off_t offset, struct wfs_log_entry* entry) {
+    ps_sb.wfs = 1;
 	_check();
 
     size_t size = WFS_LOG_ENTRY_SIZE(entry);
 
-    if ((offset + size) > ps_sb.max_file_size)
+    if ((offset + size) > ps_sb.max_file_size) {
+        ps_sb.wfs = 1;
         return -ENOSPC;
+    }
 
     long pos = ftell(ps_sb.disk_file);
 
     if (fseek(ps_sb.disk_file, offset, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
+        ps_sb.wfs = 0;
         return FSOPFL;
     }
 
@@ -1057,21 +1069,25 @@ int write_to_disk(off_t offset, struct wfs_log_entry* entry) {
 
     if(fwrite(entry, size, 1, ps_sb.disk_file) < 1) {
         WFS_ERROR("fwrite failed!\n");
+        ps_sb.wfs = 0;
         return FSOPFL;
     }
 
     if (fflush(ps_sb.disk_file) != 0) {
         WFS_ERROR("fflush failed!\n");
+        ps_sb.wfs = 0;
         return FSOPFL;
     }
 
     if (fdatasync(fileno(ps_sb.disk_file)) != 0) {
         WFS_ERROR("fdatasync failed!\n");
+        ps_sb.wfs = 0;
         return FSOPFL;
     }
 
     if (fseek(ps_sb.disk_file, pos, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
+        ps_sb.wfs = 0;
         return FSOPFL;
     }
 
@@ -1084,6 +1100,7 @@ int write_to_disk(off_t offset, struct wfs_log_entry* entry) {
 
     fill_itable(entry->inode.inode_number, offset);
 
+    ps_sb.wfs = 0;
     return FSOPSC;
 }
 
@@ -1107,11 +1124,13 @@ int append_log_entry(struct wfs_log_entry* entry) {
  * Reads the superblock from the disk image
  */
 int read_sb_from_disk() {
+    ps_sb.wfs = 1;
     // Store initial offset
     long pos = ftell(ps_sb.disk_file);
 
     if (fseek(ps_sb.disk_file, 0, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
+        ps_sb.wfs = 0;
         return FSOPFL;
     }
 
@@ -1123,9 +1142,11 @@ int read_sb_from_disk() {
     // Restore initial offset
     if (fseek(ps_sb.disk_file, pos, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
+        ps_sb.wfs = 0;
         return FSOPFL;
     }
 
+    ps_sb.wfs = 0;
     return FSOPSC;
 }
 
@@ -1133,6 +1154,7 @@ int read_sb_from_disk() {
  * Writes a superblock to the disk image
  */
 int write_sb_to_disk() {
+    ps_sb.wfs = 1;
     if (ps_sb.sb.magic != WFS_MAGIC) {
         WFS_ERROR("In memory superblock is invalid. "
                   "Expected Magic = %x, Actual = %x\n"
@@ -1145,7 +1167,7 @@ int write_sb_to_disk() {
 
         WFS_INFO("Determined disk image to be valid. "
                  "However this is an unrecoverable error. ABORTING!\n");
-
+        ps_sb.wfs = 0;
         return FSOPFL;
     }
 
@@ -1178,6 +1200,7 @@ int write_sb_to_disk() {
 
             if (max_idx == -1) {
                 WFS_ERROR("Cache is invalid. Aborting\n");
+                ps_sb.wfs = 0;
                 return FSOPFL;
             }
 
@@ -1185,6 +1208,7 @@ int write_sb_to_disk() {
 
             if (!entry) {
                 WFS_ERROR("Cache is invalid. Aborting\n");
+                ps_sb.wfs = 0;
                 return FSOPFL;
             }
 
@@ -1203,6 +1227,7 @@ int write_sb_to_disk() {
             ps_sb.sb.head = max;
         } else {
             WFS_INFO("Cache is unavailable. Aborting!");
+            ps_sb.wfs = 0;
             return FSOPFL;
         }
     }
@@ -1211,29 +1236,35 @@ int write_sb_to_disk() {
 
     if (fseek(ps_sb.disk_file, 0, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
+        ps_sb.wfs = 0;
         return FSOPFL;
     }
 
     if (fwrite(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
         WFS_ERROR("fwrite failed!\n");
+        ps_sb.wfs = 0;
         return FSOPFL;
     }
 
     if (fflush(ps_sb.disk_file) != 0) {
         WFS_ERROR("fflush failed!\n");
+        ps_sb.wfs = 0;
         return FSOPFL;
     }
 
     if (fdatasync(fileno(ps_sb.disk_file)) != 0) {
         WFS_ERROR("fdatasync failed!\n");
+        ps_sb.wfs = 0;
         return FSOPFL;
     }
 
     if (fseek(ps_sb.disk_file, pos, SEEK_SET)) {
         WFS_ERROR("fseek failed!\n");
+        ps_sb.wfs = 0;
         return FSOPFL;
     }
 
+    ps_sb.wfs = 0;
     return FSOPSC;
 }
 
