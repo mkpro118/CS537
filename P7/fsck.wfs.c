@@ -136,6 +136,7 @@ int main(int argc, char const *argv[]) {
             WFS_ERROR("realloc failed!\n");
             return FSOPFL;
         }
+        entry = temp;
 
         if(fread(&entry->data, sizeof(char), entry->inode.size, ps_sb.disk_file) < entry->inode.size) {
             WFS_ERROR("fread failed!\n");
