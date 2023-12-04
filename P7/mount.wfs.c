@@ -139,14 +139,15 @@ static int make_inode(const char* path, mode_t mode) {
     SERVER_LOG("NEW PARENT SIZE = %d\n", parent->inode.size);
 
     begin_op();
-    append_log_entry(parent);
-    append_log_entry(&child);
+    int retval = append_log_entry(parent);
+    if (retval != -ENOSPC)
+        retval = append_log_entry(&child);
     end_op();
 
     SERVER_LOG("wth we wrote to file!\n");
     free(_path);
     free(parent);
-    return 0;
+    return retval == -ENOSPC ? retval: 0;
 }
 
 static int wfs_mknod(const char* path, mode_t mode, dev_t rdev) {
@@ -251,11 +252,11 @@ static int wfs_write(const char* path, const char* buf, size_t size,
     memcpy(entry->data + offset, buf, size);
 
     begin_op();
-    append_log_entry(entry);
+    int retval = append_log_entry(entry);
     end_op();
 
     free(entry);
-    return size;
+    return retval;
 }
 
 static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler,
@@ -408,12 +409,12 @@ static int wfs_unlink(const char* path) {
     }
 
     begin_op();
-    append_log_entry(entry);
+    int retval = append_log_entry(entry);
     end_op();
 
     free(entry);
     free(_path);
-    return 0;
+    return retval;
 }
 
 ////////////////////////// FUSE HANDLER FUNCTIONS END //////////////////////////
