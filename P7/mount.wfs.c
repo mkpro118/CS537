@@ -305,7 +305,7 @@ int main(int argc, char *argv[]) {
 
     wfs_init(argv[0], argv[argc - 2]);
 
-    WFS_DEBUG("%p\n", (void*)&ops);
+    WFS_DEBUG("%p\n\n", (void*)&ops);
 
     /* For testing */
     #if WFS_DBUG == 1
@@ -415,19 +415,18 @@ int main(int argc, char *argv[]) {
             goto done;
         }
 
-        WFS_DEBUG("root->inode.size: %i\n", root->inode.size);
-
         struct wfs_dentry dentry = {
             .name = "file3",
             .inode_number = ps_sb.n_inodes,
         };
 
+        WFS_INFO("Adding dentry {.name = \"%s\", .inode_number = %lu}\n", dentry.name, dentry.inode_number);
+
         if (add_dentry(&root, &dentry)) {
-            WFS_ERROR("Failed to add dentry! {.name = %s, .inode_number = %lu}\n", dentry.name, dentry.inode_number);
+            WFS_ERROR("Failed to add dentry! {.name = \"%s\", .inode_number = %lu}\n", dentry.name, dentry.inode_number);
         }
 
         ps_sb.n_inodes++;
-        WFS_DEBUG("root->inode.size: %i\n", root->inode.size);
 
         int n_entries = root->inode.size / sizeof(struct wfs_dentry);
 
@@ -458,8 +457,10 @@ int main(int argc, char *argv[]) {
             .inode_number = 2,
         };
 
+        WFS_INFO("Removing dentry {.name = \"%s\", .inode_number = %lu}\n", dentry.name, dentry.inode_number);
+
         if (remove_dentry(&root, &dentry)) {
-            WFS_ERROR("Failed to remove dentry! {.name = %s, .inode_number = %lu}\n", dentry.name, dentry.inode_number);
+            WFS_ERROR("Failed to remove dentry! {.name = \"%s\", .inode_number = %lu}\n", dentry.name, dentry.inode_number);
         }
 
 
