@@ -764,10 +764,6 @@ int parse_path(const char* path, uint* out) {
     struct wfs_log_entry* entry = NULL;
     int ph_idx = 1;
 
-    // All paths should start with a "/"
-    /*if (*path != '/')
-        goto fail;*/
-
     // If the filepath is literally the root directory, return inode 0
     if (strcmp("/", path) == 0)
         goto success;
