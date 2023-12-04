@@ -30,7 +30,15 @@ static void wfs_stat_init(struct stat* stbuf, struct wfs_inode* restrict inode) 
     };
 }
 
+#define SERVER_LOG(...) do {\
+    fprintf(stderr, "\n\x1b[33m:LOG:\x1b[0m (%s) ", __func__);\
+    fprintf(stderr, __VA_ARGS__);\
+} while(0)
+
+
+
 static int wfs_getattr(const char* path, struct stat* stbuf) {
+    SERVER_LOG("path: %s\n", path);
     _check();
     uint inode_number;
 
@@ -52,6 +60,7 @@ static int wfs_getattr(const char* path, struct stat* stbuf) {
 }
 
 static int make_inode(const char* path, mode_t mode) {
+    SERVER_LOG("path: %s\tmode: %x\n", path, mode);
     if (strlen(path) == 0) {
         WFS_ERROR("Cannot create file with empty name\n");
         return -1;
@@ -63,11 +72,13 @@ static int make_inode(const char* path, mode_t mode) {
     }
 
     char* _path = simplify_path(path);
+    SERVER_LOG("simplified path: %s\n", _path);
     char* base_file = strrchr(_path, '/');
 
     uint parent_inode = 0;
     if (base_file) {
         *base_file = 0;
+        SERVER_LOG("Parent path: %s", _path);
         if (parse_path(_path, &parent_inode) != FSOPSC) {
             WFS_ERROR("Failed to find parent directory %sn", _path);
             free(_path);
@@ -127,33 +138,27 @@ static int make_inode(const char* path, mode_t mode) {
     append_log_entry(&child);
     end_op();
 
+    SERVER_LOG("wth we wrote to file!\n");
+
     return 0;
 }
 
 static int wfs_mknod(const char* path, mode_t mode, dev_t rdev) {
+    SERVER_LOG("path: %s\tmode: %x\n", path, mode);
     _check();
-    if (!S_ISREG(mode)) {
-        WFS_ERROR("WFS only supports regular files and directories. "
-                  "Found mode %x.\n", mode);
-        return -1;
-    }
 
-    return make_inode(path, mode);
+    return make_inode(path, FILE_MODE | mode);
 }
 
 static int wfs_mkdir(const char* path, mode_t mode) {
+    SERVER_LOG("path: %p\tmode: %x\n", path, mode);
     _check();
-    _check();
-    if (!S_ISDIR(mode)) {
-        WFS_ERROR("WFS only supports regular files and directories. "
-                  "Found mode %x.\n", mode);
-        return -1;
-    }
 
-    return make_inode(path, mode);
+    return make_inode(path, DIRECTORY_MODE | mode);
 }
 
 static int wfs_read(const char* path, char* buf, size_t size, off_t offset, struct fuse_file_info* fi) {
+    SERVER_LOG("path: %s\tsize: %li\toffset: %lu\n", path, size, offset);
     if (size == 0)
         goto done;
 
@@ -199,6 +204,7 @@ static int wfs_read(const char* path, char* buf, size_t size, off_t offset, stru
 
 static int wfs_write(const char* path, const char* buf, size_t size,
                      off_t offset, struct fuse_file_info* fi) {
+    SERVER_LOG("path: %s\tsize: %li\toffset: %lu\n", path, size, offset);
     _check();
     uint inode_number;
 
@@ -247,6 +253,7 @@ static int wfs_write(const char* path, const char* buf, size_t size,
 
 static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler,
                        off_t offset, struct fuse_file_info* fi) {
+     SERVER_LOG("path: %s\toffset: %lu\n", path, offset);
     _check();
 
     filler(buf,  ".", NULL, 0); // Current  directory
@@ -296,6 +303,7 @@ static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler,
 }
 
 static int wfs_unlink(const char* path) {
+    SERVER_LOG("path: %s\n", path);
     _check();
 
     uint inode_number;
