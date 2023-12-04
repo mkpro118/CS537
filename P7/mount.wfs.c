@@ -388,9 +388,13 @@ static int wfs_unlink(const char* path) {
             return -1;
         }
 
+        begin_op();
+        int retval = append_log_entry(entry);
+        end_op();
+
         free(entry);
         free(_path);
-        return 0;
+        return retval;
     }
 
     *base_file = 0;
