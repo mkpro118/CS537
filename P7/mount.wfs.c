@@ -677,7 +677,7 @@ int main(int argc, char *argv[]) {
         sa.sa_handler = sigusr1_handler;
 
         // ensure the handler is bound properly
-        if (sigaction(sa, &sa, NULL) < 0) {
+        if (sigaction(SIGUSR1, &sa, NULL) < 0) {
             WFS_ERROR("FATAL ERROR: Couldn't bind SIGUSR2!\n");
             exit(FSOPFL);
         } else {
