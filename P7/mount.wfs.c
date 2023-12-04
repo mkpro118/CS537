@@ -219,9 +219,9 @@ static int wfs_write(const char* path, const char* buf, size_t size, off_t offse
     char* data = entry->data;
     data = data + offset;
     memcpy(data, buf, size);
-    off_t offset = ps_sb.itable.table[inode_number];
+    off_t writeoffset = ps_sb.itable.table[inode_number];
     begin_op();
-    write_to_disk(offset, entry);
+    write_to_disk(writeoffset, entry);
     end_op();
     free(entry);
     return 0;
