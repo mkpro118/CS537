@@ -238,8 +238,8 @@ static int wfs_write(const char* path, const char* buf, size_t size,
             return FSOPFL;
         }
 
-        entry->inode.size = result_offset;
         entry = temp;
+        entry->inode.size = result_offset;
     }
 
     memcpy(entry->data + offset, buf, size);
