@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
@@ -745,7 +746,7 @@ int main(int argc, char *argv[]) {
 
         memset(&sa, 0, sizeof(struct sigaction));
 
-        sa.sa_handler = sigusr1_handler;
+        sa.sa_handler = sigio_handler;
 
         // ensure the handler is bound properly
         if (sigaction(SIGIO, &sa, NULL) < 0) {
