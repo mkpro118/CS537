@@ -114,10 +114,15 @@ static int make_inode(const char* path, mode_t mode) {
     uint out = -1;
 
     if (find_file_in_dir(parent, base_file, &out) == FSOPSC) {
-        WFS_ERROR("File %s already exists!\n", base_file);
-        free(_path);
-        free(parent);
-        return -EEXIST;
+        struct wfs_log_entry* entry = get_log_entry(out);
+        if (!entry->inode.deleted) {
+            WFS_ERROR("File %s already exists!\n", base_file);
+            free(_path);
+            free(parent);
+            free(entry);
+            return -EEXIST;
+        }
+        free(entry);
     }
 
     struct wfs_log_entry child;
