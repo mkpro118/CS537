@@ -1075,6 +1075,8 @@ int write_to_disk(off_t offset, struct wfs_log_entry* entry) {
     if ((offset + size) >= ps_sb.sb.head)
         ps_sb.sb.head = offset + size;
 
+    write_sb_to_disk();
+
     fill_itable(entry->inode.inode_number, offset);
 
     return FSOPSC;
