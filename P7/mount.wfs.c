@@ -427,9 +427,9 @@ int main(int argc, char *argv[]) {
         ps_sb.n_inodes++;
 
         int n_entries = root->inode.size / sizeof(struct wfs_dentry);
-        struct wfs_dentry* dentry = (struct wfs_dentry*) root->data;
-        for (int i = 0; i < n_entries; i++, dentry++)
-            printf("Inode Number: %lu\tName: %s\n", dentry->inode_number, dentry->name);
+        struct wfs_dentry* d = (struct wfs_dentry*) root->data;
+        for (int i = 0; i < n_entries; i++, d++)
+            printf("Inode Number: %lu\tName: %s\n", d->inode_number, d->name);
         printf("\n");
     }
 
@@ -457,9 +457,9 @@ int main(int argc, char *argv[]) {
 
 
         int n_entries = root->inode.size / sizeof(struct wfs_dentry);
-        struct wfs_dentry* dentry = (struct wfs_dentry*) root->data;
-        for (int i = 0; i < n_entries; i++, dentry++)
-            printf("Inode Number: %lu\tName: %s\n", dentry->inode_number, dentry->name);
+        struct wfs_dentry* d = (struct wfs_dentry*) root->data;
+        for (int i = 0; i < n_entries; i++, d++)
+            printf("Inode Number: %lu\tName: %s\n", d->inode_number, d->name);
 
         printf("\n");
     }
