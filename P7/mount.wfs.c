@@ -31,8 +31,8 @@ static void wfs_stat_init(struct stat* stbuf, struct wfs_inode* restrict inode) 
 }
 
 #define SERVER_LOG(...) do {\
-    fprintf(stderr, "\n\x1b[33m:LOG:\x1b[0m (%s) ", __func__);\
-    fprintf(stderr, __VA_ARGS__);\
+    fprintf(stdout, "\n\x1b[33m:LOG:\x1b[0m (%s) ", __func__);\
+    fprintf(stdout, __VA_ARGS__);\
 } while(0)
 
 
