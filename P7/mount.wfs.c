@@ -415,6 +415,8 @@ int main(int argc, char *argv[]) {
             goto done;
         }
 
+        WFS_DEBUG("root->inode.size: \n", root->inode.size);
+
         struct wfs_dentry dentry = {
             .name = "file3",
             .inode_number = ps_sb.n_inodes,
@@ -425,8 +427,10 @@ int main(int argc, char *argv[]) {
         }
 
         ps_sb.n_inodes++;
+        WFS_DEBUG("root->inode.size: \n", root->inode.size);
 
         int n_entries = root->inode.size / sizeof(struct wfs_dentry);
+
         struct wfs_dentry* d = (struct wfs_dentry*) root->data;
         for (int i = 0; i < n_entries; i++, d++)
             printf("Inode Number: %lu\tName: %s\n", d->inode_number, d->name);
