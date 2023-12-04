@@ -183,8 +183,10 @@ static int wfs_read(const char* path, char* buf, size_t size,
         return -ENOENT;
     }
 
-    if (_check_reg_inode(&entry->inode))
+    if (_check_reg_inode(&entry->inode)) {
+        free(entry);
         return -EACCES;
+    }
 
     // Read sizebytes from the given file into the buffer buf, 
     // beginning offset bytes into the file.
@@ -200,12 +202,10 @@ static int wfs_read(const char* path, char* buf, size_t size,
     // Returns the number of bytes transferred, 
     // or 0 if offset was at or beyond the end of the file.
 
-    data = data + offset;
-    memmove(buf, data, n_bytes);
-
-    free(entry);
+    memcpy(buf, data + offset, n_bytes);
 
     done:
+    free(entry);
     return n_bytes;
 }
 
@@ -255,7 +255,7 @@ static int wfs_write(const char* path, const char* buf, size_t size,
     end_op();
 
     free(entry);
-    return 0;
+    return size;
 }
 
 static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler,
@@ -411,6 +411,7 @@ static int wfs_unlink(const char* path) {
     append_log_entry(entry);
     end_op();
 
+    free(entry);
     free(_path);
     return 0;
 }
