@@ -78,6 +78,8 @@ int main(int argc, char const *argv[]) {
         return 0;
     }
 
+    wfs_init(argv[0], argv[1]);
+
     int ret;
     do {
         ps_sb.fsck_lock.l_type = F_WRLCK;
@@ -98,8 +100,6 @@ int main(int argc, char const *argv[]) {
     }
 
     acquire_fsck_lock();
-
-    wfs_init(argv[0], argv[1]);
 
     if (ps_sb.n_inodes < 1) {
         WFS_INFO("No inodes were found.\n"
