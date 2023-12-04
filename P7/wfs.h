@@ -217,8 +217,8 @@ int _check_dir_inode(struct wfs_inode* inode);
 int _check_reg_inode(struct wfs_inode* inode);
 
 void _check();
-off_t lookup_itable(uint);
-void fill_itable(uint, long);
+static inline off_t lookup_itable(uint);
+static inline void fill_itable(uint, long);
 static inline void invalidate_itable();
 int set_itable_capacity(uint);
 int build_itable();
@@ -421,7 +421,7 @@ void _check() {
  * @return  The offset of the most recent log entry corresponding to this inode
  *          number
  */
-off_t lookup_itable(uint inode_number) {
+static inline off_t lookup_itable(uint inode_number) {
     _check();
 
     if (inode_number > ps_sb.n_inodes || inode_number >= ps_sb.itable.capacity) {
@@ -449,7 +449,7 @@ off_t lookup_itable(uint inode_number) {
  * @param inode_number Inode this entry is for
  * @param offset       The offset of the most recent entry for the given inode
  */
-void fill_itable(uint inode_number, long offset) {
+static inline void fill_itable(uint inode_number, long offset) {
     _check();
 
     if (ps_sb.itable.capacity <= inode_number)
