@@ -298,6 +298,9 @@ static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler,
             continue;
         }
 
+        if (entry->inode.deleted)
+            continue;
+
         struct stat stbuf;
         wfs_stat_init(&stbuf, &entry->inode);
 
@@ -346,9 +349,13 @@ static int wfs_unlink(const char* path) {
     off_t offset = lookup_itable(inode_number);
 
     begin_op();
-    write_to_disk(offset, entry);
+    int retval = write_to_disk(offset, entry);
     end_op();
     free(entry);
+
+    if (retval == -ENOSPC) {
+        return -1;
+    }
 
     // Change the parent directory to reflect the deletion
     char* _path = simplify_path(path);
@@ -409,7 +416,7 @@ static int wfs_unlink(const char* path) {
     }
 
     begin_op();
-    int retval = append_log_entry(entry);
+    retval = append_log_entry(entry);
     end_op();
 
     free(entry);
