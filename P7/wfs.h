@@ -151,79 +151,6 @@ enum InodeModes {
     DIRECTORY_MODE = S_IFDIR,
 };
 
-/**
- * Initialize a Superblock
- *
- * @param sb The superblock buffer to fill up
- */
-void wfs_sb_init(struct wfs_sb* restrict sb) {
-    sb->magic = WFS_MAGIC;
-    sb->head = (uint32_t) WFS_BASE_ENTRY_OFFSET;
-}
-
-/**
- * Initialize an Inode
- *
- * @param inode The inode buffer to fill up
- * @param mode  The mode of the new inode
- */
-void wfs_inode_init(struct wfs_inode* restrict inode, enum InodeModes mode) {
-    static unsigned int inode_number = WFS_INITIAL_INODE_NUMBER;
-    *inode = (struct wfs_inode) {
-        .inode_number = inode_number++,
-        .deleted      = WFS_INODE_INTACT,
-        .mode         = mode,
-        .uid          = WFS_USER_ID,
-        .gid          = WFS_GROUP_ID,
-        .flags        = WFS_IGNORED_FIELD,
-        .size         = WFS_IGNORED_FIELD,
-        .atime        = WFS_CURR_TIME,
-        .mtime        = WFS_CURR_TIME,
-        .ctime        = WFS_CURR_TIME,
-        .links        = WFS_N_HARD_LINKS,
-    };
-}
-
-/**
- * Checks if the inode is for a directory
- *
- * @param  inode  Pointer to the inode to check
- *
- * @return  0 if inode represents a directory, 1 otherwise
- */
-int _check_dir_inode(struct wfs_inode* inode) {
-    if (S_ISDIR(inode->mode))
-        return 0;
-
-    WFS_ERROR(
-        "Given inode does not represent a directory\n"
-        "{.inode_number = %d, .mode = %d, .ctime = %d}",
-        inode->inode_number, inode->mode, inode->ctime
-    );
-
-    return 1;
-}
-
-/**
- * Checks if the inode is for a regular file
- *
- * @param  inode  Pointer to the inode to check
- *
- * @return  0 if inode represents a file, 1 otherwise
- */
-int _check_reg_inode(struct wfs_inode* inode) {
-    if (S_ISREG(inode->mode))
-        return 0;
-
-    WFS_ERROR(
-        "Given inode does not represent a file\n"
-        "{.inode_number = %d, .mode = %d, .ctime = %d}",
-        inode->inode_number, inode->mode, inode->ctime
-    );
-
-    return 1;
-}
-
 typedef unsigned int uint;
 
 //////////////// MK COPING WITH THE LINTER, NEVERMIND THIS BLOCK ///////////////
@@ -285,28 +212,36 @@ char* strndup(const char*, size_t);
 
 /////////////////////////// FUNCTION PROTOTYPES START //////////////////////////
 
+void wfs_inode_init(struct wfs_inode* restrict inode, enum InodeModes mode);
+int _check_dir_inode(struct wfs_inode* inode);
+int _check_reg_inode(struct wfs_inode* inode);
+
 void _check();
 void fill_itable(uint, long);
 static inline void invalidate_itable();
 int set_itable_capacity(uint);
 int build_itable();
+
 static inline void invalidate_path_history();
 int set_path_history_capacity(uint);
+
 int find_file_in_dir(struct wfs_log_entry*, char*, uint*);
 char* simplify_path(const char* restrict);
 int parse_path(const char* restrict, uint* restrict);
 struct wfs_log_entry* get_log_entry(uint);
 int add_dentry(struct wfs_log_entry** entry, struct wfs_dentry* dentry);
 int remove_dentry(struct wfs_log_entry** entry, struct wfs_dentry* dentry);
+
 int read_from_disk(off_t, struct wfs_log_entry**);
 int write_to_disk(off_t, struct wfs_log_entry*);
 int append_log_entry(struct wfs_log_entry*);
 int read_sb_from_disk();
 int write_sb_to_disk();
+void validate_disk_file();
+
 void setup_flock();
 static inline void begin_op();
 static inline void end_op();
-void validate_disk_file();
 
 //////////////////////////// FUNCTION PROTOTYPES END ///////////////////////////
 
@@ -345,7 +280,7 @@ static struct {
     .is_valid = 0,
     .fsck = 0,
     .rebuilding = 0,
-    .n_inodes = 0,
+    .n_inodes = WFS_INITIAL_INODE_NUMBER,
     .n_log_entries = 0,
     .disk_filename = NULL,
     .disk_file = NULL,
@@ -372,6 +307,73 @@ static struct {
 };
 
 ////////////////////////// BOOKKEEPING VARIABLES END ///////////////////////////
+
+
+/////////////////////// INODE MANAGEMENT FUNCTIONS START ///////////////////////
+
+/**
+ * Initialize an Inode
+ *
+ * @param inode The inode buffer to fill up
+ * @param mode  The mode of the new inode
+ */
+void wfs_inode_init(struct wfs_inode* restrict inode, enum InodeModes mode) {
+    *inode = (struct wfs_inode) {
+        .inode_number = ps_sb.n_inodes++,
+        .deleted      = WFS_INODE_INTACT,
+        .mode         = mode,
+        .uid          = WFS_USER_ID,
+        .gid          = WFS_GROUP_ID,
+        .flags        = WFS_IGNORED_FIELD,
+        .size         = WFS_IGNORED_FIELD,
+        .atime        = WFS_CURR_TIME,
+        .mtime        = WFS_CURR_TIME,
+        .ctime        = WFS_CURR_TIME,
+        .links        = WFS_N_HARD_LINKS,
+    };
+}
+
+/**
+ * Checks if the inode is for a directory
+ *
+ * @param  inode  Pointer to the inode to check
+ *
+ * @return  0 if inode represents a directory, 1 otherwise
+ */
+int _check_dir_inode(struct wfs_inode* inode) {
+    if (S_ISDIR(inode->mode))
+        return 0;
+
+    WFS_ERROR(
+        "Given inode does not represent a directory\n"
+        "{.inode_number = %d, .mode = %d, .ctime = %d}",
+        inode->inode_number, inode->mode, inode->ctime
+    );
+
+    return 1;
+}
+
+/**
+ * Checks if the inode is for a regular file
+ *
+ * @param  inode  Pointer to the inode to check
+ *
+ * @return  0 if inode represents a file, 1 otherwise
+ */
+int _check_reg_inode(struct wfs_inode* inode) {
+    if (S_ISREG(inode->mode))
+        return 0;
+
+    WFS_ERROR(
+        "Given inode does not represent a file\n"
+        "{.inode_number = %d, .mode = %d, .ctime = %d}",
+        inode->inode_number, inode->mode, inode->ctime
+    );
+
+    return 1;
+}
+
+//////////////////////// INODE MANAGEMENT FUNCTIONS END ////////////////////////
 
 
 ////////////////////// I-TABLE MANAGEMENT FUNCTIONS START //////////////////////
@@ -583,7 +585,7 @@ int build_itable() {
 /////////////////////// I-TABLE MANAGEMENT FUNCTIONS END ///////////////////////
 
 
-//////////////////// FILE SYSTEM MANAGEMENT FUNCTIONS START ////////////////////
+//////////////////// PATH HISTORY MANAGEMENT FUNCTIONS START ///////////////////
 
 /**
  * If path history is NULL, does nothing.
@@ -646,6 +648,11 @@ int set_path_history_capacity(uint capacity) {
 
     return FSOPSC;
 }
+
+///////////////////// PATH HISTORY MANAGEMENT FUNCTIONS END ////////////////////
+
+
+//////////////////// FILE SYSTEM MANAGEMENT FUNCTIONS START ////////////////////
 
 /**
  * Finds the inode number of the given filename in the wfs_log_entry
@@ -1181,46 +1188,6 @@ int write_sb_to_disk() {
 }
 
 /**
- * Sets up file locks to work with multiple processes
- */
-void setup_flock() {
-    _check();
-    ps_sb.wfs_lock.l_pid = getpid();
-}
-
-/**
- * Acquire file locks
- */
-static inline void begin_op() {
-    ps_sb.wfs_lock.l_type = F_WRLCK;
-    int ret;
-    do {
-        ret = fcntl(fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.wfs_lock);
-    } while (ret == -1  && errno == EINTR);
-
-    if (ret == -1) {
-        WFS_ERROR("FLock Lock failed! (err: %s)", strerror(errno));
-        exit(FSOPFL);
-    }
-}
-
-/**
- * Release file locks
- */
-static inline void end_op() {
-    int ret;
-    do {
-        ps_sb.wfs_lock.l_type = F_UNLCK;
-        ret = fcntl(fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.wfs_lock);
-    } while (ret == -1 && errno == EINTR);
-
-    if (ret == -1) {
-        WFS_ERROR("FLock Unlock failed! (err: %s)", strerror(errno));
-        exit(FSOPFL);
-    }
-}
-
-/**
  * Parses the superblock of the given disk file to ensure the file is a valid
  * WFS disk image
  *
@@ -1259,6 +1226,64 @@ void validate_disk_file() {
 }
 
 ////////////////////// DISK FILE MANAGEMENT FUNCTIONS END //////////////////////
+
+
+///////////////////////// FILE CONTROL FUNCTIONS START /////////////////////////
+
+/**
+ * Acquire file locks
+ */
+static inline void begin_op() {
+    ps_sb.wfs_lock.l_type = F_WRLCK;
+    int ret;
+    do {
+        ret = fcntl(fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.wfs_lock);
+    } while (ret == -1  && errno == EINTR);
+
+    if (ret == -1) {
+        WFS_ERROR("FLock Lock failed! (err: %s)", strerror(errno));
+        exit(FSOPFL);
+    }
+}
+
+/**
+ * Release file locks
+ */
+static inline void end_op() {
+    int ret;
+    do {
+        ps_sb.wfs_lock.l_type = F_UNLCK;
+        ret = fcntl(fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.wfs_lock);
+    } while (ret == -1 && errno == EINTR);
+
+    if (ret == -1) {
+        WFS_ERROR("FLock Unlock failed! (err: %s)", strerror(errno));
+        exit(FSOPFL);
+    }
+}
+
+////////////////////////// FILE CONTROL FUNCTIONS END //////////////////////////
+
+
+////////////////////// WFS INITIALIZATION FUNCTIONS START //////////////////////
+
+/**
+ * Initialize a Superblock
+ *
+ * @param sb The superblock buffer to fill up
+ */
+void wfs_sb_init(struct wfs_sb* restrict sb) {
+    sb->magic = WFS_MAGIC;
+    sb->head = (uint32_t) WFS_BASE_ENTRY_OFFSET;
+}
+
+/**
+ * Sets up file locks to work with multiple processes
+ */
+void setup_flocks() {
+    _check();
+    ps_sb.wfs_lock.l_pid = getpid();
+}
 
 /**
  * Initializes WFS for a `program` with the given disk `filename`
@@ -1312,5 +1337,7 @@ void wfs_init(const char* program, const char* filename) {
     WFS_INFO("WFS Initialized successfully!\n");
     ps_sb.rebuilding = 0;
 }
+
+/////////////////////// WFS INITIALIZATION FUNCTIONS END ///////////////////////
 
 #endif
