@@ -217,6 +217,7 @@ int _check_dir_inode(struct wfs_inode* inode);
 int _check_reg_inode(struct wfs_inode* inode);
 
 void _check();
+off_t lookup_itable(uint);
 void fill_itable(uint, long);
 static inline void invalidate_itable();
 int set_itable_capacity(uint);
@@ -409,6 +410,37 @@ void _check() {
             exit(FSOPFL);
         }
     }
+}
+
+/**
+ * Lookup the I-Table entries for the given inode
+ * Rebuilds the I-Table if the given inode number is not found
+ *
+ * @param inode_number The inode number to lookup
+ *
+ * @return  The offset of the most recent log entry corresponding to this inode
+ *          number
+ */
+off_t lookup_itable(uint inode_number) {
+    _check();
+
+    if (inode_number > ps_sb.n_inodes || inode_number >= ps_sb.itable.capacity) {
+        WFS_INFO("Inode %d was not found in the I-Table. Rebuilding...\n", inode_number);
+        invalidate_itable();
+        if (build_itable() != ITOPSC) {
+            WFS_ERROR("Failed to re-build I-Table.\n");
+            exit(ITOPFL);
+        }
+        WFS_INFO("I-Table was re-built successfully\n");
+    }
+
+    if (inode_number > ps_sb.n_inodes) {
+        WFS_ERROR("Inode number exceeds total number of inodes %u > %u\n",
+                  inode_number, ps_sb.n_inodes);
+        return ITOPFL;
+    }
+
+    return ps_sb.itable.table[inode_number];
 }
 
 /**
@@ -764,11 +796,7 @@ int parse_path(const char* path, uint* out) {
     entry = get_log_entry(0); // Root log_entry
     if (!entry) {
         WFS_INFO("Didn't find root log_entry. Rebuilding I-Table\n");
-        invalidate_itable();
-        if (build_itable() != ITOPSC) {
-            WFS_ERROR("Failed to re-build I-Table.\n");
-            exit(ITOPFL);
-        }
+        exit(ITOPFL);
     }
 
     while ((token = strtok_r(_path, "/", &context)) != NULL) {
@@ -826,23 +854,7 @@ int parse_path(const char* path, uint* out) {
  * @return Pointer to an in-memory representation of the log_entry (heap allocated)
  */
 struct wfs_log_entry* get_log_entry(uint inode_number) {
-    if (inode_number > ps_sb.n_inodes || inode_number >= ps_sb.itable.capacity) {
-        WFS_INFO("Inode %d was not found in the I-Table. Rebuilding...\n", inode_number);
-        invalidate_itable();
-        if (build_itable() != ITOPSC) {
-            WFS_ERROR("Failed to re-build I-Table.\n");
-            exit(ITOPFL);
-        }
-        WFS_INFO("I-Table was re-built successfully\n");
-    }
-
-    if (inode_number > ps_sb.n_inodes) {
-        WFS_ERROR("Inode number exceeds total number of inodes %u > %u\n",
-                  inode_number, ps_sb.n_inodes);
-        return NULL;
-    }
-
-    off_t offset = ps_sb.itable.table[inode_number];
+    off_t offset = lookup_itable(inode_number);
 
     if (offset < WFS_INIT_ROOT_OFFSET) {
         WFS_ERROR("Inode Number %u has been deleted\n", inode_number);
@@ -1123,8 +1135,9 @@ int write_sb_to_disk() {
             uint max_idx = -1;
 
             for (uint i = 0; i < ps_sb.n_inodes; i++) {
-                if (ps_sb.itable.table[i] > max) {
-                    max = ps_sb.itable.table[i];
+                off_t off = lookup_itable(i);
+                if (off > max) {
+                    max = off;
                     max_idx = i;
                 }
             }
