@@ -29,6 +29,7 @@ int main(int argc, const char* restrict argv[]) {
         goto fail;
     }
 
+    set_max_file_size();
     ps_sb.rebuilding = 1;
     begin_op();
 

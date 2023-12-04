@@ -239,7 +239,8 @@ int read_sb_from_disk();
 int write_sb_to_disk();
 void validate_disk_file();
 
-void setup_flocks();
+static inline void setup_flocks();
+static inline void set_max_file_size();
 static inline void begin_op();
 static inline void end_op();
 
@@ -1333,9 +1334,18 @@ void wfs_sb_init(struct wfs_sb* restrict sb) {
 /**
  * Sets up file locks to work with multiple processes
  */
-void setup_flocks() {
+static inline void setup_flocks() {
     _check();
     ps_sb.wfs_lock.l_pid = getpid();
+}
+
+static inline void set_max_file_size() {
+    struct stat stat_buf;
+    if (stat(ps_sb.disk_filename, &stat_buf) < 0) {
+        WFS_ERROR("stat failed!\n");
+        exit(FSOPFL);
+    }
+    ps_sb.max_file_size = stat_buf.st_size;
 }
 
 /**
@@ -1360,14 +1370,7 @@ void wfs_init(const char* program, const char* filename) {
         WFS_ERROR("Couldn't open file \"%s\"\n", ps_sb.disk_filename);
         exit(FSOPFL);
     }
-
-    struct stat stat_buf;
-    if (stat(ps_sb.disk_filename, &stat_buf) < 0) {
-        WFS_ERROR("stat failed!\n");
-        exit(FSOPFL);
-    }
-    ps_sb.max_file_size = stat_buf.st_size;
-
+    set_max_file_size();
     invalidate_itable();
     invalidate_path_history();
 
