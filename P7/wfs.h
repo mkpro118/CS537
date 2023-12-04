@@ -51,6 +51,7 @@
 
 #define PRINT_LOG_ENTRY(x) do {\
     printf("\n------------------------------------------------------------\n");\
+    printf("Offset: %lu\n", lookup_itable((x)->inode.inode_number));\
     PRINT_INODE((&(x)->inode));\
 \
     if (S_ISREG(((x)->inode.mode))) {\
@@ -70,8 +71,8 @@
         for (int i = 0; i < n_entries; i++, dentry++) {\
             struct wfs_log_entry* temp = get_log_entry(dentry->inode_number);\
             if (!temp) {\
-                printf("NOOO WE FAILED!\n");\
-                exit(1);\
+                printf("Log Entry for inode %lu not found! Inode was likely deleted!\n", dentry->inode_number);\
+                continue;\
             }\
             if (S_ISDIR((temp->inode.mode))) {\
                 printf("Inode: %lu\tType: Dir\tName: %s\n", dentry->inode_number, dentry->name);\
