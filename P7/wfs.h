@@ -1382,7 +1382,6 @@ void wfs_sb_init(struct wfs_sb* restrict sb) {
  * Sets up file locks to work with multiple processes
  */
 static inline void setup_flocks() {
-    _check();
     ps_sb.wfs_lock.l_pid = getpid();
     ps_sb.fsck_lock.l_pid = getpid();
 }

@@ -80,22 +80,23 @@ int main(int argc, char const *argv[]) {
 
     wfs_init(argv[0], argv[1]);
 
-    // int ret;
+    int ret;
     do {
         ps_sb.fsck_lock.l_type = F_WRLCK;
         ps_sb.fsck_lock.l_pid = getpid();
-        ret = fcntl(fileno(ps_sb.disk_file), F_SETLK, &ps_sb.wfs_lock);
+        ret = fcntl(fileno(ps_sb.disk_file), F_GETLK, &ps_sb.wfs_lock);
     } while (errno == EINTR);
 
-    // if (ret != -1) {
-    //     WFS_ERROR("FLock Lock should have failed! (err: %s)", strerror(errno));
-    //     exit(FSOPFL);
-    // }
+    if (ret != -1) {
+        WFS_ERROR("FLock Lock should have failed! (err: %s). Aborting\n",
+                  strerror(errno));
+        exit(FSOPFL);
+    }
 
     pid_t pid = ps_sb.fsck_lock.l_pid;
 
     if (pid == getpid()) {
-        WFS_ERROR("bruh how did we get this lock????\n");
+        WFS_ERROR("Failed to get the server's pid. Aborting\n");
         exit(FSOPFL);
     }
 
