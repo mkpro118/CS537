@@ -17,6 +17,7 @@ static inline void swap(off_t *x, off_t *y) {
 
 /**
  * Enforces a min heap property on the given array
+ *
  * @param arr The address of the first element of the array to heapify
  * @param len The length of the array
  * @param idx The index of element to consider as root
@@ -45,7 +46,8 @@ static void heapify(off_t* arr, int len, int idx) {
 }
 
 /**
- * Sorts an Array using the Heap Sort Algorithm
+ * Sorts an array in-place using the Heap Sort Algorithm
+ *
  * @param arr The address of the first element in the array to sort
  * @param n   The size of the array
  */
@@ -62,10 +64,12 @@ static void heap_sort(off_t* arr, int n) {
 }
 
 /**
- * Compacts the WFS 
- * @param  argc [description]
- * @param  argv [description]
- * @return      [description]
+ * Compacts the WFS by removing redundant entries
+ *
+ * Takes in one argument, which is the disk image to compact
+ *
+ * Usage:
+ *    $: fsck.wfs <filename>
  */
 int main(int argc, char const *argv[]) {
     if (argc != 2) {
