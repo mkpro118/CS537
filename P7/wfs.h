@@ -13,7 +13,6 @@
 #define MOUNT_WFS_H_
 
 #define MAX_FILE_NAME_LEN 32
-#define MAX_DISK_FILE_SIZE 1048576
 #define WFS_MAGIC 0xdeadbeef
 
 #ifdef WFS_SETUP
@@ -277,6 +276,7 @@ static struct {
     } path_history;     // Used only by parse_path
     struct wfs_sb sb; // This is set in validate_disk_file().
     uint cached_head;
+    unsigned long max_file_size;
 } ps_sb = {
     .is_valid = 0,
     .fsck = 0,
@@ -305,6 +305,7 @@ static struct {
         .head = 0,
     },
     .cached_head = 0,
+    .max_file_size = 0,
 };
 
 ////////////////////////// BOOKKEEPING VARIABLES END ///////////////////////////
@@ -1044,7 +1045,7 @@ int write_to_disk(off_t offset, struct wfs_log_entry* entry) {
 
     size_t size = WFS_LOG_ENTRY_SIZE(entry);
 
-    if ((offset + size) > MAX_DISK_FILE_SIZE)
+    if ((offset + size) > ps_sb.max_file_size)
         return -ENOSPC;
 
     long pos = ftell(ps_sb.disk_file);
@@ -1151,7 +1152,7 @@ int write_sb_to_disk() {
         return FSOPFL;
     }
 
-    if (ps_sb.sb.head < WFS_INIT_ROOT_OFFSET || ps_sb.sb.head > MAX_DISK_FILE_SIZE) {
+    if (ps_sb.sb.head < WFS_INIT_ROOT_OFFSET || ps_sb.sb.head > ps_sb.max_file_size) {
         WFS_ERROR("In memory superblock is invalid. "
                   "Expected Head to be greater than or equal to %x, Actual = %x\n"
                   "This may be a recoverable error.\n"
@@ -1359,6 +1360,13 @@ void wfs_init(const char* program, const char* filename) {
         WFS_ERROR("Couldn't open file \"%s\"\n", ps_sb.disk_filename);
         exit(FSOPFL);
     }
+
+    struct stat stat_buf;
+    if (stat(ps_sb.disk_filename, &stat_buf) < 0) {
+        WFS_ERROR("stat failed!\n");
+        exit(FSOPFL);
+    }
+    ps_sb.max_file_size = stat_buf.st_size;
 
     invalidate_itable();
     invalidate_path_history();
