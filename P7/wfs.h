@@ -440,6 +440,7 @@ static inline off_t lookup_itable(uint inode_number) {
         return ITOPFL;
     }
 
+    WFS_INFO("Itable[%u] = %lu\n", inode_number, ps_sb.itable.table[inode_number]);
     return ps_sb.itable.table[inode_number];
 }
 
@@ -449,12 +450,12 @@ static inline off_t lookup_itable(uint inode_number) {
  * @param inode_number Inode this entry is for
  * @param offset       The offset of the most recent entry for the given inode
  */
-static inline void fill_itable(uint inode_number, long offset) {
+static inline void fill_itable(uint inode_number, off_t offset) {
     _check();
 
     if (ps_sb.itable.capacity <= inode_number)
         set_itable_capacity(inode_number + ITABLE_CAPACITY_INCREMENT);
-
+    WFS_INFO("Itable[%d] <- %lu\n", inode_number, offset);
     ps_sb.itable.table[inode_number] = offset;
 }
 
@@ -762,8 +763,8 @@ int parse_path(const char* path, uint* out) {
     int ph_idx = 1;
 
     // All paths should start with a "/"
-    if (*path != '/')
-        goto fail;
+    /*if (*path != '/')
+        goto fail;*/
 
     // If the filepath is literally the root directory, return inode 0
     if (strcmp("/", path) == 0)
@@ -783,8 +784,10 @@ int parse_path(const char* path, uint* out) {
         entry = get_log_entry(0);
 
         // Handle Dentry
-        if (find_file_in_dir(entry, _path, &inode_number) != FSOPSC)
+        if (find_file_in_dir(entry, _path, &inode_number) != FSOPSC) {
+            WFS_ERROR("Didn't find %s in %d", _path, entry->inode.inode_number);
             goto fail;
+        }
 
         ps_sb.path_history.history[ph_idx++] = inode_number;
         goto success;
@@ -807,8 +810,10 @@ int parse_path(const char* path, uint* out) {
             goto next_token;
         }
 
-        if (find_file_in_dir(entry, token, &inode_number) != FSOPSC)
+        if (find_file_in_dir(entry, token, &inode_number) != FSOPSC) {
+            WFS_ERROR("failed to find %s in inode %d (2)\n", token, entry->inode.inode_number);
             goto fail;
+        } 
 
         if (ps_sb.path_history.capacity <= ph_idx)
             set_path_history_capacity(ph_idx + PATH_HISTORY_CAPACITY_INCREMENT);
@@ -1072,8 +1077,10 @@ int write_to_disk(off_t offset, struct wfs_log_entry* entry) {
         return FSOPFL;
     }
 
-    if ((offset + size) >= ps_sb.sb.head)
+    if ((offset + size) >= ps_sb.sb.head) {
         ps_sb.sb.head = offset + size;
+        ps_sb.cached_head = ps_sb.sb.head;
+    }
 
     write_sb_to_disk();
 
@@ -1258,7 +1265,7 @@ void validate_disk_file() {
     }
 
     if (ps_sb.cached_head != ps_sb.sb.head && !ps_sb.rebuilding) {
-        WFS_INFO("Current head doesn't match cached head. Rebuilding I-Table...\n");
+        WFS_INFO("Current head doesn't match cached head (%d != %d). Rebuilding I-Table...\n", ps_sb.cached_head, ps_sb.sb.head);
         if(build_itable() != ITOPSC) {
             WFS_ERROR("Failed to re-build I-Table\n");
             return;

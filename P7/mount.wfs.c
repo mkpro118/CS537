@@ -78,7 +78,7 @@ static int make_inode(const char* path, mode_t mode) {
     uint parent_inode = 0;
     if (base_file) {
         *base_file = 0;
-        SERVER_LOG("Parent path: %s", _path);
+        SERVER_LOG("Parent path: %s\n", _path);
         if (parse_path(_path, &parent_inode) != FSOPSC) {
             WFS_ERROR("Failed to find parent directory %sn", _path);
             free(_path);
@@ -96,6 +96,7 @@ static int make_inode(const char* path, mode_t mode) {
         return -1;
     }
 
+    SERVER_LOG("PARENT INODE: %d\n", parent_inode);
     struct wfs_log_entry* parent = get_log_entry(parent_inode);
 
     if (!parent) {
@@ -123,7 +124,7 @@ static int make_inode(const char* path, mode_t mode) {
     };
 
     strncpy(dentry.name, base_file, len);
-
+    SERVER_LOG("INTIAL PARENT SIZE = %d\n", parent->inode.size);
     if (add_dentry(&parent, &dentry)) {
         WFS_ERROR("Failed to add dentry! {.name = \"%s\", .inode_number = %lu}\n",
                   dentry.name, dentry.inode_number);
@@ -132,6 +133,7 @@ static int make_inode(const char* path, mode_t mode) {
         ps_sb.n_inodes--;
         return -1;
     }
+    SERVER_LOG("NEW PARENT SIZE = %d\n", parent->inode.size);
 
     begin_op();
     append_log_entry(parent);
@@ -152,7 +154,7 @@ static int wfs_mknod(const char* path, mode_t mode, dev_t rdev) {
 }
 
 static int wfs_mkdir(const char* path, mode_t mode) {
-    SERVER_LOG("path: %p\tmode: %x\n", path, mode);
+    SERVER_LOG("path: %s\tmode: %x\n", path, mode);
     _check();
 
     return make_inode(path, DIRECTORY_MODE | mode);
@@ -278,9 +280,12 @@ static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler,
 
     int n_entries = entry->inode.size / sizeof(struct wfs_dentry);
 
+    SERVER_LOG("n_entries = %d\n", n_entries);
+
     struct wfs_dentry* dentry = (struct wfs_dentry*) entry->data;
 
     for (int i = 0; i < n_entries; i++, dentry++) {
+        SERVER_LOG("  -> %s\n", dentry->name);
         inode_number = dentry->inode_number;
         struct wfs_log_entry* entry = get_log_entry(inode_number);
 
