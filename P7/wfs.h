@@ -670,7 +670,7 @@ int find_file_in_dir(struct wfs_log_entry* entry, char* filename,
     if(_check_dir_inode(&entry->inode))
         return FSOPFL;
 
-    uint inode_number = (uint) -1;
+    *out = (uint) -1;
 
     int n_entries = entry->inode.size / sizeof(struct wfs_dentry);
 
@@ -682,21 +682,19 @@ int find_file_in_dir(struct wfs_log_entry* entry, char* filename,
 
         dentry->name[MAX_FILE_NAME_LEN - 1] = 0;
 
-        inode_number = dentry->inode_number;
+        *out = dentry->inode_number;
         break;
     }
 
-    *out = inode_number;
-
-    if (inode_number == ((uint)-1))
+    if (*out == ((uint)-1))
         return FSOPFL;
 
-    if (inode_number >= ps_sb.n_inodes) {
+    if (*out >= ps_sb.n_inodes) {
         WFS_ERROR(
             "Corrupted Data in WFS! Inode number %d "
             "exceeds total number of inodes %d\n"
             "Looking for file %s in Inode %d",
-            inode_number, ps_sb.n_inodes, filename, entry->inode.inode_number
+            *out, ps_sb.n_inodes, filename, entry->inode.inode_number
         );
         return FSOPFL;
     }
