@@ -352,7 +352,7 @@ static int wfs_unlink(const char* path) {
 
     // Special Case, File is in root
     if (!base_file) {
-        if (!strncpy(dentry.name, base_file, MAX_FILE_NAME_LEN)) {
+        if (!strncpy(dentry.name, _path, MAX_FILE_NAME_LEN)) {
             WFS_ERROR("strncpy failed!\n");
             return -1;
         }
