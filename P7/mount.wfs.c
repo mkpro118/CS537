@@ -139,7 +139,8 @@ static int make_inode(const char* path, mode_t mode) {
     end_op();
 
     SERVER_LOG("wth we wrote to file!\n");
-
+    free(_path);
+    free(parent);
     return 0;
 }
 
