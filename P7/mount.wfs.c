@@ -264,7 +264,7 @@ static int wfs_write(const char* path, const char* buf, size_t size,
     end_op();
 
     free(entry);
-    return retval;
+    return retval == -ENOSPC ? retval : size;
 }
 
 static int wfs_readdir(const char* path, void* buf, fuse_fill_dir_t filler,
