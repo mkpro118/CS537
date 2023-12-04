@@ -63,6 +63,7 @@ fsck.wfs
 # Disk Images
 disk
 prebuilt_disk
+compact_disk
 
 # Testing files
 stress-*

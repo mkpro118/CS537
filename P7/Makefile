@@ -30,7 +30,6 @@ debug:
 	./create_disk.sh
 	rm -fr compact_disk outfile
 	yes | cp prebuilt_disk compact_disk
-	truncate -s 1M outfile
 	$(CC) $(CFLAGS) $(DEBUG_CFLAGS) mount.wfs.c $(FUSE_CFLAGS) -o mount.wfs
 	$(CC) $(CFLAGS) $(DEBUG_CFLAGS) -o mkfs.wfs mkfs.wfs.c
 	$(CC) $(CFLAGS) $(DEBUG_CFLAGS) -o fsck.wfs fsck.wfs.c
