@@ -456,6 +456,19 @@ void sigusr2_handler(int signum) {
     acquire_fsck_lock();
 }
 
+void sigio_handler(int signum) {
+    WFS_INFO("Caught SIGIO\n");
+    FILE* f = freopen(ps_sb.disk_filename, "r+", ps_sb.disk_file);
+
+    if (!f) {
+        WFS_ERROR("freopen faile!\n");
+        exit(FSOPFL);
+    }
+
+    ps_sb.disk_file = f;
+    setup_flocks();
+}
+
 /////////////////////// FILE CHANGE SIGNAL HANDLERS END ////////////////////////
 
 
@@ -666,27 +679,68 @@ int main(int argc, char *argv[]) {
     argv[argc - 2] = argv[fuse_argc];
     argv[fuse_argc] = NULL;
 
-    acquire_fsck_lock();
+    // acquire_fsck_lock();
 
-    // set up SIGUSR1
+    // // set up SIGUSR1
+    // {
+    //     struct sigaction sa;
+
+    //     memset(&sa, 0, sizeof(struct sigaction));
+
+    //     sa.sa_handler = sigusr1_handler;
+
+    //     // ensure the handler is bound properly
+    //     if (sigaction(SIGUSR1, &sa, NULL) < 0) {
+    //         WFS_ERROR("FATAL ERROR: Couldn't bind SIGUSR2!\n");
+    //         exit(FSOPFL);
+    //     } else {
+    //         WFS_INFO("Successfully setup SIGUSR1!\n");
+    //     }
+    // }
+
+    // // set up SIGUSR2
+    // {
+    //     struct sigaction sa;
+
+    //     memset(&sa, 0, sizeof(struct sigaction));
+
+    //     sa.sa_handler = sigusr1_handler;
+
+    //     // ensure the handler is bound properly
+    //     if (sigaction(SIGUSR2, &sa, NULL) < 0) {
+    //         WFS_ERROR("FATAL ERROR: Couldn't bind SIGUSR2!\n");
+    //         exit(FSOPFL);
+    //     } else {
+    //         WFS_INFO("Successfully setup SIGUSR2!\n");
+    //     }
+    // }
+
+    // set up SIGIO
     {
-        struct sigaction sa;
-
-        memset(&sa, 0, sizeof(struct sigaction));
-
-        sa.sa_handler = sigusr1_handler;
-
-        // ensure the handler is bound properly
-        if (sigaction(SIGUSR1, &sa, NULL) < 0) {
-            WFS_ERROR("FATAL ERROR: Couldn't bind SIGUSR2!\n");
-            exit(FSOPFL);
+        /* Open the directory to be monitored */
+        char* path = simplify_path(ps_sb.disk_filename);
+        char* base = strrchr(path, '/');
+        if (base) {
+            *base = 0;
+            base = strdup(path);
         } else {
-            WFS_INFO("Successfully setup SIGUSR1!\n");
+            base = strdup(".");
         }
-    }
+        free(path);
 
-    // set up SIGUSR2
-    {
+        int fd = open(base, O_RDONLY);
+        free(base);
+
+        if (fd == -1) {
+            WFS_ERROR("open failed!\n");
+            return FSOPFL;
+        }
+
+        if (fcntl(fd, F_NOTIFY, DN_CREATE | DN_DELETE | DN_MODIFY | DN_MULTISHOT) == -1) {
+            WFS_ERROR("fcntl for monitoring failed!\n");
+            return FSOPFL;
+        }
+
         struct sigaction sa;
 
         memset(&sa, 0, sizeof(struct sigaction));
@@ -694,7 +748,7 @@ int main(int argc, char *argv[]) {
         sa.sa_handler = sigusr1_handler;
 
         // ensure the handler is bound properly
-        if (sigaction(SIGUSR2, &sa, NULL) < 0) {
+        if (sigaction(SIGIO, &sa, NULL) < 0) {
             WFS_ERROR("FATAL ERROR: Couldn't bind SIGUSR2!\n");
             exit(FSOPFL);
         } else {
