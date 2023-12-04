@@ -53,6 +53,82 @@ static int wfs_getattr(const char* path, struct stat* stbuf) {
 
 static int wfs_mknod(const char* path, mode_t mode, dev_t rdev) {
     _check();
+    if (strlen(path) == 0) {
+        WFS_ERROR("Cannot create file with empty name\n");
+        return -1;
+    }
+
+    if (strcmp(path, "/") == 0) {
+        WFS_ERROR("Cannot create root\n");
+        return -1;
+    }
+
+    char* _path = simplify_path(path);
+
+    char* base_file = strrchr(_path, '/');
+
+    uint parent_inode = 0;
+    if (base_file) {
+        *base_file = 0;
+        if (parse_path(_path, &parent_inode) != FSOPSC) {
+            WFS_ERROR("Failed to find parent directory %sn", _path);
+            free(_path);
+            return -ENOENT;
+        }
+    } else {
+        base_file = _path;
+    }
+
+    ssize_t len = strlen(base_file);
+
+    if (len >= MAX_FILE_NAME_LEN) {
+        WFS_ERROR("File name %s is too long\n", base_file);
+        free(_path);
+        return -1;
+    }
+
+    struct wfs_log_entry* parent = get_log_entry(parent_inode);
+
+    if (!parent) {
+        WFS_ERROR("Failed to find log_entry for inode %d.\n", parent_inode);
+        free(_path);
+        return -ENOENT;
+    }
+
+    uint out = -1;
+
+    if (find_file_in_dir(parent, base_file, &out) == FSOPSC) {
+        WFS_ERROR("File %s already exists!\n", base_file);
+        free(_path);
+        free(parent);
+        return -EEXIST;
+    }
+
+    struct wfs_log_entry child;
+
+    wfs_inode_init(&child.inode, FILE_MODE);
+
+    struct wfs_dentry dentry = {
+        .name = {0},
+        .inode_number = child.inode.inode_number,
+    };
+
+    strncpy(dentry.name, base_file, len);
+
+    if (add_dentry(&parent, &dentry)) {
+        WFS_ERROR("Failed to add dentry! {.name = \"%s\", .inode_number = %lu}\n",
+                  dentry.name, dentry.inode_number);
+        free(parent);
+        free(_path);
+        ps_sb.n_inodes--;
+        return -1;
+    }
+
+    begin_op();
+    append_log_entry(parent);
+    append_log_entry(&child);
+    end_op();
+
     return 0;
 }
 
@@ -217,7 +293,9 @@ static int wfs_unlink(const char* path) {
 
     off_t offset = ps_sb.itable.table[inode_number];
 
+    begin_op();
     write_to_disk(offset, entry);
+    end_op();
     free(entry);
 
     // Change the parent directory to reflect the deletion
@@ -278,7 +356,9 @@ static int wfs_unlink(const char* path) {
         return -1;
     }
 
-
+    begin_op();
+    append_log_entry(entry);
+    end_op();
 
     free(_path);
     return 0;
@@ -420,10 +500,12 @@ int main(int argc, char *argv[]) {
             .inode_number = ps_sb.n_inodes,
         };
 
-        WFS_INFO("Adding dentry {.name = \"%s\", .inode_number = %lu}\n", dentry.name, dentry.inode_number);
+        WFS_INFO("Adding dentry {.name = \"%s\", .inode_number = %lu}\n",
+                 dentry.name, dentry.inode_number);
 
         if (add_dentry(&root, &dentry)) {
-            WFS_ERROR("Failed to add dentry! {.name = \"%s\", .inode_number = %lu}\n", dentry.name, dentry.inode_number);
+            WFS_ERROR("Failed to add dentry! {.name = \"%s\", .inode_number = %lu}\n",
+                      dentry.name, dentry.inode_number);
         }
 
         ps_sb.n_inodes++;
