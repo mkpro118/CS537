@@ -44,7 +44,7 @@ int main(int argc, const char* restrict argv[]) {
 
     // Write Log Entry 0, for root to the file
     struct wfs_log_entry entry;
-    wfs_inode_init(&entry.inode, DIRECTORY_MODE);
+    wfs_inode_init(&entry.inode, DIRECTORY_MODE | 777);
 
     if (write_to_disk(WFS_INIT_ROOT_OFFSET,  &entry) != FSOPSC) {
         WFS_ERROR("Failed to write to file \"%s\"\n", argv[1]);
