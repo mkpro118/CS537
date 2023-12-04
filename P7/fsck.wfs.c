@@ -113,16 +113,34 @@ int main(int argc, char const *argv[]) {
     }
 
     for (off_t* off = table; off < &table[ps_sb.n_inodes]; off++) {
-        struct wfs_log_entry* entry;
+        struct wfs_log_entry* entry = malloc(sizeof(struct wfs_log_entry));
+        if (!entry) {
+            WFS_ERROR("malloc failed!\n");
+            return FSOPFL;
+        }
 
-        if ((read_from_disk(*off, &entry) != FSOPSC) || !entry) {
-            WFS_ERROR("Failed to read entry at offset %lu "
-                      "likely due to a failed system call. ABORTING!\n",
-                      *off);
-            exit(FSOPFL);
+        if (fseek(ps_sb.disk_file, *off, SEEK_SET)) {
+            WFS_ERROR("fseek failed!\n");
+            return FSOPFL;
+        }
+
+        if(fread(entry, sizeof(struct wfs_log_entry), 1, ps_sb.disk_file) < 1) {
+            WFS_ERROR("fread failed!\n");
+            return FSOPFL;
         }
 
         size_t size = WFS_LOG_ENTRY_SIZE(entry);
+
+        struct wfs_log_entry* temp = realloc(entry, size);
+        if (!temp) {
+            WFS_ERROR("realloc failed!\n");
+            return FSOPFL;
+        }
+
+        if(fread(&entry->data, sizeof(char), entry->inode.size, ps_sb.disk_file) < entry->inode.size) {
+            WFS_ERROR("fread failed!\n");
+            return FSOPFL;
+        }
 
         if (fseek(ps_sb.disk_file, ps_sb.sb.head, SEEK_SET)) {
             WFS_ERROR("fseek failed!\n");
@@ -134,12 +152,21 @@ int main(int argc, char const *argv[]) {
             return FSOPFL;
         }
 
-        ps_sb.sb.head = ftell(ps_sb.disk_file);
+        ps_sb.sb.head += size;
 
         free(entry);
     }
 
-    ps_sb.sb.head = ftell(ps_sb.disk_file);
+    if (ps_sb.sb.head != ftell(ps_sb.disk_file)) {
+        WFS_ERROR("SOMEWHOW THESE DON'T MATCH\n");
+        exit(FSOPFL);
+    }
+
+    if (fseek(ps_sb.disk_file, 0, SEEK_SET)) {
+        WFS_ERROR("fseek failed!\n");
+        return FSOPFL;
+    }
+
     if (fwrite(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
         WFS_ERROR("fwrite failed!\n");
         return FSOPFL;

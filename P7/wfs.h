@@ -973,6 +973,10 @@ int read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
     ps_sb.wfs = 1;
     _check();
     *entry_buf = malloc(sizeof(struct wfs_log_entry));
+    if (!entry_buf) {
+        WFS_ERROR("malloc failed!\n");
+        return FSOPFL;
+    }
 
     long pos = ftell(ps_sb.disk_file);
 
