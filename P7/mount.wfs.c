@@ -78,6 +78,7 @@ static int make_inode(const char* path, mode_t mode) {
     uint parent_inode = 0;
     if (base_file) {
         *base_file = 0;
+        base_file++;
         SERVER_LOG("Parent path: %s\n", _path);
         if (parse_path(_path, &parent_inode) != FSOPSC) {
             WFS_ERROR("Failed to find parent directory %sn", _path);
@@ -89,6 +90,8 @@ static int make_inode(const char* path, mode_t mode) {
     }
 
     ssize_t len = strlen(base_file);
+
+    SERVER_LOG("BASE_FILE: '%s' | strlen = %lu\n", base_file, len);
 
     if (len >= MAX_FILE_NAME_LEN) {
         WFS_ERROR("File name %s is too long\n", base_file);
