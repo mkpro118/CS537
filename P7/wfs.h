@@ -239,7 +239,7 @@ int read_sb_from_disk();
 int write_sb_to_disk();
 void validate_disk_file();
 
-void setup_flock();
+void setup_flocks();
 static inline void begin_op();
 static inline void end_op();
 
@@ -1319,7 +1319,7 @@ void wfs_init(const char* program, const char* filename) {
 
     ps_sb.cached_head = ps_sb.sb.head;
 
-    setup_flock();
+    setup_flocks();
 
     WFS_INFO("Building I-Table...\n");
 
