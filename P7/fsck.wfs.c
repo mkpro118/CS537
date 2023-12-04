@@ -80,33 +80,6 @@ int main(int argc, char const *argv[]) {
 
     wfs_init(argv[0], argv[1]);
 
-    int ret;
-    do {
-        ps_sb.fsck_lock.l_type = F_WRLCK;
-        ps_sb.fsck_lock.l_pid = 0;
-        ret = fcntl(fileno(ps_sb.disk_file), F_GETLK, &ps_sb.wfs_lock);
-    } while (errno == EINTR);
-
-    if (ret != -1) {
-        WFS_ERROR("FLock Lock should have failed! (err: %s). Aborting\n",
-                  strerror(errno));
-        exit(FSOPFL);
-    }
-
-    pid_t pid = ps_sb.fsck_lock.l_pid;
-
-    if (pid == getpid()) {
-        WFS_ERROR("Failed to get the server's pid. Aborting\n");
-        exit(FSOPFL);
-    }
-
-    if (kill(pid, SIGUSR1) < 0) {
-        WFS_ERROR("FATAL ERROR: Couldn't send user1 signal!\n");
-        exit(FSOPFL);
-    }
-
-    acquire_fsck_lock();
-
     if (ps_sb.n_inodes < 1) {
         WFS_INFO("No inodes were found.\n"
                  "\"%s\" is possibly an invalid disk file.\n"
@@ -128,9 +101,16 @@ int main(int argc, char const *argv[]) {
     heap_sort(table, ps_sb.n_inodes);
 
     begin_op();
+    if (fseek(ps_sb.disk_file, 0, SEEK_SET)) {
+        WFS_ERROR("fseek failed!\n");
+        return FSOPFL;
+    }
 
     ps_sb.sb.head = WFS_INIT_ROOT_OFFSET;
-    write_sb_to_disk();
+    if (fwrite(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
+        WFS_ERROR("fwrite failed!\n");
+        return FSOPFL;
+    }
 
     for (off_t* off = table; off < &table[ps_sb.n_inodes]; off++) {
         struct wfs_log_entry* entry;
@@ -142,9 +122,11 @@ int main(int argc, char const *argv[]) {
             exit(FSOPFL);
         }
 
-        if(append_log_entry(entry)) {
-            WFS_ERROR("Ran out of space while compacting? ABORTING!\n");
-            exit(FSOPFL);
+        size_t size = WFS_LOG_ENTRY_SIZE(entry);
+
+        if(fwrite(entry, size, 1, ps_sb.disk_file) < 1) {
+            WFS_ERROR("fwrite failed!\n");
+            return FSOPFL;
         }
 
         free(entry);
@@ -158,13 +140,6 @@ int main(int argc, char const *argv[]) {
     WFS_INFO("Final file size: %d\n", ps_sb.sb.head);
 
     fclose(ps_sb.disk_file);
-
-    release_fsck_lock();
-    if (kill(pid, SIGUSR2) < 0) {
-        WFS_ERROR("FATAL ERROR: Couldn't send user1 signal!\n");
-        exit(FSOPFL);
-    }
-
     free(ps_sb.disk_filename);
     free(table);
 
