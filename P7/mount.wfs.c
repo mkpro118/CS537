@@ -415,7 +415,7 @@ int main(int argc, char *argv[]) {
             goto done;
         }
 
-        WFS_DEBUG("root->inode.size: \n", root->inode.size);
+        WFS_DEBUG("root->inode.size: %i\n", root->inode.size);
 
         struct wfs_dentry dentry = {
             .name = "file3",
@@ -427,7 +427,7 @@ int main(int argc, char *argv[]) {
         }
 
         ps_sb.n_inodes++;
-        WFS_DEBUG("root->inode.size: \n", root->inode.size);
+        WFS_DEBUG("root->inode.size: %i\n", root->inode.size);
 
         int n_entries = root->inode.size / sizeof(struct wfs_dentry);
 
