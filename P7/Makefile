@@ -11,7 +11,6 @@ all: $(NAME)
 	./create_disk.sh
 	./mkfs.wfs disk
 	-./umount.wfs
-	-mkdir mnt
 
 .PHONY: mount.wfs
 mount.wfs:
