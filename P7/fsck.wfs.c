@@ -154,6 +154,7 @@ int main(int argc, char const *argv[]) {
         }
 
         ps_sb.sb.head += size;
+        WFS_INFO("HEAD = %d\n", ps_sb.sb.head);
 
         free(entry);
     }
@@ -167,7 +168,7 @@ int main(int argc, char const *argv[]) {
         WFS_ERROR("fseek failed!\n");
         return FSOPFL;
     }
-
+    WFS_ERROR("{.MAGIC = %d, .HEAD = %d}\n", ps_sb.sb.magic, ps_sb.sb.head);
     if (fwrite(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
         WFS_ERROR("fwrite failed!\n");
         return FSOPFL;

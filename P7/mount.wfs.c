@@ -438,11 +438,11 @@ static int wfs_unlink(const char* path) {
 
 ////////////////////// FILE CHANGE SIGNAL HANDLERS START ///////////////////////
 
-void sigio_handler(int signum) {
+void sigusr1_handler(int signum) {
     if (ps_sb.wfs)
         return;
 
-    WFS_INFO("Caught SIGIO\n");
+    WFS_INFO("Caught SIGUSR1\n");
     FILE* f = freopen(ps_sb.disk_filename, "r+", ps_sb.disk_file);
 
     if (!f) {
@@ -664,7 +664,7 @@ int main(int argc, char *argv[]) {
     argv[argc - 2] = argv[fuse_argc];
     argv[fuse_argc] = NULL;
 
-    // set up SIGIO
+    // set up SIGUSR1
     {
         /* Open the directory to be monitored */
         char* path = simplify_path(ps_sb.disk_filename);
@@ -684,7 +684,7 @@ int main(int argc, char *argv[]) {
             WFS_ERROR("open failed!\n");
             return FSOPFL;
         }
-
+        fcntl(fd, F_SETSIG, SIGUSR1);
         if (fcntl(fd, F_NOTIFY, DN_MODIFY | DN_MULTISHOT) == -1) {
             WFS_ERROR("fcntl for monitoring failed!\n");
             return FSOPFL;
@@ -694,10 +694,10 @@ int main(int argc, char *argv[]) {
 
         memset(&sa, 0, sizeof(struct sigaction));
 
-        sa.sa_handler = sigio_handler;
+        sa.sa_handler = sigusr1_handler;
 
         // ensure the handler is bound properly
-        if (sigaction(SIGIO, &sa, NULL) < 0) {
+        if (sigaction(SIGUSR1, &sa, NULL) < 0) {
             WFS_ERROR("FATAL ERROR: Couldn't bind SIGUSR2!\n");
             exit(FSOPFL);
         } else {
