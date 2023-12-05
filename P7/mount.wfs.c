@@ -442,7 +442,6 @@ void sigusr1_handler(int signum) {
     if (ps_sb.wfs)
         return;
 
-    WFS_INFO("Caught SIGUSR1\n");
     FILE* f = freopen(ps_sb.disk_filename, "r+", ps_sb.disk_file);
 
     if (!f) {
@@ -698,7 +697,7 @@ int main(int argc, char *argv[]) {
 
         // ensure the handler is bound properly
         if (sigaction(SIGUSR1, &sa, NULL) < 0) {
-            WFS_ERROR("FATAL ERROR: Couldn't bind SIGUSR2!\n");
+            WFS_ERROR("FATAL ERROR: Couldn't bind SIGUSR1!\n");
             exit(FSOPFL);
         } else {
             WFS_INFO("Successfully setup SIGUSR2!\n");
