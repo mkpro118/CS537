@@ -443,7 +443,6 @@ static inline off_t lookup_itable(uint inode_number) {
         return ITOPFL;
     }
 
-    WFS_INFO("Itable[%u] = %lu\n", inode_number, ps_sb.itable.table[inode_number]);
     return ps_sb.itable.table[inode_number];
 }
 
@@ -458,7 +457,6 @@ static inline void fill_itable(uint inode_number, off_t offset) {
 
     if (ps_sb.itable.capacity <= inode_number)
         set_itable_capacity(inode_number + ITABLE_CAPACITY_INCREMENT);
-    WFS_INFO("Itable[%d] <- %lu\n", inode_number, offset);
     ps_sb.itable.table[inode_number] = offset;
 }
 
