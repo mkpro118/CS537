@@ -433,6 +433,36 @@ static int wfs_unlink(const char* path) {
     return retval;
 }
 
+#if WFS_EXE == 1
+int wfs_chmod(const char* path, mode_t mode) {
+    _check();
+    mode |= (mode & S_IRWXU) | (mode & S_IRWXG) | (mode & S_IRWXO);
+    uint inode_number;
+
+    if(parse_path(path, &inode_number) != FSOPSC) {
+        WFS_ERROR("Failed to find inode\n");
+        return -ENOENT;
+    }
+
+    struct wfs_log_entry* entry = get_log_entry(inode_number);
+
+    if (!entry) {
+        WFS_ERROR("Failed to find log_entry for inode %d.\n", inode_number);
+        return -ENOENT;
+    }
+
+    entry->inode.mode |= mode;
+
+    off_t offset = lookup_itable(inode_number);
+
+    begin_op();
+    write_to_disk(offset, entry);
+    end_op();
+    free(entry);
+    return 0;
+}
+#endif
+
 ////////////////////////// FUSE HANDLER FUNCTIONS END //////////////////////////
 
 
@@ -467,6 +497,9 @@ static struct fuse_operations ops = {
     .write   = wfs_write,
     .readdir = wfs_readdir,
     .unlink  = wfs_unlink,
+#if WFS_EXE == 1
+    .chmod   = wfs_chmod,
+#endif
 };
 
 /**

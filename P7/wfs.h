@@ -187,6 +187,7 @@ struct fuse_operations {
     int (*write)(const char* path, const char *buf, size_t size, off_t offset, struct fuse_file_info* fi);
     int (*readdir)(const char* path, void* buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info* fi);
     int (*unlink)(const char* path);
+    int (*chmod)(const char* path, mode_t mode);
 };
 
 int fuse_main(int argc, char* argv[], struct fuse_operations* ops, void* opts);
