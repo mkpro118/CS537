@@ -531,6 +531,7 @@ int set_itable_capacity(uint capacity) {
  */
 int build_itable() {
     ps_sb.rebuilding = 1;
+    ps_sb.wfs = 1;
     _check();
     ps_sb.n_inodes = 0;
     ps_sb.n_log_entries = 0;
@@ -551,6 +552,7 @@ int build_itable() {
             WFS_ERROR("MALLOC FAILED!\n");
             end_op();
             ps_sb.rebuilding = 0;
+            ps_sb.wfs = 0;
             return ITOPFL;
         }
 
@@ -559,6 +561,7 @@ int build_itable() {
             free(entry);
             end_op();
             ps_sb.rebuilding = 0;
+            ps_sb.wfs = 0;
             return ITOPFL;
         }
 
@@ -580,17 +583,20 @@ int build_itable() {
                 invalidate_itable();
                 end_op();
                 ps_sb.rebuilding = 0;
+                ps_sb.wfs = 0;
                 return EITWNB;
             case EITWR:
                 WFS_ERROR("Orignal data should be intact.\n");
                 end_op();
                 ps_sb.rebuilding = 0;
+                ps_sb.wfs = 0;
                 return EITWR;
             case EITWNR:
                 WFS_ERROR("Failed to restore old data.\n");
                 invalidate_itable();
                 end_op();
                 ps_sb.rebuilding = 0;
+                ps_sb.wfs = 0;
                 return EITWNR;
             }
         }
@@ -611,10 +617,12 @@ int build_itable() {
     if (*ps_sb.itable.table < WFS_INIT_ROOT_OFFSET) {
         WFS_ERROR("Didn't find root inode. Build Failed!\n");
         ps_sb.rebuilding = 0;
+        ps_sb.wfs = 0;
         return ITOPFL;
     }
 
     ps_sb.rebuilding = 0;
+    ps_sb.wfs = 0;
     return ITOPSC;
 }
 
@@ -970,7 +978,7 @@ int remove_dentry(struct wfs_log_entry** entry, struct wfs_dentry* dentry) {
  * returns FSOPSC on success, FSOPFL on failure
  */
 int read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
-    ps_sb.wfs = 1;
+    ps_sb.wfs = !ps_sb.fsck;
     _check();
     *entry_buf = malloc(sizeof(struct wfs_log_entry));
     if (!entry_buf) {
@@ -1050,13 +1058,13 @@ int read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
  *          FSOPFL on failure of any other type
  */
 int write_to_disk(off_t offset, struct wfs_log_entry* entry) {
-    ps_sb.wfs = 1;
+    ps_sb.wfs = !ps_sb.fsck;
 	_check();
 
     size_t size = WFS_LOG_ENTRY_SIZE(entry);
 
     if ((offset + size) > ps_sb.max_file_size) {
-        ps_sb.wfs = 1;
+        ps_sb.wfs = 0;
         return -ENOSPC;
     }
 
@@ -1128,7 +1136,7 @@ int append_log_entry(struct wfs_log_entry* entry) {
  * Reads the superblock from the disk image
  */
 int read_sb_from_disk() {
-    ps_sb.wfs = 1;
+    ps_sb.wfs = !ps_sb.fsck;
     // Store initial offset
     long pos = ftell(ps_sb.disk_file);
 
@@ -1158,7 +1166,7 @@ int read_sb_from_disk() {
  * Writes a superblock to the disk image
  */
 int write_sb_to_disk() {
-    ps_sb.wfs = 1;
+    ps_sb.wfs = !ps_sb.fsck;
     if (ps_sb.sb.magic != WFS_MAGIC) {
         WFS_ERROR("In memory superblock is invalid. "
                   "Expected Magic = %x, Actual = %x\n"
