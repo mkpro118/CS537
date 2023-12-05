@@ -87,6 +87,8 @@ int main(int argc, char const *argv[]) {
         return 0;
     }
 
+    off_t root = lookup_itable(0);
+
     WFS_INFO("Initial file size: %d\n", ps_sb.sb.head);
 
     off_t* table = malloc(sizeof(off_t) * ps_sb.n_inodes);
@@ -112,10 +114,11 @@ int main(int argc, char const *argv[]) {
         return FSOPFL;
     }
 
+    int i = 1;
+
     for (off_t* off = table; off < &table[ps_sb.n_inodes]; off++) {
         if (*off < WFS_INIT_ROOT_OFFSET)
             continue;
-        
         struct wfs_log_entry* entry = malloc(sizeof(struct wfs_log_entry));
         if (!entry) {
             WFS_ERROR("malloc failed!\n");
@@ -126,7 +129,6 @@ int main(int argc, char const *argv[]) {
             WFS_ERROR("fseek failed!\n");
             return FSOPFL;
         }
-        WFS_INFO("f->offset: %lu\n", ftell(ps_sb.disk_file));
         if(fread(entry, sizeof(struct wfs_log_entry), 1, ps_sb.disk_file) < 1) {
             WFS_ERROR("fread failed!\n");
             return FSOPFL;
@@ -149,6 +151,11 @@ int main(int argc, char const *argv[]) {
         if (fseek(ps_sb.disk_file, ps_sb.sb.head, SEEK_SET)) {
             WFS_ERROR("fseek failed!\n");
             return FSOPFL;
+        }
+
+        if(*off != root) {
+            WFS_INFO("changing inode number\n");
+            entry->inode.inode_number = i++;
         }
 
         if(fwrite(entry, size, 1, ps_sb.disk_file) < 1) {
