@@ -700,7 +700,7 @@ int main(int argc, char *argv[]) {
             WFS_ERROR("FATAL ERROR: Couldn't bind SIGUSR1!\n");
             exit(FSOPFL);
         } else {
-            WFS_INFO("Successfully setup SIGUSR2!\n");
+            WFS_INFO("Successfully setup SIGUSR1!\n");
         }
     }
 
