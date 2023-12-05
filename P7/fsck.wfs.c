@@ -107,12 +107,14 @@ int main(int argc, char const *argv[]) {
     }
 
     ps_sb.sb.head = WFS_INIT_ROOT_OFFSET;
+    WFS_INFO("HEAD BEFORE ANYTHING = %d", ps_sb.sb.head);
     if (fwrite(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
         WFS_ERROR("fwrite failed!\n");
         return FSOPFL;
     }
 
     for (off_t* off = table; off < &table[ps_sb.n_inodes]; off++) {
+        if (*off < WFS_INIT_ROOT_OFFSET) continue;
         struct wfs_log_entry* entry = malloc(sizeof(struct wfs_log_entry));
         if (!entry) {
             WFS_ERROR("malloc failed!\n");
@@ -123,12 +125,13 @@ int main(int argc, char const *argv[]) {
             WFS_ERROR("fseek failed!\n");
             return FSOPFL;
         }
-
+        WFS_INFO("f->offset: %lu\n", ftell(ps_sb.disk_file));
         if(fread(entry, sizeof(struct wfs_log_entry), 1, ps_sb.disk_file) < 1) {
             WFS_ERROR("fread failed!\n");
             return FSOPFL;
         }
 
+        WFS_INFO("f->offset: %lu\n", ftell(ps_sb.disk_file));
         size_t size = WFS_LOG_ENTRY_SIZE(entry);
 
         struct wfs_log_entry* temp = realloc(entry, size);
@@ -143,17 +146,20 @@ int main(int argc, char const *argv[]) {
             return FSOPFL;
         }
 
+        WFS_INFO("f->offset: %lu\n", ftell(ps_sb.disk_file));
         if (fseek(ps_sb.disk_file, ps_sb.sb.head, SEEK_SET)) {
             WFS_ERROR("fseek failed!\n");
             return FSOPFL;
         }
 
+        WFS_INFO("f->offset: %lu\n", ftell(ps_sb.disk_file));
         if(fwrite(entry, size, 1, ps_sb.disk_file) < 1) {
             WFS_ERROR("fwrite failed!\n");
             return FSOPFL;
         }
 
-        ps_sb.sb.head += size;
+        WFS_INFO("f->offset: %lu\n", ftell(ps_sb.disk_file));
+        ps_sb.sb.head = ftell(ps_sb.disk_file);
         WFS_INFO("HEAD = %d\n", ps_sb.sb.head);
 
         free(entry);
@@ -168,7 +174,7 @@ int main(int argc, char const *argv[]) {
         WFS_ERROR("fseek failed!\n");
         return FSOPFL;
     }
-    WFS_ERROR("{.MAGIC = %d, .HEAD = %d}\n", ps_sb.sb.magic, ps_sb.sb.head);
+    WFS_ERROR("{.MAGIC = %x, .HEAD = %d}\n", ps_sb.sb.magic, ps_sb.sb.head);
     if (fwrite(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
         WFS_ERROR("fwrite failed!\n");
         return FSOPFL;
