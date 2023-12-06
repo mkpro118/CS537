@@ -472,7 +472,7 @@ void sigusr1_handler(int signum) {
     if (ps_sb.wfs)
         return;
 
-    FILE* f = freopen(ps_sb.disk_filename, "r+", ps_sb.disk_file);
+    FILE* f = wfs_freopen(ps_sb.disk_filename, "r+", ps_sb.disk_file);
 
     if (!f) {
         WFS_ERROR("freopen faile!\n");
