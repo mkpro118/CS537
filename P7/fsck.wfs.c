@@ -126,7 +126,6 @@ int main(int argc, char const *argv[]) {
             WFS_ERROR("fseek failed!\n");
             return FSOPFL;
         }
-        WFS_INFO("f->offset: %lu\n", ftell(ps_sb.disk_file));
         if(fread(entry, sizeof(struct wfs_log_entry), 1, ps_sb.disk_file) < 1) {
             WFS_ERROR("fread failed!\n");
             return FSOPFL;
