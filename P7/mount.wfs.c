@@ -436,7 +436,6 @@ static int wfs_unlink(const char* path) {
 #if WFS_EXE == 1
 int wfs_chmod(const char* path, mode_t mode) {
     _check();
-    mode |= (mode & S_IRWXU) | (mode & S_IRWXG) | (mode & S_IRWXO);
     uint inode_number;
 
     if(parse_path(path, &inode_number) != FSOPSC) {
@@ -451,7 +450,8 @@ int wfs_chmod(const char* path, mode_t mode) {
         return -ENOENT;
     }
 
-    entry->inode.mode |= mode;
+    inode->mode &= ~0777;
+    inode->mode |= (mode & 0777);
 
     off_t offset = lookup_itable(inode_number);
 
