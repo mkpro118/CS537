@@ -450,8 +450,8 @@ int wfs_chmod(const char* path, mode_t mode) {
         return -ENOENT;
     }
 
-    inode->mode &= ~0777;
-    inode->mode |= (mode & 0777);
+    entry->inode.mode &= ~0777;
+    entry->inode.mode |= (mode & 0777);
 
     off_t offset = lookup_itable(inode_number);
 
