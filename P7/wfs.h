@@ -9,6 +9,12 @@
 #include <time.h>
 #include <unistd.h>
 
+#ifdef WFS_MMAP
+#include <sys/mman.h>
+#define WFS_MMAP_PROTS PROT_READ | PROT_WRITE | PROT_EXEC
+#define WFS_MMAP_FLAGS MAP_SHARED
+#endif
+
 #ifndef MOUNT_WFS_H_
 #define MOUNT_WFS_H_
 
@@ -154,9 +160,10 @@ typedef unsigned int uint;
 
 #ifdef WFS_MMAP
 typedef struct {
-    void* start;
-    size_t size;
+    int fd;
+    unsigned char* start;
     off_t offset;
+    size_t size;
 } wfs_file;
 #endif
 
@@ -227,6 +234,8 @@ size_t wfs_fread(void* ptr, size_t size, size_t nmemb, wfs_file* file);
 size_t wfs_fwrite(const void* ptr, size_t size, size_t nmemb, wfs_file* file);
 wfs_file* wfs_fopen(const char* pathname, const char* mode);
 wfs_file* wfs_freopen(const char* pathname, const char* mode, wfs_file* file);
+int wfs_fileno(wfs_file* file);
+int wfs_fclose(wfs_file* file);
 #else
 int (*wfs_fseek)(FILE* stream, long offset, int whence) = fseek;
 long (*wfs_ftell)(FILE* stream) = ftell;
@@ -234,6 +243,8 @@ size_t (*wfs_fread)(void* ptr, size_t size, size_t nmemb, FILE* stream) = fread;
 size_t (*wfs_fwrite)(const void* ptr, size_t size, size_t nmemb, FILE* stream) = fwrite;
 FILE* (*wfs_fopen)(const char* pathname, const char* mode) = fopen;
 FILE* (*wfs_freopen)(const char* pathname, const char* mode, FILE* stream) = freopen;
+int (*wfs_fileno)(FILE *stream) = fileno;
+int (*wfs_fclose)(FILE *stream) = fclose;
 #endif
 
 void wfs_inode_init(struct wfs_inode* restrict inode, enum InodeModes mode);
@@ -340,6 +351,175 @@ static struct {
 };
 
 ////////////////////////// BOOKKEEPING VARIABLES END ///////////////////////////
+
+
+////////////////////// MMAP/FILE WRAPPER FUNCTIONS START ///////////////////////
+
+#ifdef WFS_MMAP
+
+/**
+ * Repositions the mmap'd files offset to `whence + offset`
+ * @param  file   The file to reposition
+ * @param  offset The offset from `whence`
+ * @param  whence One of SEEK_SET or SEEK_CUR
+ * @return 0 on success, -1 on failure
+ */
+int wfs_fseek(wfs_file* file, long offset, int whence) {
+    if (!file) {
+        WFS_ERROR("File given was NULL\n");
+        return -1;
+    }
+
+    switch (whence) {
+    case SEEK_SET:
+        file->offset = offset;
+        return 0;
+    case SEEK_CUR:
+        file->offset += offset;
+        return 0;
+    case SEEK_END:
+        file->offset = file->size + offset;
+    default:
+        return -1;
+    }
+}
+
+long wfs_ftell(wfs_file* file) {
+    if (!file) {
+        WFS_ERROR("File given was NULL\n");
+        return -1;
+    }
+
+    return file->offset;
+}
+
+static inline int overlaps(char* x, char* y, size_t size) {
+    return (x <= (y + size)) && ((x + size) >= y);
+}
+
+size_t wfs_fread(void* ptr, size_t size, size_t nmemb, wfs_file* file) {
+    if (!file) {
+        WFS_ERROR("File given was NULL\n");
+        return 0;
+    }
+
+    char* cptr = ptr;
+
+    void* (*copy_func)(void*, void*, size_t);
+    // Checks overlap, if yes, copy with memmove, else copy with memcpy
+    copy_func = overlaps(cptr, file->start + file->offset, size * nmemb) ? memmove : memcpy;
+
+    int i;
+    for (i = 0; i < nmemb; i++) {
+        copy_func(cptr, file->start + file->offset, size);
+        cptr += size;
+        file->offset += size;
+    }
+    return i;
+}
+
+size_t wfs_fwrite(const void* ptr, size_t size, size_t nmemb, wfs_file* file) {
+    if (!file) {
+        WFS_ERROR("File given was NULL\n");
+        return 0;
+    }
+
+    char* cptr = ptr;
+
+    void* (*copy_func)(void*, void*, size_t);
+    // Checks overlap, if yes, copy with memmove, else copy with memcpy
+    copy_func = overlaps(cptr, file->start + file->offset, size * nmemb) ? memmove : memcpy;
+
+    int i;
+    for (i = 0; i < nmemb; i++) {
+        copy_func(file->start + file->offset, cptr, size);
+        cptr += size;
+        file->offset += size;
+    }
+    return i;
+}
+
+wfs_file* wfs_fopen(const char* pathname, const char* mode) {
+    if (strcmp("r+", mode) != 0) {
+        WFS_ERROR("Can only open in \"r+\" mode.\n");
+        return NULL;
+    }
+
+    if (ps_sb.max_file_size == 0) {
+        WFS_ERROR("Cannot infer max size from ps_sb. "
+                  "Retrying to set max file size\n");
+        WFS_ERROR("This is a major error, ensure implementation calls "
+                  "set_max_file_size() before calling wfs_fopen(). "
+                  "Aborting!\n");
+        exit(FSOPFL);
+    }
+
+    int fd = open(pathname, O_RDWR);
+
+    if (fd == -1) {
+        WFS_ERROR("open failed!\n");
+        return NULL;
+    }
+
+    wfs_file* file = malloc(sizeof(wfs_file));
+
+    if (!file) {
+        WFS_ERROR("malloc failed!\n");
+        close(fd);
+        return NULL;
+    }
+
+    *file = (wfs_file) {
+        .fd = fd,
+        .start = NULL,
+        .offset = 0,
+        .size = ps_sb.max_file_size,
+    }
+
+    file->start = (char*) mmap(NULL, file->size, WFS_MMAP_PROTS, WFS_MMAP_FLAGS,
+                               file->fd, file->offset);
+    if (((void*) file->start) == MAP_FAILED) {
+        WFS_ERROR("mmap failed!\n");
+        free(file);
+        close(fd);
+        return NULL;
+    }
+
+    return file;
+}
+
+wfs_file* wfs_freopen(const char* pathname, const char* mode, wfs_file* file) {
+    wfs_close(file);
+    return wfs_open(pathname, mode);
+}
+
+int wfs_fileno(wfs_file* file) {
+    if (!file) {
+        WFS_ERROR("File given was NULL\n");
+        return -1;
+    }
+
+    return file->fd;
+}
+
+int wfs_fclose(wfs_file* file) {
+    if (!file) {
+        WFS_ERROR("File given was NULL\n");
+        return -1;
+    }
+
+    if (munmap(file->start, file->size)) {
+        WFS_ERROR("munmap failed!\n");
+        return -1;
+    }
+
+    int fd = file->fd;
+    free(file);
+    return close(file->fd);
+}
+#endif
+
+/////////////////////// MMAP/FILE WRAPPER FUNCTIONS END ////////////////////////
 
 
 /////////////////////// INODE MANAGEMENT FUNCTIONS START ///////////////////////
@@ -1107,17 +1287,21 @@ int write_to_disk(off_t offset, struct wfs_log_entry* entry) {
         return FSOPFL;
     }
 
+    #ifndef WFS_MMAP
+
     if (fflush(ps_sb.disk_file) != 0) {
         WFS_ERROR("fflush failed!\n");
         ps_sb.wfs = 0;
         return FSOPFL;
     }
 
-    if (fdatasync(fileno(ps_sb.disk_file)) != 0) {
+    if (fdatasync(wfs_fileno(ps_sb.disk_file)) != 0) {
         WFS_ERROR("fdatasync failed!\n");
         ps_sb.wfs = 0;
         return FSOPFL;
     }
+
+    #endif
 
     if (wfs_fseek(ps_sb.disk_file, pos, SEEK_SET)) {
         WFS_ERROR("wfs_fseek failed!\n");
@@ -1280,17 +1464,21 @@ int write_sb_to_disk() {
         return FSOPFL;
     }
 
+    #ifndef WFS_MMAP
+
     if (fflush(ps_sb.disk_file) != 0) {
         WFS_ERROR("fflush failed!\n");
         ps_sb.wfs = 0;
         return FSOPFL;
     }
 
-    if (fdatasync(fileno(ps_sb.disk_file)) != 0) {
+    if (fdatasync(wfs_fileno(ps_sb.disk_file)) != 0) {
         WFS_ERROR("fdatasync failed!\n");
         ps_sb.wfs = 0;
         return FSOPFL;
     }
+
+    #endif
 
     if (wfs_fseek(ps_sb.disk_file, pos, SEEK_SET)) {
         WFS_ERROR("wfs_fseek failed!\n");
@@ -1353,7 +1541,7 @@ static inline void begin_op() {
     do {
         ps_sb.wfs_lock.l_type = F_WRLCK;
         ps_sb.wfs_lock.l_pid = getpid();
-        ret = fcntl(fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.wfs_lock);
+        ret = fcntl(wfs_fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.wfs_lock);
     } while (ret == -1  && errno == EINTR);
 
     if (ret == -1) {
@@ -1370,7 +1558,7 @@ static inline void end_op() {
     do {
         ps_sb.wfs_lock.l_type = F_UNLCK;
         ps_sb.wfs_lock.l_pid = getpid();
-        ret = fcntl(fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.wfs_lock);
+        ret = fcntl(wfs_fileno(ps_sb.disk_file), F_SETLKW, &ps_sb.wfs_lock);
     } while (ret == -1 && errno == EINTR);
 
     if (ret == -1) {
@@ -1419,6 +1607,7 @@ static inline void set_max_file_size() {
 void wfs_init(const char* program, const char* filename) {
     ps_sb.fsck = strstr(program, "fsck.wfs") != NULL;
     ps_sb.rebuilding = 1;
+    set_max_file_size();
 
     ps_sb.disk_filename = strdup(filename);
     if(!ps_sb.disk_filename){
@@ -1432,7 +1621,6 @@ void wfs_init(const char* program, const char* filename) {
         WFS_ERROR("Couldn't open file \"%s\"\n", ps_sb.disk_filename);
         exit(FSOPFL);
     }
-    set_max_file_size();
     invalidate_itable();
     invalidate_path_history();
 
