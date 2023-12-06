@@ -28,6 +28,8 @@ fsck.wfs:
 .PHONY: clean
 clean:
 	rm -rf $(NAME)
+	rm -fr *.wfs.debug
+	rm -fr *.wfs.mmap
 
 .PHONY: debug
 debug:
@@ -39,9 +41,9 @@ debug:
 	$(CC) $(CFLAGS) $(DEBUG_CFLAGS) -o fsck.wfs.debug fsck.wfs.c
 
 mmap:
-	$(CC) $(CFLAGS) $(MMAP_CFLAGS) mount.wfs.c $(FUSE_CFLAGS) -o mount.wfs.debug
-	$(CC) $(CFLAGS) $(MMAP_CFLAGS) -o mkfs.wfs.debug mkfs.wfs.c
-	$(CC) $(CFLAGS) $(MMAP_CFLAGS) -o fsck.wfs.debug fsck.wfs.c
+	$(CC) $(CFLAGS) $(MMAP_CFLAGS) mount.wfs.c $(FUSE_CFLAGS) -o mount.wfs.mmap
+	$(CC) $(CFLAGS) $(MMAP_CFLAGS) -o mkfs.wfs.mmap mkfs.wfs.c
+	$(CC) $(CFLAGS) $(MMAP_CFLAGS) -o fsck.wfs.mmap fsck.wfs.c
 
 .PHONY: test
 test:
