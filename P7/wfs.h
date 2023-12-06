@@ -161,7 +161,7 @@ typedef unsigned int uint;
 #ifdef WFS_MMAP
 typedef struct {
     int fd;
-    unsigned char* start;
+    char* start;
     off_t offset;
     size_t size;
 } wfs_file;
@@ -405,7 +405,7 @@ size_t wfs_fread(void* ptr, size_t size, size_t nmemb, wfs_file* file) {
 
     char* cptr = ptr;
 
-    void* (*copy_func)(void*, void*, size_t);
+    void* (*copy_func)(void*, const void*, size_t);
     // Checks overlap, if yes, copy with memmove, else copy with memcpy
     copy_func = overlaps(cptr, file->start + file->offset, size * nmemb) ? memmove : memcpy;
 
@@ -424,9 +424,9 @@ size_t wfs_fwrite(const void* ptr, size_t size, size_t nmemb, wfs_file* file) {
         return 0;
     }
 
-    char* cptr = ptr;
+    char* cptr = (char*) ptr;
 
-    void* (*copy_func)(void*, void*, size_t);
+    void* (*copy_func)(void*, const void*, size_t);
     // Checks overlap, if yes, copy with memmove, else copy with memcpy
     copy_func = overlaps(cptr, file->start + file->offset, size * nmemb) ? memmove : memcpy;
 
@@ -474,7 +474,7 @@ wfs_file* wfs_fopen(const char* pathname, const char* mode) {
         .start = NULL,
         .offset = 0,
         .size = ps_sb.max_file_size,
-    }
+    };
 
     file->start = (char*) mmap(NULL, file->size, WFS_MMAP_PROTS, WFS_MMAP_FLAGS,
                                file->fd, file->offset);
@@ -489,8 +489,8 @@ wfs_file* wfs_fopen(const char* pathname, const char* mode) {
 }
 
 wfs_file* wfs_freopen(const char* pathname, const char* mode, wfs_file* file) {
-    wfs_close(file);
-    return wfs_open(pathname, mode);
+    wfs_fclose(file);
+    return wfs_fopen(pathname, mode);
 }
 
 int wfs_fileno(wfs_file* file) {
@@ -515,7 +515,7 @@ int wfs_fclose(wfs_file* file) {
 
     int fd = file->fd;
     free(file);
-    return close(file->fd);
+    return close(fd);
 }
 #endif
 
