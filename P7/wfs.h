@@ -379,6 +379,7 @@ int wfs_fseek(wfs_file* file, long offset, int whence) {
         return 0;
     case SEEK_END:
         file->offset = file->size + offset;
+        return 0;
     default:
         return -1;
     }
