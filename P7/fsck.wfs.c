@@ -140,7 +140,11 @@ int main(int argc, char const *argv[]) {
             return FSOPFL;
         }
         entry = temp;
-        entry->inode.inode_number = i++;
+        switch (entry->inode.inode_number) {
+        case 0: break;
+        default:
+            entry->inode.inode_number = i++;
+        }
 
         if(wfs_fread(&entry->data, sizeof(char), entry->inode.size, ps_sb.disk_file) < entry->inode.size) {
             WFS_ERROR("wfs_fread failed!\n");
