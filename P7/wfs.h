@@ -446,13 +446,20 @@ wfs_file* wfs_fopen(const char* pathname, const char* mode) {
         return NULL;
     }
 
-    if (ps_sb.max_file_size == 0) {
+    if (ps_sb.max_file_size <= 0) {
         WFS_ERROR("Cannot infer max size from ps_sb. "
                   "Retrying to set max file size\n");
-        WFS_ERROR("This is a major error, ensure implementation calls "
-                  "set_max_file_size() before calling wfs_fopen(). "
-                  "Aborting!\n");
-        exit(FSOPFL);
+
+        char* old = ps_sb.disk_filename;
+        ps_sb.disk_filename = (char*) pathname;
+        set_max_file_size();
+        ps_sb.disk_filename = old;
+
+        WFS_INFO("Found max file size to be %d\n", ps_sb.max_file_size);
+        if (ps_sb.max_file_size <= 0) {
+            WFS_ERROR("Retry failed! Aborting!\n");
+            exit(FSOPFL);
+        }
     }
 
     int fd = open(pathname, O_RDWR);
