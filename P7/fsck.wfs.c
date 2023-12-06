@@ -112,7 +112,9 @@ int main(int argc, char const *argv[]) {
         return FSOPFL;
     }
 
-    unsigned int i = 1;
+    unsigned int i = 1; 
+    pid_t server_pid = 0;
+
     for (off_t* off = table; off < &table[ps_sb.n_inodes]; off++) {
         if (*off < WFS_INIT_ROOT_OFFSET)
             continue;
@@ -139,12 +141,8 @@ int main(int argc, char const *argv[]) {
             WFS_ERROR("realloc failed!\n");
             return FSOPFL;
         }
+
         entry = temp;
-        switch (entry->inode.inode_number) {
-        case 0: break;
-        default:
-            entry->inode.inode_number = i++;
-        }
 
         if(wfs_fread(&entry->data, sizeof(char), entry->inode.size, ps_sb.disk_file) < entry->inode.size) {
             WFS_ERROR("wfs_fread failed!\n");
@@ -154,6 +152,14 @@ int main(int argc, char const *argv[]) {
         if (wfs_fseek(ps_sb.disk_file, ps_sb.sb.head, SEEK_SET)) {
             WFS_ERROR("wfs_fseek failed!\n");
             return FSOPFL;
+        }
+
+        switch (entry->inode.inode_number) {
+        case 0: 
+            server_pid = entry->inode.flags;
+            break;
+        default:
+            entry->inode.inode_number = i++;
         }
 
         if(wfs_fwrite(entry, size, 1, ps_sb.disk_file) < 1) {
@@ -184,17 +190,9 @@ int main(int argc, char const *argv[]) {
     WFS_INFO("Finished compacting!\n");
     WFS_INFO("Final file size: %d\n", ps_sb.sb.head);
 
+    free(table);
     wfs_fclose(ps_sb.disk_file);
     free(ps_sb.disk_filename);
-    free(table);
-
-    struct wfs_log_entry* root = get_log_entry(0);
-    if (!root) {
-        WFS_ERROR("Interestingly, we lost the root entry... :( | Aborting!\n");
-        exit(FSOPFL);
-    }
-
-    pid_t server_pid = root->flags;
 
     if (!server_pid) {
         WFS_ERROR("Could not infer server pid!\n");
@@ -204,6 +202,8 @@ int main(int argc, char const *argv[]) {
 
     if (kill(server_pid, SIGUSR1) < 0) {
         WFS_ERROR("Failed to send signal after compacting!\n");
+    } else {
+        WFS_INFO("Sent signal to server successfully!\n");
     }
 
     return 0;
