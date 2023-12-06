@@ -5,6 +5,7 @@ CC = gcc
 CFLAGS = -Wall -Werror -pedantic -std=gnu18 -g -fsanitize=address
 FUSE_CFLAGS = `pkg-config fuse --cflags --libs`
 DEBUG_CFLAGS = -DWFS_DBUG=1
+MMAP_CFLAGS = -DWFS_MMAP
 
 .PHONY: all
 all: $(NAME)
@@ -36,6 +37,11 @@ debug:
 	$(CC) $(CFLAGS) $(DEBUG_CFLAGS) mount.wfs.c $(FUSE_CFLAGS) -o mount.wfs.debug
 	$(CC) $(CFLAGS) $(DEBUG_CFLAGS) -o mkfs.wfs.debug mkfs.wfs.c
 	$(CC) $(CFLAGS) $(DEBUG_CFLAGS) -o fsck.wfs.debug fsck.wfs.c
+
+mmap:
+	$(CC) $(CFLAGS) $(MMAP_CFLAGS) mount.wfs.c $(FUSE_CFLAGS) -o mount.wfs.debug
+	$(CC) $(CFLAGS) $(MMAP_CFLAGS) -o mkfs.wfs.debug mkfs.wfs.c
+	$(CC) $(CFLAGS) $(MMAP_CFLAGS) -o fsck.wfs.debug fsck.wfs.c
 
 .PHONY: test
 test:
