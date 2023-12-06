@@ -628,7 +628,7 @@ void _check() {
         WFS_ERROR("Retrying once to re-build.\n");
 
         ps_sb.disk_file = wfs_fopen(ps_sb.disk_filename, "r+");
-
+        ps_sb.rebuilding = 1;
         if (!ps_sb.disk_file || (build_itable() != ITOPSC)) {
             WFS_ERROR("Retry failed! Exiting!\n");
             exit(FSOPFL);
@@ -749,9 +749,12 @@ int set_itable_capacity(uint capacity) {
  *           - EITWNR  I-Table Was Not Reset
  */
 int build_itable() {
-    ps_sb.rebuilding = 1;
     ps_sb.wfs = 1;
-    _check();
+    
+    if (!ps_sb.rebuilding)
+        _check();
+    
+    ps_sb.rebuilding = 1; 
     ps_sb.n_inodes = 0;
     ps_sb.n_log_entries = 0;
 
@@ -1529,6 +1532,7 @@ void validate_disk_file() {
 
     if (ps_sb.cached_head != ps_sb.sb.head && !ps_sb.rebuilding) {
         WFS_INFO("Current head doesn't match cached head (%d != %d). Rebuilding I-Table...\n", ps_sb.cached_head, ps_sb.sb.head);
+        ps_sb.rebuilding = 1;
         if(build_itable() != ITOPSC) {
             WFS_ERROR("Failed to re-build I-Table\n");
             return;
