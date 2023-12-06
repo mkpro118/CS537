@@ -1,4 +1,6 @@
-~cs537-1/tests/P7/start.py
+Script started on 2023-12-06 14:02:56-06:00 [TERM="xterm-256color" TTY="/dev/pts/1" COLUMNS="129" LINES="32"]
+[?2004h[mrigank@snares-09] (1)$ make test [K
+[?2004l~cs537-1/tests/P7/start.py
 Test 0: Read test for image
 passed
 
@@ -44,3 +46,7 @@ passed
 
 
 11 / 11 tests passed
+[?2004h[mrigank@snares-09] (2)$ exit
+[?2004lexit
+
+Script done on 2023-12-06 14:03:22-06:00 [COMMAND_EXIT_CODE="0"]
