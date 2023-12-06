@@ -9,6 +9,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#define WFS_MMAP
+
 #ifdef WFS_MMAP
 #include <sys/mman.h>
 #define WFS_MMAP_PROTS PROT_READ | PROT_WRITE | PROT_EXEC
