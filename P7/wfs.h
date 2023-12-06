@@ -1615,7 +1615,6 @@ static inline void set_max_file_size() {
 void wfs_init(const char* program, const char* filename) {
     ps_sb.fsck = strstr(program, "fsck.wfs") != NULL;
     ps_sb.rebuilding = 1;
-    set_max_file_size();
 
     ps_sb.disk_filename = strdup(filename);
     if(!ps_sb.disk_filename){
@@ -1629,6 +1628,7 @@ void wfs_init(const char* program, const char* filename) {
         WFS_ERROR("Couldn't open file \"%s\"\n", ps_sb.disk_filename);
         exit(FSOPFL);
     }
+    set_max_file_size();
     invalidate_itable();
     invalidate_path_history();
 
