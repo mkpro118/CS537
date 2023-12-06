@@ -22,7 +22,7 @@ int main(int argc, const char* restrict argv[]) {
     }
 
     ps_sb.disk_filename = strdup(argv[1]);
-    ps_sb.disk_file = fopen(argv[1], "r+");
+    ps_sb.disk_file = wfs_fopen(argv[1], "r+");
 
     if (!ps_sb.disk_file) {
         WFS_ERROR("Failed to open file \"%s\"!\n", argv[1]);
@@ -33,7 +33,7 @@ int main(int argc, const char* restrict argv[]) {
     ps_sb.rebuilding = 1;
     begin_op();
 
-    fseek(ps_sb.disk_file, 0, SEEK_SET);
+    wfs_fseek(ps_sb.disk_file, 0, SEEK_SET);
 
     // Write the Superblock to file
     wfs_sb_init(&ps_sb.sb);
@@ -55,7 +55,7 @@ int main(int argc, const char* restrict argv[]) {
     WFS_INFO("Successfully initialized file \"%s\" for WFS\n", argv[1]);
 
     end_op();
-    fclose(ps_sb.disk_file);
+    wfs_fclose(ps_sb.disk_file);
     free(ps_sb.disk_filename);
     return 0;
 
@@ -65,7 +65,7 @@ int main(int argc, const char* restrict argv[]) {
     if (ps_sb.disk_filename)
         free(ps_sb.disk_filename);
     if (ps_sb.disk_file)
-        fclose(ps_sb.disk_file);
+        wfs_fclose(ps_sb.disk_file);
 
     return 1;
 }
