@@ -101,14 +101,14 @@ int main(int argc, char const *argv[]) {
     heap_sort(table, ps_sb.n_inodes);
 
     begin_op();
-    if (fseek(ps_sb.disk_file, 0, SEEK_SET)) {
-        WFS_ERROR("fseek failed!\n");
+    if (wfs_fseek(ps_sb.disk_file, 0, SEEK_SET)) {
+        WFS_ERROR("wfs_fseek failed!\n");
         return FSOPFL;
     }
 
     ps_sb.sb.head = WFS_INIT_ROOT_OFFSET;
-    if (fwrite(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
-        WFS_ERROR("fwrite failed!\n");
+    if (wfs_fwrite(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
+        WFS_ERROR("wfs_fwrite failed!\n");
         return FSOPFL;
     }
 
@@ -122,12 +122,12 @@ int main(int argc, char const *argv[]) {
             return FSOPFL;
         }
 
-        if (fseek(ps_sb.disk_file, *off, SEEK_SET)) {
-            WFS_ERROR("fseek failed!\n");
+        if (wfs_fseek(ps_sb.disk_file, *off, SEEK_SET)) {
+            WFS_ERROR("wfs_fseek failed!\n");
             return FSOPFL;
         }
-        if(fread(entry, sizeof(struct wfs_log_entry), 1, ps_sb.disk_file) < 1) {
-            WFS_ERROR("fread failed!\n");
+        if(wfs_fread(entry, sizeof(struct wfs_log_entry), 1, ps_sb.disk_file) < 1) {
+            WFS_ERROR("wfs_fread failed!\n");
             return FSOPFL;
         }
 
@@ -140,36 +140,36 @@ int main(int argc, char const *argv[]) {
         }
         entry = temp;
 
-        if(fread(&entry->data, sizeof(char), entry->inode.size, ps_sb.disk_file) < entry->inode.size) {
-            WFS_ERROR("fread failed!\n");
+        if(wfs_fread(&entry->data, sizeof(char), entry->inode.size, ps_sb.disk_file) < entry->inode.size) {
+            WFS_ERROR("wfs_fread failed!\n");
             return FSOPFL;
         }
 
-        if (fseek(ps_sb.disk_file, ps_sb.sb.head, SEEK_SET)) {
-            WFS_ERROR("fseek failed!\n");
+        if (wfs_fseek(ps_sb.disk_file, ps_sb.sb.head, SEEK_SET)) {
+            WFS_ERROR("wfs_fseek failed!\n");
             return FSOPFL;
         }
 
-        if(fwrite(entry, size, 1, ps_sb.disk_file) < 1) {
-            WFS_ERROR("fwrite failed!\n");
+        if(wfs_fwrite(entry, size, 1, ps_sb.disk_file) < 1) {
+            WFS_ERROR("wfs_fwrite failed!\n");
             return FSOPFL;
         }
 
-        ps_sb.sb.head = ftell(ps_sb.disk_file);
+        ps_sb.sb.head = wfs_ftell(ps_sb.disk_file);
         free(entry);
     }
 
-    if (ps_sb.sb.head != ftell(ps_sb.disk_file)) {
+    if (ps_sb.sb.head != wfs_ftell(ps_sb.disk_file)) {
         WFS_ERROR("SOMEWHOW THESE DON'T MATCH\n");
         exit(FSOPFL);
     }
 
-    if (fseek(ps_sb.disk_file, 0, SEEK_SET)) {
-        WFS_ERROR("fseek failed!\n");
+    if (wfs_fseek(ps_sb.disk_file, 0, SEEK_SET)) {
+        WFS_ERROR("wfs_fseek failed!\n");
         return FSOPFL;
     }
-    if (fwrite(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
-        WFS_ERROR("fwrite failed!\n");
+    if (wfs_fwrite(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
+        WFS_ERROR("wfs_fwrite failed!\n");
         return FSOPFL;
     }
 
@@ -178,7 +178,7 @@ int main(int argc, char const *argv[]) {
     WFS_INFO("Finished compacting!\n");
     WFS_INFO("Final file size: %d\n", ps_sb.sb.head);
 
-    fclose(ps_sb.disk_file);
+    wfs_fclose(ps_sb.disk_file);
     free(ps_sb.disk_filename);
     free(table);
 
