@@ -468,14 +468,27 @@ int wfs_chmod(const char* path, mode_t mode) {
 
 ////////////////////// FILE CHANGE SIGNAL HANDLERS START ///////////////////////
 
+#ifdef WFS_MMAP
+
+void sigusr2_handler(int signum) {
+    invalidate_itable();
+    build_itable();
+}
+
+#endif
+
 void sigusr1_handler(int signum) {
     if (ps_sb.wfs)
         return;
 
+    #ifdef WFS_MMAP
+    wfs_file* f = wfs_freopen(ps_sb.disk_filename, "r+", ps_sb.disk_file);
+    #else
     FILE* f = wfs_freopen(ps_sb.disk_filename, "r+", ps_sb.disk_file);
+    #endif
 
     if (!f) {
-        WFS_ERROR("freopen faile!\n");
+        WFS_ERROR("wfs_freopen failed!\n");
         exit(FSOPFL);
     }
 
