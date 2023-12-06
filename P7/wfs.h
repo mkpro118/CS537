@@ -9,7 +9,9 @@
 #include <time.h>
 #include <unistd.h>
 
+#ifndef WFS_NOMMAP
 #define WFS_MMAP
+#endif
 
 #ifdef WFS_MMAP
 #include <sys/mman.h>
