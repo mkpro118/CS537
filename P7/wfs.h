@@ -449,7 +449,7 @@ wfs_file* wfs_fopen(const char* pathname, const char* mode) {
     }
 
     if (ps_sb.max_file_size <= 0) {
-        WFS_ERROR("Cannot infer max size from ps_sb. "
+        WFS_INFO("Could not infer max size from pseudoSB. "
                   "Retrying to set max file size\n");
 
         char* old = ps_sb.disk_filename;
