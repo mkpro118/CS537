@@ -112,6 +112,7 @@ int main(int argc, char const *argv[]) {
         return FSOPFL;
     }
 
+    unsigned int i = 1;
     for (off_t* off = table; off < &table[ps_sb.n_inodes]; off++) {
         if (*off < WFS_INIT_ROOT_OFFSET)
             continue;
@@ -139,6 +140,7 @@ int main(int argc, char const *argv[]) {
             return FSOPFL;
         }
         entry = temp;
+        entry->inode.inode_number = i++;
 
         if(wfs_fread(&entry->data, sizeof(char), entry->inode.size, ps_sb.disk_file) < entry->inode.size) {
             WFS_ERROR("wfs_fread failed!\n");
