@@ -543,27 +543,21 @@ int build_itable() {
         exit(ITOPFL);
     }
 
-    long seek;
+    long seek = WFS_INIT_ROOT_OFFSET;
 
-    while ((seek = ftell(ps_sb.disk_file)) < ps_sb.sb.head) {
-        struct wfs_log_entry* entry = malloc(sizeof(struct wfs_log_entry));
+    while (seek < ps_sb.sb.head) {
+        struct wfs_log_entry* entry = NULL;
+
+        begin_op();
+        read_from_disk(seek, &entry);
+        end_op();
+
         if (!entry) {
-            WFS_ERROR("MALLOC FAILED!\n");
-            end_op();
+            WFS_ERROR("Read from disk at offset %ld failed!\n", seek);
             ps_sb.rebuilding = 0;
-            ps_sb.wfs = 0;
             return ITOPFL;
         }
-
-        if (fread(entry, sizeof(struct wfs_inode), 1, ps_sb.disk_file) != 1) {
-            WFS_ERROR("fread Failed!\n");
-            free(entry);
-            end_op();
-            ps_sb.rebuilding = 0;
-            ps_sb.wfs = 0;
-            return ITOPFL;
-        }
-
+ 
         ps_sb.n_log_entries++;
 
         int data_size = entry->inode.size;
@@ -608,6 +602,7 @@ int build_itable() {
             exit(ITOPFL);
         }
 
+        seek += WFS_LOG_ENTRY_SIZE(entry);
         free(entry);
     }
 
