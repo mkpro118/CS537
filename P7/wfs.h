@@ -152,6 +152,14 @@ enum InodeModes {
 
 typedef unsigned int uint;
 
+#ifdef WFS_MMAP
+typedef struct {
+    void* start;
+    size_t size;
+    off_t offset;
+} wfs_file;
+#endif
+
 //////////////// MK COPING WITH THE LINTER, NEVERMIND THIS BLOCK ///////////////
 
 #ifndef __unix__
@@ -212,6 +220,22 @@ char* strndup(const char*, size_t);
 
 /////////////////////////// FUNCTION PROTOTYPES START //////////////////////////
 
+#ifdef WFS_MMAP
+int wfs_fseek(wfs_file* file, long offset, int whence);
+long wfs_ftell(wfs_file* file);
+size_t wfs_fread(void* ptr, size_t size, size_t nmemb, wfs_file* file);
+size_t wfs_fwrite(const void* ptr, size_t size, size_t nmemb, wfs_file* file);
+wfs_file* wfs_fopen(const char* pathname, const char* mode);
+wfs_file* wfs_freopen(const char* pathname, const char* mode, wfs_file* file);
+#else
+int (*wfs_fseek)(FILE* stream, long offset, int whence) = fseek;
+long (*wfs_ftell)(FILE* stream) = ftell;
+size_t (*wfs_fread)(void* ptr, size_t size, size_t nmemb, FILE* stream) = fread;
+size_t (*wfs_fwrite)(const void* ptr, size_t size, size_t nmemb, FILE* stream) = fwrite;
+FILE* (*wfs_fopen)(const char* pathname, const char* mode) = fopen;
+FILE* (*wfs_freopen)(const char* pathname, const char* mode, FILE* stream) = freopen;
+#endif
+
 void wfs_inode_init(struct wfs_inode* restrict inode, enum InodeModes mode);
 int _check_dir_inode(struct wfs_inode* inode);
 int _check_reg_inode(struct wfs_inode* inode);
@@ -267,7 +291,11 @@ static struct {
     uint n_inodes;
     uint n_log_entries;
     char* restrict disk_filename;
+    #ifdef WFS_MMAP
+    wfs_file* restrict disk_file;
+    #else
     FILE* restrict disk_file;
+    #endif
     struct flock wfs_lock;
     struct {
         long* restrict table; // This struct is like a cache for
@@ -407,7 +435,7 @@ void _check() {
         WFS_ERROR("No FILE handle for the %s was found\n", ps_sb.disk_filename);
         WFS_ERROR("Retrying once to re-build.\n");
 
-        ps_sb.disk_file = fopen(ps_sb.disk_filename, "r+");
+        ps_sb.disk_file = wfs_fopen(ps_sb.disk_filename, "r+");
 
         if (!ps_sb.disk_file || (build_itable() != ITOPSC)) {
             WFS_ERROR("Retry failed! Exiting!\n");
@@ -537,8 +565,8 @@ int build_itable() {
 
     begin_op();
 
-    if(fseek(ps_sb.disk_file, sizeof(struct wfs_sb), SEEK_SET)) {
-        WFS_ERROR("fseek failed!\n");
+    if(wfs_fseek(ps_sb.disk_file, sizeof(struct wfs_sb), SEEK_SET)) {
+        WFS_ERROR("wfs_fseek failed!\n");
         end_op();
         exit(ITOPFL);
     }
@@ -596,8 +624,8 @@ int build_itable() {
 
         fill_itable(inode_number, entry->inode.deleted ? 0l : seek);
 
-        if (fseek(ps_sb.disk_file, data_size, SEEK_CUR)) {
-            WFS_ERROR("fseek failed!\n");
+        if (wfs_fseek(ps_sb.disk_file, data_size, SEEK_CUR)) {
+            WFS_ERROR("wfs_fseek failed!\n");
             end_op();
             exit(ITOPFL);
         }
@@ -980,15 +1008,15 @@ int read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
         return FSOPFL;
     }
 
-    long pos = ftell(ps_sb.disk_file);
+    long pos = wfs_ftell(ps_sb.disk_file);
 
-    if (fseek(ps_sb.disk_file, offset, SEEK_SET)) {
-        WFS_ERROR("fseek failed!\n");
+    if (wfs_fseek(ps_sb.disk_file, offset, SEEK_SET)) {
+        WFS_ERROR("wfs_fseek failed!\n");
         ps_sb.wfs = 0;
         return FSOPFL;
     }
 
-    if (fread(*entry_buf, sizeof(struct wfs_inode), 1, ps_sb.disk_file) != 1)
+    if (wfs_fread(*entry_buf, sizeof(struct wfs_inode), 1, ps_sb.disk_file) != 1)
         goto fail;
 
     int size = (*entry_buf)->inode.size;
@@ -1003,26 +1031,26 @@ int read_from_disk(off_t offset, struct wfs_log_entry** entry_buf) {
 
     *entry_buf = temp;
 
-    if (fread(&(*entry_buf)->data, sizeof(char), size, ps_sb.disk_file) != size)
+    if (wfs_fread(&(*entry_buf)->data, sizeof(char), size, ps_sb.disk_file) != size)
         goto fail;
 
     (*entry_buf)->inode.atime = WFS_CURR_TIME;
     (*entry_buf)->inode.ctime = WFS_CURR_TIME;
 
-    if (fseek(ps_sb.disk_file, offset, SEEK_SET)) {
-        WFS_ERROR("fseek failed!\n");
+    if (wfs_fseek(ps_sb.disk_file, offset, SEEK_SET)) {
+        WFS_ERROR("wfs_fseek failed!\n");
         ps_sb.wfs = 0;
         return FSOPFL;
     }
 
-    if(fwrite(*entry_buf, sizeof(struct wfs_inode), 1, ps_sb.disk_file) < 1) {
-        WFS_ERROR("fwrite failed!\n");
+    if(wfs_fwrite(*entry_buf, sizeof(struct wfs_inode), 1, ps_sb.disk_file) < 1) {
+        WFS_ERROR("wfs_fwrite failed!\n");
         ps_sb.wfs = 0;
         return FSOPFL;
     }
 
-    if (fseek(ps_sb.disk_file, pos, SEEK_SET)) {
-        WFS_ERROR("fseek failed!\n");
+    if (wfs_fseek(ps_sb.disk_file, pos, SEEK_SET)) {
+        WFS_ERROR("wfs_fseek failed!\n");
         ps_sb.wfs = 0;
         return FSOPFL;
     }
@@ -1062,10 +1090,10 @@ int write_to_disk(off_t offset, struct wfs_log_entry* entry) {
         return -ENOSPC;
     }
 
-    long pos = ftell(ps_sb.disk_file);
+    long pos = wfs_ftell(ps_sb.disk_file);
 
-    if (fseek(ps_sb.disk_file, offset, SEEK_SET)) {
-        WFS_ERROR("fseek failed!\n");
+    if (wfs_fseek(ps_sb.disk_file, offset, SEEK_SET)) {
+        WFS_ERROR("wfs_fseek failed!\n");
         ps_sb.wfs = 0;
         return FSOPFL;
     }
@@ -1073,8 +1101,8 @@ int write_to_disk(off_t offset, struct wfs_log_entry* entry) {
     entry->inode.mtime = WFS_CURR_TIME;
     entry->inode.ctime = WFS_CURR_TIME;
 
-    if(fwrite(entry, size, 1, ps_sb.disk_file) < 1) {
-        WFS_ERROR("fwrite failed!\n");
+    if(wfs_fwrite(entry, size, 1, ps_sb.disk_file) < 1) {
+        WFS_ERROR("wfs_fwrite failed!\n");
         ps_sb.wfs = 0;
         return FSOPFL;
     }
@@ -1091,8 +1119,8 @@ int write_to_disk(off_t offset, struct wfs_log_entry* entry) {
         return FSOPFL;
     }
 
-    if (fseek(ps_sb.disk_file, pos, SEEK_SET)) {
-        WFS_ERROR("fseek failed!\n");
+    if (wfs_fseek(ps_sb.disk_file, pos, SEEK_SET)) {
+        WFS_ERROR("wfs_fseek failed!\n");
         ps_sb.wfs = 0;
         return FSOPFL;
     }
@@ -1132,22 +1160,22 @@ int append_log_entry(struct wfs_log_entry* entry) {
 int read_sb_from_disk() {
     ps_sb.wfs = !ps_sb.fsck;
     // Store initial offset
-    long pos = ftell(ps_sb.disk_file);
+    long pos = wfs_ftell(ps_sb.disk_file);
 
-    if (fseek(ps_sb.disk_file, 0, SEEK_SET)) {
-        WFS_ERROR("fseek failed!\n");
+    if (wfs_fseek(ps_sb.disk_file, 0, SEEK_SET)) {
+        WFS_ERROR("wfs_fseek failed!\n");
         ps_sb.wfs = 0;
         return FSOPFL;
     }
 
-    if(fread(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
-        WFS_ERROR("fread failed!\n");
+    if(wfs_fread(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
+        WFS_ERROR("wfs_fread failed!\n");
         exit(ITOPFL);
     }
 
     // Restore initial offset
-    if (fseek(ps_sb.disk_file, pos, SEEK_SET)) {
-        WFS_ERROR("fseek failed!\n");
+    if (wfs_fseek(ps_sb.disk_file, pos, SEEK_SET)) {
+        WFS_ERROR("wfs_fseek failed!\n");
         ps_sb.wfs = 0;
         return FSOPFL;
     }
@@ -1238,16 +1266,16 @@ int write_sb_to_disk() {
         }
     }
 
-    long pos = ftell(ps_sb.disk_file);
+    long pos = wfs_ftell(ps_sb.disk_file);
 
-    if (fseek(ps_sb.disk_file, 0, SEEK_SET)) {
-        WFS_ERROR("fseek failed!\n");
+    if (wfs_fseek(ps_sb.disk_file, 0, SEEK_SET)) {
+        WFS_ERROR("wfs_fseek failed!\n");
         ps_sb.wfs = 0;
         return FSOPFL;
     }
 
-    if (fwrite(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
-        WFS_ERROR("fwrite failed!\n");
+    if (wfs_fwrite(&ps_sb.sb, sizeof(struct wfs_sb), 1, ps_sb.disk_file) != 1) {
+        WFS_ERROR("wfs_fwrite failed!\n");
         ps_sb.wfs = 0;
         return FSOPFL;
     }
@@ -1264,8 +1292,8 @@ int write_sb_to_disk() {
         return FSOPFL;
     }
 
-    if (fseek(ps_sb.disk_file, pos, SEEK_SET)) {
-        WFS_ERROR("fseek failed!\n");
+    if (wfs_fseek(ps_sb.disk_file, pos, SEEK_SET)) {
+        WFS_ERROR("wfs_fseek failed!\n");
         ps_sb.wfs = 0;
         return FSOPFL;
     }
@@ -1398,7 +1426,7 @@ void wfs_init(const char* program, const char* filename) {
         exit(ITOPFL);
     }
     WFS_INFO("disk_path = %s\n", ps_sb.disk_filename);
-    ps_sb.disk_file = fopen(ps_sb.disk_filename, "r+");
+    ps_sb.disk_file = wfs_fopen(ps_sb.disk_filename, "r+");
 
     if (!ps_sb.disk_file) {
         WFS_ERROR("Couldn't open file \"%s\"\n", ps_sb.disk_filename);
