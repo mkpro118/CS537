@@ -455,7 +455,7 @@ wfs_file* wfs_fopen(const char* pathname, const char* mode) {
         set_max_file_size();
         ps_sb.disk_filename = old;
 
-        WFS_INFO("Found max file size to be %d\n", ps_sb.max_file_size);
+        WFS_INFO("Found max file size to be %ld\n", ps_sb.max_file_size);
         if (ps_sb.max_file_size <= 0) {
             WFS_ERROR("Retry failed! Aborting!\n");
             exit(FSOPFL);
