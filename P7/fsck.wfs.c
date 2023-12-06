@@ -188,5 +188,23 @@ int main(int argc, char const *argv[]) {
     free(ps_sb.disk_filename);
     free(table);
 
+    struct wfs_log_entry* root = get_log_entry(0);
+    if (!root) {
+        WFS_ERROR("Interestingly, we lost the root entry... :( | Aborting!\n");
+        exit(FSOPFL);
+    }
+
+    pid_t server_pid = root->flags;
+
+    if (!server_pid) {
+        WFS_ERROR("Could not infer server pid!\n");
+        WFS_ERROR("Failed to send signal after compacting!\n");
+        return 0;
+    }
+
+    if (kill(server_pid, SIGUSR1) < 0) {
+        WFS_ERROR("Failed to send signal after compacting!\n");
+    }
+
     return 0;
 }

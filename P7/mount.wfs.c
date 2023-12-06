@@ -470,12 +470,13 @@ int wfs_chmod(const char* path, mode_t mode) {
 
 #ifdef WFS_MMAP
 
-void sigusr2_handler(int signum) {
+void sigusr1_handler(int signum) {
+    WFS_INFO("MMAP VERSION: Caught signal %s", strsignal(signum));
     invalidate_itable();
     build_itable();
 }
 
-#endif
+#else
 
 void sigusr1_handler(int signum) {
     if (ps_sb.wfs)
@@ -495,6 +496,7 @@ void sigusr1_handler(int signum) {
     ps_sb.disk_file = f;
     setup_flocks();
 }
+#endif
 
 /////////////////////// FILE CHANGE SIGNAL HANDLERS END ////////////////////////
 
@@ -528,8 +530,6 @@ int main(int argc, char *argv[]) {
     }
 
     wfs_init(argv[0], argv[argc - 2]);
-
-    WFS_DEBUG("%p\n\n", (void*)&ops);
 
     /* For testing */
     #if WFS_DBUG == 1
@@ -709,6 +709,22 @@ int main(int argc, char *argv[]) {
     argv[argc - 2] = argv[fuse_argc];
     argv[fuse_argc] = NULL;
 
+    #ifdef WFS_MMAP
+    {
+        struct sigaction sa;
+
+        memset(&sa, 0, sizeof(struct sigaction));
+
+        sa.sa_handler = sigusr1_handler;
+
+        if (sigaction(SIGUSR1, &sa, NULL) < 0) {
+            WFS_ERROR("FATAL ERROR: Couldn't bind SIGUSR1!\n");
+            exit(FSOPFL);
+        } else {
+            WFS_INFO("Successfully setup SIGUSR1!\n");
+        }
+    }
+    #else
     // set up SIGUSR1
     {
         /* Open the directory to be monitored */
@@ -741,7 +757,6 @@ int main(int argc, char *argv[]) {
 
         sa.sa_handler = sigusr1_handler;
 
-        // ensure the handler is bound properly
         if (sigaction(SIGUSR1, &sa, NULL) < 0) {
             WFS_ERROR("FATAL ERROR: Couldn't bind SIGUSR1!\n");
             exit(FSOPFL);
@@ -749,6 +764,18 @@ int main(int argc, char *argv[]) {
             WFS_INFO("Successfully setup SIGUSR1!\n");
         }
     }
+    #endif
+
+    struct wfs_log_entry* root = get_log_entry(0);
+
+    if (!root) {
+        WFS_ERROR("Interestingly, we lost the root entry... :( | Aborting!\n");
+        exit(FSOPFL);
+    }
+
+    root->inode.flags = getpid();
+
+    free(root);
 
     return fuse_main(fuse_argc, argv, &ops, NULL);
     #endif
