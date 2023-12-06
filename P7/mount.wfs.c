@@ -471,7 +471,6 @@ int wfs_chmod(const char* path, mode_t mode) {
 #ifdef WFS_MMAP
 
 void sigusr1_handler(int signum) {
-    WFS_INFO("MMAP VERSION: Caught signal %s", strsignal(signum));
     invalidate_itable();
     build_itable();
 }
@@ -774,6 +773,10 @@ int main(int argc, char *argv[]) {
     }
 
     root->inode.flags = getpid();
+
+    begin_op();
+    write_to_disk(lookup_itable(0), root);
+    end_op();
 
     free(root);
 
