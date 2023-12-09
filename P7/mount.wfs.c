@@ -529,6 +529,7 @@ int main(int argc, char *argv[]) {
     }
 
     wfs_init(argv[0], argv[argc - 2]);
+    WFS_DEBUG("%p\n", (void*)&ops);
 
     /* For testing */
     #if WFS_DBUG == 1
