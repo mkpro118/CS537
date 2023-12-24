@@ -1,0 +1,52 @@
+Script started on 2023-12-06 14:02:56-06:00 [TERM="xterm-256color" TTY="/dev/pts/1" COLUMNS="129" LINES="32"]
+[?2004h[mrigank@snares-09] (1)$ make test [K
+[?2004l~cs537-1/tests/P7/start.py
+Test 0: Read test for image
+passed
+
+
+Test 1: Check the superblock and root directory entry of initialized filesystem (after executing mkfs)
+passed
+
+
+Test 2: Creating file in root
+passed
+
+
+Test 3: Creating directory inside root and then creating a directory inside a directory.
+passed
+
+
+Test 4: Creating file inside non-root directory.
+passed
+
+
+Test 5: Testing .
+passed
+
+
+Test 6: Testing ..
+passed
+
+
+Test 7: Deleting file from root directory.
+passed
+
+
+Test 8: Deleting file from non-root directory.
+passed
+
+
+Test 9: Write test.
+passed
+
+
+Test 10: fsck.wfs tests
+passed
+
+
+11 / 11 tests passed
+[?2004h[mrigank@snares-09] (2)$ exit
+[?2004lexit
+
+Script done on 2023-12-06 14:03:22-06:00 [COMMAND_EXIT_CODE="0"]
